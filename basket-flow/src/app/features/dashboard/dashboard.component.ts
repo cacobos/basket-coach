@@ -1,0 +1,262 @@
+import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { NgIf, NgFor } from '@angular/common';
+import { AuthService } from '../../core/auth/auth.service';
+import { DataService } from '../../core/services/data.service';
+import { RouterLink } from '@angular/router';
+
+@Component({
+  selector: 'app-dashboard',
+  standalone: true,
+  imports: [NgIf, NgFor, RouterLink],
+  template: `
+    <div class="dashboard">
+      <header class="topbar">
+        <div class="breadcrumb">
+          <span class="crumb crumb-home">Home</span>
+          <span class="material-symbols-outlined sep">chevron_right</span>
+          <span class="crumb crumb-current">Dashboard</span>
+        </div>
+        <div class="topbar-actions">
+          <div class="avatar-ring">
+            <div class="avatar-placeholder">{{ auth.profile()?.full_name?.charAt(0) || 'C' }}</div>
+          </div>
+        </div>
+      </header>
+
+      <section class="content">
+        <div class="content-inner">
+          <div class="greeting">
+            <h2 class="greeting-title">Coach Insights</h2>
+            <p class="greeting-sub" *ngIf="auth.profile() as profile">Bienvenido de nuevo, {{ profile.full_name }}. Aquí está el resumen de hoy.</p>
+          </div>
+
+          <div class="grid-3">
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">Mis Equipos</h3>
+                <a class="card-link" routerLink="/teams">Ver todos <span class="material-symbols-outlined">open_in_new</span></a>
+              </div>
+              <div class="card-body">
+                <div class="team-item" *ngFor="let t of teamSummaries">
+                  <div class="team-info">
+                    <h4 class="team-name">{{ t.name }}</h4>
+                    <p class="team-meta">{{ t.count }} Jugadores</p>
+                  </div>
+                  <span class="material-symbols-outlined team-arrow">chevron_right</span>
+                </div>
+                <div class="empty-state-sml" *ngIf="teamSummaries.length === 0">
+                  <p>No hay equipos todavía. <a routerLink="/teams">Crea uno.</a></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">Próximos Entrenamientos</h3>
+                <span class="material-symbols-outlined card-header-icon">calendar_today</span>
+              </div>
+              <div class="card-body">
+                <div class="timeline">
+                  <div class="timeline-item" *ngFor="let s of upcomingSessions">
+                    <div class="timeline-dot" [class.muted-dot]="isTomorrow(s.date)"></div>
+                    <div class="timeline-content">
+                      <span class="timeline-time">{{ formatDate(s.date) }}, {{ s.start_time.slice(0,5) }}</span>
+                      <h4 class="timeline-title">{{ s.title }}</h4>
+                      <p class="timeline-meta">{{ teamNames[s.team_id] || '—' }}{{ s.location ? ' • ' + s.location : '' }}</p>
+                    </div>
+                  </div>
+                  <div class="empty-state-sml" *ngIf="upcomingSessions.length === 0">
+                    <p>No hay sesiones próximas. <a routerLink="/sessions">Planifica una.</a></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">Resumen</h3>
+              </div>
+              <div class="card-body">
+                <div class="stats-grid">
+                  <div class="stat-card">
+                    <div class="stat-icon"><span class="material-symbols-outlined">groups</span></div>
+                    <div>
+                      <p class="stat-label">Equipos</p>
+                      <p class="stat-value">{{ teamSummaries.length }}</p>
+                    </div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-icon"><span class="material-symbols-outlined">face</span></div>
+                    <div>
+                      <p class="stat-label">Jugadores</p>
+                      <p class="stat-value">{{ totalPlayers }}</p>
+                    </div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-icon"><span class="material-symbols-outlined">fitness_center</span></div>
+                    <div>
+                      <p class="stat-label">Ejercicios</p>
+                      <p class="stat-value">{{ totalExercises }}</p>
+                    </div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-icon"><span class="material-symbols-outlined">calendar_month</span></div>
+                    <div>
+                      <p class="stat-label">Sesiones</p>
+                      <p class="stat-value">{{ totalSessions }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3 class="card-title">Actividad Reciente</h3>
+              <p class="chart-sub">{{ recentSessions.length }} sesiones en los últimos 30 días.</p>
+            </div>
+            <div class="chart-bars">
+              <div class="bar" *ngFor="let b of chartBars" [style.height]="b + '%'"></div>
+            </div>
+            <div class="chart-axis"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  `,
+  styles: [`
+    .dashboard { display: flex; flex-direction: column; min-height: 100%; background: #080d3c; }
+    .topbar {
+      display: flex; justify-content: space-between; align-items: center; height: 64px;
+      padding: 0 40px; position: sticky; top: 0; z-index: 40;
+      background: rgba(8,13,60,0.8); backdrop-filter: blur(12px); border-bottom: 1px solid #454652;
+    }
+    .breadcrumb { display: flex; align-items: center; gap: 8px; }
+    .crumb { font-family: 'Hanken Grotesk', sans-serif; font-size: 16px; line-height: 24px; }
+    .crumb-home { color: #c6c5d4; opacity: 0.6; }
+    .crumb-current { color: #bdc2ff; font-weight: 700; }
+    .sep { font-size: 12px; color: #c6c5d4; }
+    .topbar-actions { display: flex; align-items: center; gap: 16px; }
+    .avatar-ring {
+      width: 32px; height: 32px; border-radius: 50%; border: 2px solid #bdc2ff;
+      overflow: hidden; display: flex; align-items: center; justify-content: center;
+    }
+    .avatar-placeholder {
+      width: 100%; height: 100%; background: rgba(189,194,255,0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 12px; color: #bdc2ff; text-transform: uppercase;
+    }
+    .content { flex: 1; overflow-y: auto; padding: 40px; }
+    .content-inner { max-width: 1440px; margin: 0 auto; }
+    .greeting { margin-bottom: 40px; }
+    .greeting-title { font-family: 'Hanken Grotesk', sans-serif; font-size: 48px; line-height: 56px; font-weight: 800; letter-spacing: -0.02em; color: #dfe0ff; }
+    .greeting-sub { font-family: 'Hanken Grotesk', sans-serif; font-size: 18px; line-height: 28px; color: #c6c5d4; margin-top: 4px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
+    .card { background: #161b48; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.3); border: 1px solid rgba(69,70,82,0.3); }
+    .card-header { display: flex; justify-content: space-between; align-items: center; }
+    .card-title { font-family: 'Hanken Grotesk', sans-serif; font-size: 24px; line-height: 32px; font-weight: 700; color: #dfe0ff; margin: 0; }
+    .card-link { background: none; border: none; color: #bdc2ff; font-family: 'Hanken Grotesk', sans-serif; font-size: 14px; line-height: 20px; font-weight: 600; letter-spacing: 0.05em; display: flex; align-items: center; gap: 4px; cursor: pointer; text-decoration: none; }
+    .card-link:hover { text-decoration: underline; }
+    .card-link .material-symbols-outlined { font-size: 14px; }
+    .card-header-icon { color: #bdc2ff; font-size: 20px; }
+    .card-body { display: flex; flex-direction: column; gap: 16px; flex: 1; }
+    .team-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 8px; border-left: 4px solid #0068ed; cursor: pointer; transition: all 0.2s; }
+    .team-item:hover { background: rgba(255,255,255,0.08); }
+    .team-info h4 { font-weight: 700; color: #dfe0ff; margin: 0; }
+    .team-meta { font-size: 12px; color: #c6c5d4; margin: 0; }
+    .team-arrow { color: #c6c5d4; opacity: 0.4; font-size: 20px; }
+    .timeline { position: relative; padding-left: 32px; }
+    .timeline::before { content: ''; position: absolute; left: 11px; top: 8px; bottom: 8px; width: 2px; background: #454652; }
+    .timeline-item { position: relative; margin-bottom: 24px; }
+    .timeline-item:last-child { margin-bottom: 0; }
+    .timeline-dot { position: absolute; left: -27px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: #bdc2ff; box-shadow: 0 0 0 4px #161b48; }
+    .muted-dot { background: #454652; }
+    .timeline-content { display: flex; flex-direction: column; gap: 4px; }
+    .timeline-time { font-size: 12px; font-weight: 700; color: #bdc2ff; text-transform: uppercase; letter-spacing: -0.02em; }
+    .timeline-title { font-weight: 700; color: #dfe0ff; margin: 0; }
+    .timeline-meta { font-size: 12px; color: #c6c5d4; margin: 0; }
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; }
+    .stat-card { background: #212653; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px; border: 1px solid rgba(255,255,255,0.05); transition: border-color 0.2s; }
+    .stat-card:hover { border-color: rgba(189,194,255,0.5); }
+    .stat-icon { width: 32px; height: 32px; border-radius: 50%; background: rgba(189,194,255,0.1); display: flex; align-items: center; justify-content: center; }
+    .stat-icon .material-symbols-outlined { font-size: 14px; color: #bdc2ff; }
+    .stat-label { font-size: 12px; color: #c6c5d4; font-weight: 500; margin: 0; }
+    .stat-value { font-size: 28px; font-weight: 700; color: #dfe0ff; margin: 0; }
+    .chart-card { margin-top: 24px; background: #161b48; border-radius: 12px; padding: 24px; height: 256px; position: relative; overflow: hidden; border: 1px solid rgba(69,70,82,0.3); }
+    .chart-header { position: relative; z-index: 10; display: flex; flex-direction: column; gap: 8px; }
+    .chart-sub { color: #c6c5d4; font-size: 14px; margin: 0; }
+    .chart-bars { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: space-around; padding: 0 40px 32px; opacity: 0.4; }
+    .bar { width: 48px; background: #bdc2ff; border-radius: 8px 8px 0 0; transition: height 0.7s; }
+    .chart-axis { position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; background: #454652; }
+    .empty-state-sml p { color: #908f9d; font-size: 13px; text-align: center; margin: 0; }
+    .empty-state-sml a { color: #bdc2ff; }
+  `]
+})
+export class DashboardComponent implements OnInit {
+  auth = inject(AuthService);
+  private data = inject(DataService);
+  private cdr = inject(ChangeDetectorRef);
+
+  teamSummaries: { name: string; count: number }[] = [];
+  teamNames: Record<string, string> = {};
+  upcomingSessions: any[] = [];
+  recentSessions: any[] = [];
+  totalPlayers = 0;
+  totalExercises = 0;
+  totalSessions = 0;
+  chartBars: number[] = [];
+
+  async ngOnInit() {
+    while (!this.data.currentClub()) {
+      await new Promise(r => setTimeout(r, 50));
+    }
+    const teams = await this.data.getTeams();
+    const sessions = await this.data.getSessions();
+    const exercises = await this.data.getExercises();
+
+    this.totalSessions = sessions.length;
+    this.totalExercises = exercises.length;
+
+    this.teamSummaries = await Promise.all(
+      teams.map(async (t) => {
+        const players = await this.data.getPlayers(t.id);
+        return { name: t.name, count: players.length };
+      })
+    );
+
+    this.totalPlayers = this.teamSummaries.reduce((a, b) => a + b.count, 0);
+    teams.forEach(t => this.teamNames[t.id] = t.name);
+
+    const today = new Date();
+    this.upcomingSessions = sessions
+      .filter(s => new Date(s.date) >= today)
+      .slice(0, 5);
+
+    this.recentSessions = sessions
+      .filter(s => {
+        const d = new Date(s.date);
+        return d >= new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+      });
+
+    this.chartBars = Array.from({ length: 7 }, () => Math.floor(Math.random() * 60) + 20);
+    this.cdr.detectChanges();
+  }
+
+  formatDate(dateStr: string): string {
+    const d = new Date(dateStr);
+    const today = new Date();
+    if (d.toDateString() === today.toDateString()) return 'Hoy';
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    if (d.toDateString() === tomorrow.toDateString()) return 'Mañana';
+    return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  }
+
+  isTomorrow(dateStr: string): boolean {
+    const d = new Date(dateStr);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return d.toDateString() === tomorrow.toDateString();
+  }
+}

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Hanken Grotesk', sans-serif;
+            background-color: #080d3c;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .team-card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary-container": "#2e3030",
+                      "surface-container-high": "#212653",
+                      "on-error": "#690005",
+                      "primary-fixed-dim": "#bdc2ff",
+                      "tertiary-fixed-dim": "#c6c6c7",
+                      "on-surface": "#dfe0ff",
+                      "on-primary-container": "#8690ee",
+                      "surface-container-lowest": "#030737",
+                      "secondary-container": "#0068ed",
+                      "on-background": "#dfe0ff",
+                      "inverse-primary": "#4c56af",
+                      "on-tertiary-fixed": "#1a1c1c",
+                      "secondary-fixed-dim": "#b0c6ff",
+                      "on-surface-variant": "#c6c5d4",
+                      "on-primary-fixed-variant": "#343d96",
+                      "inverse-surface": "#dfe0ff",
+                      "on-secondary-container": "#f2f3ff",
+                      "error": "#ffb4ab",
+                      "error-container": "#93000a",
+                      "surface-variant": "#2c315f",
+                      "surface-tint": "#bdc2ff",
+                      "surface-bright": "#303563",
+                      "on-primary-fixed": "#000767",
+                      "background": "#080d3c",
+                      "on-secondary": "#002d6e",
+                      "on-primary": "#1b247f",
+                      "on-tertiary": "#2f3131",
+                      "inverse-on-surface": "#272c5a",
+                      "secondary": "#b0c6ff",
+                      "outline-variant": "#454652",
+                      "surface-dim": "#080d3c",
+                      "surface-container": "#161b48",
+                      "surface": "#080d3c",
+                      "primary-container": "#1a237e",
+                      "primary": "#bdc2ff",
+                      "secondary-fixed": "#d9e2ff",
+                      "on-secondary-fixed-variant": "#00429b",
+                      "primary-fixed": "#e0e0ff",
+                      "tertiary-fixed": "#e2e2e2",
+                      "outline": "#908f9d",
+                      "surface-container-low": "#111644",
+                      "on-tertiary-container": "#969898",
+                      "on-error-container": "#ffdad6",
+                      "tertiary": "#c6c6c7",
+                      "surface-container-highest": "#2c315f",
+                      "on-tertiary-fixed-variant": "#454747",
+                      "on-secondary-fixed": "#001945"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin-mobile": "16px",
+                      "container-max": "1440px",
+                      "margin-desktop": "40px",
+                      "card-padding": "24px",
+                      "gutter": "24px",
+                      "unit": "8px"
+              },
+              "fontFamily": {
+                      "label-lg": ["Hanken Grotesk"],
+                      "headline-lg-mobile": ["Hanken Grotesk"],
+                      "label-sm": ["Hanken Grotesk"],
+                      "headline-xl": ["Hanken Grotesk"],
+                      "headline-md": ["Hanken Grotesk"],
+                      "headline-lg": ["Hanken Grotesk"],
+                      "body-md": ["Hanken Grotesk"],
+                      "body-lg": ["Hanken Grotesk"]
+              },
+              "fontSize": {
+                      "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                      "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+                      "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                      "headline-xl": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}]
+              }
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background min-h-screen flex overflow-hidden">
+<!-- SideNavBar Shell -->
+<aside class="hidden md:flex flex-col h-screen left-0 w-64 bg-surface-container-low text-primary shadow-sm py-8 px-4 gap-6 shrink-0">
+<div class="px-2">
+<h1 class="font-headline-md text-headline-md font-extrabold text-primary">BasketFlow</h1>
+</div>
+<div class="flex items-center gap-3 px-2 py-4 border-b border-outline-variant/30">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional basketball coach portrait with a determined expression, wearing a navy blue technical polo shirt with subtle team branding. The lighting is dramatic and clinical, set against a dark, tech-infused training facility background with glowing digital displays. The overall mood is elite, disciplined, and highly analytical." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxuqfcKWOK5qQRtKX1uYlUMMmlqr-zF0EpgSCABkSfAV2ZBsIU4jB3wamSW2lxDu-y2BS27kG78qplTzuY2B07Rsx0RqSdf-Xbgtq8TZfx2ml0AxnaP6DMT8SKZD3kLaUuHa4-h9oBgdZgPAhXcgdYy1bT7zgH7mpHWxQ60xZBdCxrNBMLrZQKMuwYCbtD4vDfTgBQPuyjMxqxKHf-n3mlaRAGSwBUE1o1oQwwqbWSS_oAYAhGO9d4WKeUA2032X6wvatgufRJ6RQC"/>
+</div>
+<div>
+<p class="font-label-lg text-label-lg text-on-surface">Coach Martínez</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Elite Performance</p>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-2">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-variant transition-all rounded-lg font-label-lg text-label-lg" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 bg-secondary-container text-on-secondary-container rounded-lg font-bold font-label-lg text-label-lg" href="#">
+<span class="material-symbols-outlined">groups</span>
+                Equipos
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-variant transition-all rounded-lg font-label-lg text-label-lg" href="#">
+<span class="material-symbols-outlined">person</span>
+                Jugadores
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-variant transition-all rounded-lg font-label-lg text-label-lg" href="#">
+<span class="material-symbols-outlined">sports_basketball</span>
+                Partidos
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-variant transition-all rounded-lg font-label-lg text-label-lg" href="#">
+<span class="material-symbols-outlined">analytics</span>
+                Analítica
+            </a>
+</nav>
+<button class="w-full py-3 bg-secondary-container text-on-secondary-container rounded-xl font-bold flex items-center justify-center gap-2 Active: opacity-80 transition-all shadow-lg shadow-secondary-container/20">
+<span class="material-symbols-outlined">add_chart</span>
+            Nuevo Análisis
+        </button>
+<div class="mt-auto flex flex-col gap-2 border-t border-outline-variant/30 pt-4">
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-variant transition-all rounded-lg font-label-lg text-label-lg" href="#">
+<span class="material-symbols-outlined">help</span>
+                Ayuda
+            </a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-variant transition-all rounded-lg font-label-lg text-label-lg" href="#">
+<span class="material-symbols-outlined">logout</span>
+                Cerrar Sesión
+            </a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 h-screen overflow-y-auto relative pb-24 md:pb-8">
+<!-- Atmospheric Background Layer -->
+
+<div class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-8 relative z-10">
+<!-- Header Section -->
+<header class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+<div>
+<h2 class="font-headline-xl text-headline-xl text-on-surface">Mis Equipos</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-1">Gestión de plantillas y rendimiento competitivo.</p>
+</div>
+<button class="flex items-center justify-center gap-2 bg-secondary-container text-on-secondary-container px-6 py-4 rounded-xl font-bold text-lg hover:scale-105 active:scale-95 transition-all shadow-xl shadow-secondary-container/20 self-start md:self-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+                    Nuevo Equipo
+                </button>
+</header>
+<!-- Filters and Search -->
+<div class="flex flex-col md:flex-row items-center gap-4 mb-10">
+<div class="relative w-full md:w-96 group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors">search</span>
+<input class="w-full bg-surface-container-low border-outline-variant/30 text-on-surface rounded-xl pl-12 py-3 focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="Buscar equipo por nombre..." type="text"/>
+</div>
+<div class="flex gap-2 overflow-x-auto w-full md:w-auto no-scrollbar py-1">
+<button class="px-6 py-2.5 rounded-full bg-primary-container text-on-primary-container font-label-lg text-label-lg border border-primary/20 whitespace-nowrap">Todos</button>
+<button class="px-6 py-2.5 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-all whitespace-nowrap">U16</button>
+<button class="px-6 py-2.5 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-all whitespace-nowrap">U18</button>
+<button class="px-6 py-2.5 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-all whitespace-nowrap">Varsity</button>
+</div>
+</div>
+<!-- Teams Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-gutter">
+<!-- Card 1 -->
+<div class="group relative flex flex-col bg-surface-container-low rounded-xl overflow-hidden team-card-hover cursor-pointer transition-all border border-outline-variant/20">
+<div class="h-2 w-full bg-secondary-container"></div>
+<div class="p-card-padding flex flex-col h-full">
+<div class="flex justify-between items-start mb-4">
+<span class="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold tracking-wider uppercase">Varsity</span>
+<span class="material-symbols-outlined text-on-surface-variant">more_vert</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2">Varsity Elite</h3>
+<div class="flex items-center gap-2 text-on-surface-variant mb-8">
+<span class="material-symbols-outlined text-sm">groups</span>
+<p class="font-label-lg text-label-lg">15 Jugadores</p>
+</div>
+<div class="mt-auto flex items-center justify-between">
+<span class="text-secondary font-bold text-sm tracking-tight group-hover:underline underline-offset-4">ABRIR ROSTER</span>
+<span class="material-symbols-outlined text-secondary transition-transform group-hover:translate-x-1">arrow_forward</span>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="group relative flex flex-col bg-surface-container-low rounded-xl overflow-hidden team-card-hover cursor-pointer transition-all border border-outline-variant/20">
+<div class="h-2 w-full bg-error"></div>
+<div class="p-card-padding flex flex-col h-full">
+<div class="flex justify-between items-start mb-4">
+<span class="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold tracking-wider uppercase">U18</span>
+<span class="material-symbols-outlined text-on-surface-variant">more_vert</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2">Junior Prep</h3>
+<div class="flex items-center gap-2 text-on-surface-variant mb-8">
+<span class="material-symbols-outlined text-sm">groups</span>
+<p class="font-label-lg text-label-lg">12 Jugadores</p>
+</div>
+<div class="mt-auto flex items-center justify-between">
+<span class="text-secondary font-bold text-sm tracking-tight group-hover:underline underline-offset-4">ABRIR ROSTER</span>
+<span class="material-symbols-outlined text-secondary transition-transform group-hover:translate-x-1">arrow_forward</span>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="group relative flex flex-col bg-surface-container-low rounded-xl overflow-hidden team-card-hover cursor-pointer transition-all border border-outline-variant/20">
+<div class="h-2 w-full bg-primary-fixed-dim"></div>
+<div class="p-card-padding flex flex-col h-full">
+<div class="flex justify-between items-start mb-4">
+<span class="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold tracking-wider uppercase">U16</span>
+<span class="material-symbols-outlined text-on-surface-variant">more_vert</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2">Development Blue</h3>
+<div class="flex items-center gap-2 text-on-surface-variant mb-8">
+<span class="material-symbols-outlined text-sm">groups</span>
+<p class="font-label-lg text-label-lg">18 Jugadores</p>
+</div>
+<div class="mt-auto flex items-center justify-between">
+<span class="text-secondary font-bold text-sm tracking-tight group-hover:underline underline-offset-4">ABRIR ROSTER</span>
+<span class="material-symbols-outlined text-secondary transition-transform group-hover:translate-x-1">arrow_forward</span>
+</div>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="group relative flex flex-col bg-surface-container-low rounded-xl overflow-hidden team-card-hover cursor-pointer transition-all border border-outline-variant/20">
+<div class="h-2 w-full bg-tertiary-fixed-dim"></div>
+<div class="p-card-padding flex flex-col h-full">
+<div class="flex justify-between items-start mb-4">
+<span class="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold tracking-wider uppercase">Varsity</span>
+<span class="material-symbols-outlined text-on-surface-variant">more_vert</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2">Lady Knights</h3>
+<div class="flex items-center gap-2 text-on-surface-variant mb-8">
+<span class="material-symbols-outlined text-sm">groups</span>
+<p class="font-label-lg text-label-lg">14 Jugadores</p>
+</div>
+<div class="mt-auto flex items-center justify-between">
+<span class="text-secondary font-bold text-sm tracking-tight group-hover:underline underline-offset-4">ABRIR ROSTER</span>
+<span class="material-symbols-outlined text-secondary transition-transform group-hover:translate-x-1">arrow_forward</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bento Stats Area -->
+<div class="mt-16 grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<div class="lg:col-span-2 glass-card rounded-2xl p-card-padding">
+<h4 class="font-headline-md text-headline-md text-on-surface mb-6">Actividad Reciente</h4>
+<div class="space-y-4">
+<div class="flex items-center gap-4 p-4 bg-white/5 rounded-xl">
+<div class="w-10 h-10 rounded bg-secondary-container/20 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined">videocam</span>
+</div>
+<div class="flex-1">
+<p class="text-on-surface font-bold">Video sesión: Defensa 2-3</p>
+<p class="text-xs text-on-surface-variant">Añadido a Varsity Elite • Hace 2 horas</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</div>
+<div class="flex items-center gap-4 p-4 bg-white/5 rounded-xl">
+<div class="w-10 h-10 rounded bg-error/20 flex items-center justify-center text-error">
+<span class="material-symbols-outlined">analytics</span>
+</div>
+<div class="flex-1">
+<p class="text-on-surface font-bold">Estadísticas: Scouting Local</p>
+<p class="text-xs text-on-surface-variant">Añadido a Junior Prep • Hace 5 horas</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</div>
+</div>
+</div>
+<div class="glass-card rounded-2xl p-card-padding flex flex-col justify-center items-center text-center">
+<div class="w-20 h-20 bg-primary-container rounded-full flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-4xl text-primary" style="font-variation-settings: 'FILL' 1;">speed</span>
+</div>
+<h5 class="text-3xl font-extrabold text-on-surface">94%</h5>
+<p class="text-on-surface-variant font-label-lg text-label-lg">Eficiencia de Roster</p>
+<p class="text-xs text-secondary mt-2">+2.4% respecto al mes anterior</p>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar Shell (Mobile only) -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 py-2 md:hidden bg-surface-container-highest shadow-lg z-50">
+<div class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-label-sm text-label-sm">Equipos</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">format_list_bulleted</span>
+<span class="font-label-sm text-label-sm">Rosters</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">query_stats</span>
+<span class="font-label-sm text-label-sm">Stats</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">videocam</span>
+<span class="font-label-sm text-label-sm">Film</span>
+</div>
+</nav>
+<!-- Micro-interactions Script -->
+<script>
+        document.querySelectorAll('.team-card-hover').forEach(card => {
+            card.addEventListener('mousedown', () => {
+                card.style.transform = 'scale(0.97)';
+            });
+            card.addEventListener('mouseup', () => {
+                card.style.transform = '';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = '';
+            });
+        });
+
+        // Simple filter toggle behavior
+        const filterButtons = document.querySelectorAll('.no-scrollbar button');
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterButtons.forEach(b => {
+                    b.classList.remove('bg-primary-container', 'text-on-primary-container', 'border-primary/20');
+                    b.classList.add('bg-surface-container-high', 'text-on-surface-variant');
+                });
+                btn.classList.add('bg-primary-container', 'text-on-primary-container', 'border-primary/20');
+                btn.classList.remove('bg-surface-container-high', 'text-on-surface-variant');
+            });
+        });
+    </script>
+</body></html>

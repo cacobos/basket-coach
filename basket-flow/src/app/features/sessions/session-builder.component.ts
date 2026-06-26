@@ -1,0 +1,553 @@
+import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { NgFor, NgIf } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { DataService } from '../../core/services/data.service';
+import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team } from '../../core/models/models';
+
+@Component({
+  selector: 'app-session-builder',
+  standalone: true,
+  imports: [NgFor, NgIf, FormsModule],
+  template: `
+    <div class="builder-page">
+      <header class="builder-header">
+        <div>
+          <h1 class="page-title">Crear Sesión</h1>
+          <p class="page-sub">Diseña la sesión con ejercicios organizados por secciones.</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn-secondary" (click)="cancel()">Cancelar</button>
+          <button class="btn-primary" (click)="save()" [disabled]="!formTitle.trim() || !formDate">
+            <span class="material-symbols-outlined fill">save</span>
+            Guardar Sesión
+          </button>
+        </div>
+      </header>
+
+      <div class="builder-body">
+        <aside class="metadata-panel">
+          <div class="meta-card">
+            <h3 class="meta-title">Información General</h3>
+            <div class="field">
+              <label class="field-label">Título</label>
+              <input class="field-input" [(ngModel)]="formTitle" placeholder="Ej: Fundamentos de Tiro"/>
+            </div>
+            <div class="field">
+              <label class="field-label">Equipo</label>
+              <select class="field-input" [(ngModel)]="formTeam">
+                <option value="" disabled>Seleccionar equipo...</option>
+                <option *ngFor="let t of teams" [value]="t.id">{{ t.name }}</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <div class="field flex-1">
+                <label class="field-label">Fecha</label>
+                <input class="field-input" type="date" [(ngModel)]="formDate"/>
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field flex-1">
+                <label class="field-label">Inicio</label>
+                <input class="field-input" type="time" [(ngModel)]="formStart"/>
+              </div>
+              <div class="field flex-1">
+                <label class="field-label">Fin</label>
+                <input class="field-input" type="time" [(ngModel)]="formEnd"/>
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label">Ubicación</label>
+              <input class="field-input" [(ngModel)]="formLocation" placeholder="Gimnasio"/>
+            </div>
+            <div class="field">
+              <label class="field-label">Objetivos</label>
+              <textarea class="field-input field-textarea" [(ngModel)]="formObjectives" rows="3" placeholder="Ej: Mejorar el porcentaje de tiro..."></textarea>
+            </div>
+          </div>
+
+          <div class="meta-card summary-card">
+            <h3 class="meta-title">Resumen</h3>
+            <div class="summary-row">
+              <span class="summary-label">Secciones</span>
+              <span class="summary-value">{{ sections.length }}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Ejercicios</span>
+              <span class="summary-value">{{ totalExercises }}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Duración total</span>
+              <span class="summary-value">{{ totalDuration }} min</span>
+            </div>
+          </div>
+        </aside>
+
+        <main class="builder-main">
+          <div class="sections-list">
+            <div class="section-card" *ngFor="let sec of sections; let si = index"
+                 [style.border-left-color]="sectionColors[si % sectionColors.length]">
+              <div class="section-header">
+                <div class="section-handle">
+                  <span class="material-symbols-outlined">drag_indicator</span>
+                </div>
+                <div class="section-title-group">
+                  <span class="section-badge" [style.background]="sectionColors[si % sectionColors.length]">{{ sec.name }}</span>
+                  <input class="section-name-input" [(ngModel)]="sec.name" (blur)="updateSectionName(sec)" placeholder="Nombre de la sección"/>
+                </div>
+                <div class="section-duration">
+                  <span class="duration-pill">{{ getSectionDuration(sec.id) }} min</span>
+                </div>
+                <div class="section-actions">
+                  <button class="btn-icon" (click)="moveSection(sec, -1)" *ngIf="si > 0" title="Mover arriba">
+                    <span class="material-symbols-outlined">keyboard_arrow_up</span>
+                  </button>
+                  <button class="btn-icon" (click)="moveSection(sec, 1)" *ngIf="si < sections.length - 1" title="Mover abajo">
+                    <span class="material-symbols-outlined">keyboard_arrow_down</span>
+                  </button>
+                  <button class="btn-icon btn-icon-danger" (click)="removeSection(sec)" *ngIf="sections.length > 1" title="Eliminar sección">
+                    <span class="material-symbols-outlined">delete</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="section-exercises">
+                <div class="ex-item" *ngFor="let se of getSectionExercises(sec.id); let ei = index">
+                  <div class="ex-order">{{ ei + 1 }}</div>
+                  <div class="ex-info">
+                    <span class="ex-name">{{ exerciseNames[se.exercise_id] || 'Ejercicio' }}</span>
+                    <span class="ex-duration">{{ se.duration_minutes }} min</span>
+                  </div>
+                  <input class="ex-notes field-input" [(ngModel)]="se.notes" (blur)="updateExNotes(se)" placeholder="Notas opcionales..."/>
+                  <button class="btn-icon btn-icon-danger" (click)="removeExFromSection(se)">
+                    <span class="material-symbols-outlined">remove_circle</span>
+                  </button>
+                </div>
+                <div class="ex-empty" *ngIf="getSectionExercises(sec.id).length === 0">
+                  <span class="material-symbols-outlined">drag_indicator</span>
+                  <span>Arrastra o añade ejercicios desde abajo</span>
+                </div>
+              </div>
+
+              <div class="section-add-ex">
+                <select class="field-input add-ex-select" [(ngModel)]="addExExerciseId">
+                  <option value="">Seleccionar ejercicio...</option>
+                  <option *ngFor="let e of exercises" [value]="e.id">{{ e.name }}</option>
+                </select>
+                <input class="field-input add-ex-dur" type="number" [(ngModel)]="addExDuration" min="1" max="120" placeholder="min"/>
+                <input class="field-input add-ex-notes" [(ngModel)]="addExNotes" placeholder="Notas..."/>
+                <button class="btn-add-ex" (click)="addExerciseToSection(sec)" [disabled]="!addExExerciseId">
+                  <span class="material-symbols-outlined">add</span>
+                  Añadir
+                </button>
+              </div>
+            </div>
+
+            <button class="add-section-btn" (click)="addSection()">
+              <span class="material-symbols-outlined">add</span>
+              Añadir Sección
+            </button>
+          </div>
+        </main>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .builder-page {
+      padding: 40px;
+      max-width: 1440px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .builder-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 24px;
+      margin-bottom: 32px;
+      flex-shrink: 0;
+    }
+    .page-title {
+      font-size: 48px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #dfe0ff;
+      margin: 0;
+    }
+    .page-sub {
+      font-size: 18px;
+      color: #c6c5d4;
+      margin: 4px 0 0;
+    }
+    .header-actions { display: flex; gap: 12px; align-items: center; }
+    .btn-primary, .btn-secondary {
+      display: flex; align-items: center; gap: 8px;
+      padding: 14px 24px; border-radius: 12px;
+      border: none; font-weight: 700; font-size: 15px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-primary {
+      background: #0068ed; color: #f2f3ff;
+      box-shadow: 0 8px 24px rgba(0,104,237,0.2);
+    }
+    .btn-primary:hover:not(:disabled) { transform: scale(1.03); opacity: 0.95; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary .fill { font-variation-settings: 'FILL' 1; }
+    .btn-secondary { background: #212653; color: #c6c5d4; }
+    .btn-secondary:hover { background: #2a3160; }
+    .builder-body { display: flex; gap: 32px; flex: 1; min-height: 0; }
+
+    /* Metadata panel */
+    .metadata-panel { width: 320px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
+    .meta-card {
+      background: #161b48;
+      border-radius: 16px;
+      padding: 24px;
+      border: 1px solid rgba(69,70,82,0.2);
+    }
+    .meta-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #dfe0ff;
+      margin: 0 0 20px;
+    }
+    .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .field:last-child { margin-bottom: 0; }
+    .field-label {
+      font-size: 11px; font-weight: 700;
+      color: #908f9d; text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .field-row { display: flex; gap: 12px; }
+    .flex-1 { flex: 1; }
+    .field-input {
+      background: #111644; border: 1px solid rgba(69,70,82,0.3);
+      color: #dfe0ff; border-radius: 8px; padding: 10px 12px;
+      font-family: 'Hanken Grotesk', sans-serif;
+      font-size: 14px; outline: none; width: 100%; box-sizing: border-box;
+    }
+    .field-input:focus { border-color: #bdc2ff; }
+    .field-textarea { resize: vertical; min-height: 60px; }
+
+    .summary-card { }
+    .summary-row {
+      display: flex; justify-content: space-between;
+      padding: 8px 0; border-bottom: 1px solid rgba(69,70,82,0.15);
+    }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-label { font-size: 13px; color: #908f9d; }
+    .summary-value { font-size: 14px; font-weight: 700; color: #bdc2ff; }
+
+    /* Main builder area */
+    .builder-main { flex: 1; min-width: 0; }
+    .sections-list { display: flex; flex-direction: column; gap: 16px; }
+
+    .section-card {
+      background: #161b48;
+      border-radius: 16px;
+      border-left: 4px solid #0068ed;
+      padding: 20px;
+      border: 1px solid rgba(69,70,82,0.2);
+      border-left-width: 4px;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .section-handle { color: #3a3f6a; cursor: grab; display: flex; }
+    .section-handle .material-symbols-outlined { font-size: 20px; }
+    .section-title-group { flex: 1; display: flex; align-items: center; gap: 8px; }
+    .section-badge {
+      font-size: 10px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 4px 10px; border-radius: 9999px;
+      color: white;
+    }
+    .section-name-input {
+      background: transparent; border: 1px solid transparent;
+      color: #dfe0ff; font-size: 16px; font-weight: 700;
+      font-family: 'Hanken Grotesk', sans-serif;
+      padding: 4px 8px; border-radius: 6px; outline: none; flex: 1;
+    }
+    .section-name-input:focus { border-color: rgba(189,194,255,0.3); background: rgba(0,0,0,0.2); }
+    .section-duration { }
+    .duration-pill {
+      font-size: 11px; font-weight: 700;
+      padding: 4px 10px; border-radius: 9999px;
+      background: rgba(0,104,237,0.15); color: #bdc2ff;
+    }
+    .section-actions { display: flex; gap: 4px; }
+    .btn-icon {
+      background: none; border: none; color: #908f9d;
+      cursor: pointer; padding: 4px; display: flex; border-radius: 4px;
+      transition: all 0.15s;
+    }
+    .btn-icon:hover { color: #dfe0ff; background: rgba(255,255,255,0.05); }
+    .btn-icon-danger:hover { color: #ff8a80; background: rgba(255,138,128,0.1); }
+    .btn-icon .material-symbols-outlined { font-size: 18px; }
+
+    /* Exercises inside section */
+    .section-exercises { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .ex-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 10px;
+      padding: 10px 14px;
+    }
+    .ex-order {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: rgba(189,194,255,0.1);
+      color: #bdc2ff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+    }
+    .ex-info { flex: 1; display: flex; align-items: center; gap: 10px; }
+    .ex-name { color: #dfe0ff; font-size: 14px; font-weight: 600; }
+    .ex-duration { font-size: 12px; color: #908f9d; white-space: nowrap; }
+    .ex-notes {
+      flex: 1; min-width: 120px; max-width: 250px;
+      padding: 6px 10px !important; font-size: 12px !important;
+    }
+    .ex-empty {
+      text-align: center; color: #3a3f6a; font-size: 13px;
+      padding: 24px; display: flex; align-items: center;
+      justify-content: center; gap: 8px;
+    }
+    .ex-empty .material-symbols-outlined { font-size: 18px; }
+
+    /* Add exercise row */
+    .section-add-ex {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .add-ex-select { flex: 1; min-width: 160px; }
+    .add-ex-dur { width: 70px !important; }
+    .add-ex-notes { flex: 1; min-width: 120px; }
+    .btn-add-ex {
+      display: flex; align-items: center; gap: 4px;
+      background: #0068ed; color: white;
+      border: none; border-radius: 8px;
+      padding: 8px 14px;
+      font-family: 'Hanken Grotesk', sans-serif;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-add-ex:hover:not(:disabled) { opacity: 0.9; }
+    .btn-add-ex:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-add-ex .material-symbols-outlined { font-size: 16px; }
+
+    /* Add section button */
+    .add-section-btn {
+      width: 100%;
+      background: none;
+      border: 2px dashed rgba(69,70,82,0.3);
+      color: #908f9d;
+      cursor: pointer;
+      padding: 16px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+      font-family: 'Hanken Grotesk', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .add-section-btn:hover {
+      border-color: #bdc2ff;
+      color: #bdc2ff;
+      background: rgba(189,194,255,0.03);
+    }
+    .add-section-btn .material-symbols-outlined { font-size: 20px; }
+  `]
+})
+export class SessionBuilderComponent implements OnInit {
+  private data = inject(DataService);
+  private router = inject(Router);
+  private cdr = inject(ChangeDetectorRef);
+  editingSession: TrainingSession | null = null;
+
+  teams: Team[] = [];
+  exercises: Exercise[] = [];
+  sections: SectionVM[] = [];
+  sectionExercisesMap: Record<string, ExerciseVM[]> = {};
+  exerciseNames: Record<string, string> = {};
+
+  formTitle = '';
+  formTeam = '';
+  formDate = '';
+  formStart = '16:00';
+  formEnd = '17:30';
+  formLocation = '';
+  formObjectives = '';
+
+  addExExerciseId = '';
+  addExDuration = 10;
+  addExNotes = '';
+
+  sectionColors = ['#0068ed', '#00c853', '#ff9100', '#e040fb', '#00bcd4', '#ff6d00'];
+
+  async ngOnInit() {
+    while (!this.data.currentClub()) {
+      await new Promise(r => setTimeout(r, 50));
+    }
+    this.teams = await this.data.getTeams();
+    this.exercises = await this.data.getExercises();
+    this.exercises.forEach(e => this.exerciseNames[e.id] = e.name);
+    if (this.teams.length > 0) this.formTeam = this.teams[0].id;
+    this.formDate = new Date().toISOString().slice(0, 10);
+    this.initSections();
+    this.cdr.detectChanges();
+  }
+
+  initSections() {
+    this.sections = [];
+    this.sectionExercisesMap = {};
+    this.addDefaultSections();
+  }
+
+  addDefaultSections() {
+    const defaults = ['Calentamiento', 'Parte Principal', 'Vuelta a la Calma'];
+    for (const name of defaults) {
+      const id = crypto.randomUUID();
+      this.sections.push({ id, name, sort_order: this.sections.length + 1 });
+      this.sectionExercisesMap[id] = [];
+    }
+  }
+
+  getSectionExercises(sectionId: string): ExerciseVM[] {
+    return this.sectionExercisesMap[sectionId] || [];
+  }
+
+  getSectionDuration(sectionId: string): number {
+    return (this.sectionExercisesMap[sectionId] || []).reduce((a, b) => a + b.duration_minutes, 0);
+  }
+
+  get totalExercises(): number {
+    return Object.values(this.sectionExercisesMap).reduce((a, b) => a + b.length, 0);
+  }
+
+  get totalDuration(): number {
+    return this.sections.reduce((a, sec) => a + this.getSectionDuration(sec.id), 0);
+  }
+
+  addSection() {
+    const id = crypto.randomUUID();
+    this.sections.push({ id, name: 'Nueva Sección', sort_order: this.sections.length + 1 });
+    this.sectionExercisesMap[id] = [];
+  }
+
+  removeSection(sec: SectionVM) {
+    if (this.sections.length <= 1) return;
+    this.sections = this.sections.filter(s => s.id !== sec.id);
+    delete this.sectionExercisesMap[sec.id];
+  }
+
+  moveSection(sec: SectionVM, dir: number) {
+    const idx = this.sections.indexOf(sec);
+    const target = idx + dir;
+    if (target < 0 || target >= this.sections.length) return;
+    this.sections[idx] = this.sections[target];
+    this.sections[target] = sec;
+    this.sections.forEach((s, i) => s.sort_order = i + 1);
+  }
+
+  updateSectionName(sec: SectionVM) {}
+
+  addExerciseToSection(sec: SectionVM) {
+    if (!this.addExExerciseId) return;
+    const id = crypto.randomUUID();
+    const vm: ExerciseVM = {
+      id,
+      exercise_id: this.addExExerciseId,
+      section_id: sec.id,
+      duration_minutes: this.addExDuration,
+      notes: this.addExNotes || null,
+      order: (this.sectionExercisesMap[sec.id]?.length || 0) + 1,
+    };
+    this.sectionExercisesMap[sec.id] = [...(this.sectionExercisesMap[sec.id] || []), vm];
+    this.addExExerciseId = '';
+    this.addExNotes = '';
+    this.addExDuration = 10;
+  }
+
+  removeExFromSection(se: ExerciseVM) {
+    const list = this.sectionExercisesMap[se.section_id] || [];
+    this.sectionExercisesMap[se.section_id] = list.filter(x => x.id !== se.id);
+  }
+
+  updateExNotes(se: ExerciseVM) {}
+
+  async save() {
+    if (!this.formTitle.trim() || !this.formDate) return;
+    const clubId = this.data.currentClub()?.id;
+    if (!clubId) return;
+
+    const session = await this.data.createSession({
+      club_id: clubId,
+      team_id: this.formTeam,
+      title: this.formTitle.trim(),
+      description: null,
+      location: this.formLocation.trim() || null,
+      date: this.formDate,
+      start_time: this.formStart,
+      end_time: this.formEnd,
+      status: 'planned',
+      notes: null,
+      objectives: this.formObjectives.trim() || null,
+    });
+
+    if (session) {
+      for (const sec of this.sections) {
+        const section = await this.data.createSection({
+          session_id: session.id,
+          name: sec.name,
+          sort_order: sec.sort_order,
+        });
+        if (section) {
+          for (const ex of this.sectionExercisesMap[sec.id] || []) {
+            await this.data.addSessionExercise({
+              session_id: session.id,
+              section_id: section.id,
+              exercise_id: ex.exercise_id,
+              order: ex.order,
+              duration_minutes: ex.duration_minutes,
+              notes: ex.notes,
+            });
+          }
+        }
+      }
+    }
+
+    this.router.navigate(['/sessions']);
+  }
+
+  cancel() {
+    this.router.navigate(['/sessions']);
+  }
+}
+
+interface SectionVM {
+  id: string;
+  name: string;
+  sort_order: number;
+}
+
+interface ExerciseVM {
+  id: string;
+  exercise_id: string;
+  section_id: string;
+  duration_minutes: number;
+  notes: string | null;
+  order: number;
+}

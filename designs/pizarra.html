@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>BasketFlow - Pizarra Táctica</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-error": "#690005",
+                    "primary-container": "#1a237e",
+                    "on-background": "#dfe0ff",
+                    "secondary-fixed-dim": "#b0c6ff",
+                    "surface-container": "#161b48",
+                    "on-error-container": "#ffdad6",
+                    "outline-variant": "#454652",
+                    "tertiary": "#c6c6c7",
+                    "tertiary-fixed": "#e2e2e2",
+                    "on-primary-container": "#8690ee",
+                    "outline": "#908f9d",
+                    "on-primary": "#1b247f",
+                    "background": "#080d3c",
+                    "primary-fixed": "#e0e0ff",
+                    "on-secondary-fixed": "#001945",
+                    "surface": "#080d3c",
+                    "secondary-container": "#0068ed",
+                    "on-tertiary-fixed-variant": "#454747",
+                    "on-secondary": "#002d6e",
+                    "tertiary-fixed-dim": "#c6c6c7",
+                    "on-secondary-fixed-variant": "#00429b",
+                    "surface-variant": "#2c315f",
+                    "error": "#ffb4ab",
+                    "tertiary-container": "#2e3030",
+                    "on-tertiary-container": "#969898",
+                    "surface-dim": "#080d3c",
+                    "surface-container-lowest": "#030737",
+                    "on-surface-variant": "#c6c5d4",
+                    "on-tertiary": "#2f3131",
+                    "on-primary-fixed-variant": "#343d96",
+                    "on-secondary-container": "#f2f3ff",
+                    "surface-tint": "#bdc2ff",
+                    "on-primary-fixed": "#000767",
+                    "on-surface": "#dfe0ff",
+                    "on-tertiary-fixed": "#1a1c1c",
+                    "surface-container-highest": "#2c315f",
+                    "secondary": "#b0c6ff",
+                    "inverse-primary": "#4c56af",
+                    "secondary-fixed": "#d9e2ff",
+                    "surface-container-low": "#111644",
+                    "primary-fixed-dim": "#bdc2ff",
+                    "inverse-on-surface": "#272c5a",
+                    "surface-bright": "#303563",
+                    "error-container": "#93000a",
+                    "surface-container-high": "#212653",
+                    "primary": "#bdc2ff",
+                    "inverse-surface": "#dfe0ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "24px",
+                    "card-padding": "24px",
+                    "margin-mobile": "16px",
+                    "unit": "8px",
+                    "margin-desktop": "40px",
+                    "container-max": "1440px"
+            },
+            "fontFamily": {
+                    "label-sm": ["Hanken Grotesk"],
+                    "headline-xl": ["Hanken Grotesk"],
+                    "headline-lg-mobile": ["Hanken Grotesk"],
+                    "body-md": ["Hanken Grotesk"],
+                    "headline-md": ["Hanken Grotesk"],
+                    "headline-lg": ["Hanken Grotesk"],
+                    "body-lg": ["Hanken Grotesk"],
+                    "label-lg": ["Hanken Grotesk"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body { font-family: 'Hanken Grotesk', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .court-container {
+            background-color: #2E7D32; /* Elite Green Court */
+            background-image: 
+                /* Center line */
+                linear-gradient(90deg, transparent 49.8%, rgba(255,255,255,0.8) 49.8%, rgba(255,255,255,0.8) 50.2%, transparent 50.2%),
+                /* Sidelines */
+                linear-gradient(0deg, rgba(255,255,255,0.8) 2px, transparent 2px),
+                linear-gradient(180deg, rgba(255,255,255,0.8) 2px, transparent 2px);
+            background-size: 100% 100%, 100% 100%, 100% 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        .court-lines {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            border: 4px solid rgba(255,255,255,0.9);
+        }
+        .player-token {
+            cursor: grab;
+            user-select: none;
+            transition: transform 0.1s ease;
+        }
+        .player-token:active { cursor: grabbing; transform: scale(1.1); }
+        
+        /* Glassmorphism utility */
+        .glass-panel {
+            background: rgba(22, 27, 72, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(144, 143, 157, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface flex overflow-hidden">
+<!-- SideNavBar Shell -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-surface-container-low shadow-sm flex flex-col py-unit z-50">
+<div class="px-6 py-8 mb-4">
+<h1 class="font-headline-md text-headline-md font-extrabold text-primary">BasketFlow</h1>
+<p class="text-label-sm text-on-surface-variant tracking-widest uppercase mt-1">Elite Coaching</p>
+</div>
+<nav class="flex-1 space-y-1 px-2">
+<!-- Active Tab: Pizarra (Manual logic based on page content) -->
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-lg text-label-lg">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span class="font-label-lg text-label-lg">Equipos</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-lg text-label-lg">Jugadores</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined" data-icon="fitness_center">fitness_center</span>
+<span class="font-label-lg text-label-lg">Entrenamientos</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined" data-icon="sports_basketball">sports_basketball</span>
+<span class="font-label-lg text-label-lg">Ejercicios</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-primary font-bold border-r-4 border-primary bg-primary-container/10 rounded-lg group" href="#">
+<span class="material-symbols-outlined" data-icon="edit_note">edit_note</span>
+<span class="font-label-lg text-label-lg">Pizarra</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="font-label-lg text-label-lg">Estadísticas</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined" data-icon="rule">rule</span>
+<span class="font-label-lg text-label-lg">Evaluaciones</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined" data-icon="event_available">event_available</span>
+<span class="font-label-lg text-label-lg">Asistencia</span>
+</a>
+</nav>
+<div class="px-4 py-6 border-t border-outline-variant/30">
+<button class="w-full bg-primary-container text-on-primary-container py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[20px]">add</span>
+<span>New Session</span>
+</button>
+<div class="mt-6 flex items-center gap-3 px-2">
+<img class="w-10 h-10 rounded-full border-2 border-primary object-cover" data-alt="Close-up professional portrait of a basketball coach in a technical navy tracksuit, looking analytical and focused. Dark studio lighting with subtle blue rim light, high-performance athletic atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBh9dWF93eXY225kuJaK1mCgfmTStOdBiEVOmv-KfVXySurWISWQlOPI2gfx9JKopMUUPaMF4DZHvY1CG8-QHIHKe7xWXYdvm8LhYkmKt-YWuuTZmnfNMDFPuWd11Ew7mBkXSWJQ58GPqYJStkqq340YDOf_fBknSV75tMhaJKF3Qx_wUcKoHbJdwKS3W5MMvhdJ-njuVxdr7tR2QAluNitzmWPlFWN2LN_triYnOqjr490Z9Y2UoqPbTbzLq_RP-WkfEP6wJzyUsc4"/>
+<div class="overflow-hidden">
+<p class="text-label-lg font-bold truncate">Coach Rivera</p>
+<p class="text-[10px] text-on-surface-variant truncate">PRO STAFF</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-64 flex-1 h-screen flex flex-col relative">
+<!-- Header -->
+<header class="h-16 px-margin-desktop flex justify-between items-center bg-surface sticky top-0 z-40 border-b border-outline-variant">
+<h2 class="font-headline-md text-headline-md font-bold text-primary">Pizarra Táctica</h2>
+<div class="flex items-center gap-6">
+<div class="relative hidden md:block">
+<input class="bg-surface-container-high border-none rounded-full px-4 py-2 pl-10 text-body-md focus:ring-2 focus:ring-primary w-64" placeholder="Buscar jugada..." type="text"/>
+<span class="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-sm" data-icon="search">search</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="notifications">notifications</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="settings">settings</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Tactical Area -->
+<section class="flex-1 p-6 flex flex-col gap-6 relative">
+<!-- Whiteboard Canvas Area -->
+<div class="flex-1 rounded-2xl court-container relative shadow-xl overflow-hidden">
+<!-- Basket Elements (SVG for lines) -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none opacity-80" preserveaspectratio="none" viewbox="0 0 1000 600">
+<!-- Outer Boundary -->
+<rect fill="none" height="600" stroke="white" stroke-width="4" width="1000" x="0" y="0"></rect>
+<!-- Center Circle -->
+<circle cx="500" cy="300" fill="none" r="60" stroke="white" stroke-width="4"></circle>
+<!-- Key Left -->
+<rect fill="none" height="240" stroke="white" stroke-width="4" width="190" x="0" y="180"></rect>
+<path d="M 190 210 A 90 90 0 0 1 190 390" fill="none" stroke="white" stroke-width="4"></path>
+<circle cx="52" cy="300" fill="none" r="15" stroke="white" stroke-width="2"></circle> <!-- Basket -->
+<!-- Key Right -->
+<rect fill="none" height="240" stroke="white" stroke-width="4" width="190" x="810" y="180"></rect>
+<path d="M 810 210 A 90 90 0 0 0 810 390" fill="none" stroke="white" stroke-width="4"></path>
+<circle cx="948" cy="300" fill="none" r="15" stroke="white" stroke-width="2"></circle> <!-- Basket -->
+<!-- 3pt Line Left -->
+<path d="M 0 50 L 150 50 A 250 250 0 0 1 150 550 L 0 550" fill="none" stroke="white" stroke-width="4"></path>
+<!-- 3pt Line Right -->
+<path d="M 1000 50 L 850 50 A 250 250 0 0 0 850 550 L 1000 550" fill="none" stroke="white" stroke-width="4"></path>
+</svg>
+<!-- Draggable Tokens Layer -->
+<div class="absolute inset-0 z-10" id="whiteboard">
+<!-- Red Players -->
+<div class="player-token absolute top-1/4 left-1/3 bg-[#D32F2F] text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-lg border-2 border-white" style="left: 200px; top: 100px;">1</div>
+<div class="player-token absolute top-1/4 left-1/3 bg-[#D32F2F] text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-lg border-2 border-white" style="left: 250px; top: 250px;">2</div>
+<div class="player-token absolute top-1/4 left-1/3 bg-[#D32F2F] text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-lg border-2 border-white" style="left: 150px; top: 450px;">3</div>
+<div class="player-token absolute top-1/4 left-1/3 bg-[#D32F2F] text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-lg border-2 border-white" style="left: 50px; top: 300px;">4</div>
+<div class="player-token absolute top-1/4 left-1/3 bg-[#D32F2F] text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-lg border-2 border-white" style="left: 300px; top: 150px;">5</div>
+<!-- Blue Players -->
+<div class="player-token absolute top-1/4 left-2/3 bg-[#1976D2] text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-lg border-2 border-white" style="left: 750px; top: 100px;">1</div>
+<div class="player-token absolute top-1/4 left-2/3 bg-[#1976D2] text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-lg border-2 border-white" style="left: 700px; top: 250px;">2</div>
+<div class="player-token absolute top-1/4 left-2/3 bg-[#1976D2] text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-lg border-2 border-white" style="left: 800px; top: 450px;">3</div>
+<div class="player-token absolute top-1/4 left-2/3 bg-[#1976D2] text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-lg border-2 border-white" style="left: 900px; top: 300px;">4</div>
+<div class="player-token absolute top-1/4 left-2/3 bg-[#1976D2] text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-lg border-2 border-white" style="left: 650px; top: 150px;">5</div>
+<!-- Basketball -->
+<div class="player-token absolute bg-[#FF9800] text-white w-8 h-8 rounded-full flex items-center justify-center shadow-md border-2 border-[#E65100]" style="left: 500px; top: 300px;">
+<span class="material-symbols-outlined text-[20px]" data-icon="sports_basketball">sports_basketball</span>
+</div>
+</div>
+<!-- Drawing Layer (Simulated Overlay) -->
+<canvas class="absolute inset-0 z-20 pointer-events-none" id="drawCanvas"></canvas>
+</div>
+<!-- Toolbar & Timeline Bottom Bar -->
+<div class="glass-panel rounded-2xl p-4 flex items-center gap-8 shadow-2xl">
+<!-- Main Tools -->
+<div class="flex items-center gap-1 border-r border-outline-variant/30 pr-6">
+<button class="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-primary/20 text-primary transition-all active:scale-90" title="Cursor">
+<span class="material-symbols-outlined" data-icon="near_me">near_me</span>
+</button>
+<button class="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-surface-container-highest text-on-surface-variant transition-all active:scale-90" title="Circle Tool">
+<span class="material-symbols-outlined" data-icon="circle">circle</span>
+</button>
+<button class="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-surface-container-highest text-on-surface-variant transition-all active:scale-90" title="Arrow Tool">
+<span class="material-symbols-outlined" data-icon="arrow_right_alt">arrow_right_alt</span>
+</button>
+<button class="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-surface-container-highest text-on-surface-variant transition-all active:scale-90" title="Line Tool">
+<span class="material-symbols-outlined" data-icon="horizontal_rule">horizontal_rule</span>
+</button>
+<button class="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-surface-container-highest text-on-surface-variant transition-all active:scale-90" title="Rectangle Tool">
+<span class="material-symbols-outlined" data-icon="rectangle">rectangle</span>
+</button>
+<button class="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-surface-container-highest text-on-surface-variant transition-all active:scale-90" title="Text Tool">
+<span class="material-symbols-outlined" data-icon="title">title</span>
+</button>
+</div>
+<!-- Color Swatches -->
+<div class="flex items-center gap-3 border-r border-outline-variant/30 pr-6">
+<button class="w-6 h-6 rounded-full bg-red-600 ring-2 ring-offset-2 ring-offset-surface-container ring-transparent active:ring-primary"></button>
+<button class="w-6 h-6 rounded-full bg-blue-600 ring-2 ring-offset-2 ring-offset-surface-container ring-transparent"></button>
+<button class="w-6 h-6 rounded-full bg-black ring-2 ring-offset-2 ring-offset-surface-container ring-transparent"></button>
+<button class="w-6 h-6 rounded-full bg-green-500 ring-2 ring-offset-2 ring-offset-surface-container ring-transparent"></button>
+</div>
+<!-- Playback & Timeline -->
+<div class="flex-1 flex items-center gap-4">
+<button class="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-lg active:scale-90 transition-transform" id="playBtn">
+<span class="material-symbols-outlined" data-icon="play_arrow">play_arrow</span>
+</button>
+<div class="flex-1 h-2 bg-surface-container-highest rounded-full relative overflow-hidden">
+<div class="absolute left-0 top-0 h-full w-1/3 bg-primary"></div>
+<!-- Marker -->
+<div class="absolute left-1/3 top-0 h-full w-1 bg-white shadow-md"></div>
+</div>
+<span class="font-label-sm text-on-surface-variant">0:12 / 0:45</span>
+</div>
+<!-- History -->
+<div class="flex items-center gap-2 pl-4">
+<button class="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-surface-container-highest text-on-surface-variant transition-all" title="Undo">
+<span class="material-symbols-outlined" data-icon="undo">undo</span>
+</button>
+<button class="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-surface-container-highest text-on-surface-variant transition-all" title="Redo">
+<span class="material-symbols-outlined" data-icon="redo">redo</span>
+</button>
+<button class="ml-4 px-6 py-2 bg-secondary-container text-on-secondary-container rounded-lg font-bold hover:opacity-90 active:scale-95 transition-all">
+                        Guardar
+                    </button>
+</div>
+</div>
+<!-- Floating Sidebar Info (Right Side) -->
+<div class="absolute top-6 right-10 w-64 flex flex-col gap-4">
+<div class="glass-panel p-card-padding rounded-2xl">
+<div class="flex justify-between items-center mb-4">
+<h4 class="font-label-lg text-primary uppercase tracking-wider">Táctica Activa</h4>
+<span class="material-symbols-outlined text-sm text-on-surface-variant" data-icon="info">info</span>
+</div>
+<p class="font-headline-md text-headline-md leading-tight mb-2">Pick and Roll</p>
+<p class="text-body-md text-on-surface-variant mb-4">Transición rápida con bloqueo indirecto en cabecera.</p>
+<div class="space-y-2">
+<div class="flex items-center justify-between p-2 bg-surface-container/50 rounded-lg">
+<span class="text-label-sm">Jugadores Involucrados</span>
+<span class="text-label-sm font-bold">1, 4, 5</span>
+</div>
+<div class="flex items-center justify-between p-2 bg-surface-container/50 rounded-lg">
+<span class="text-label-sm">Dificultad</span>
+<div class="flex gap-1">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span class="w-2 h-2 rounded-full bg-surface-variant"></span>
+</div>
+</div>
+</div>
+</div>
+<div class="glass-panel p-4 rounded-2xl flex flex-col gap-2">
+<h4 class="text-label-sm text-on-surface-variant mb-2">Comentarios del Coach</h4>
+<div class="bg-surface-container-lowest p-3 rounded-lg border border-outline-variant/20 italic text-body-md text-on-surface">
+                        "Enfatizar el bloqueo de #5 para liberar espacio en el ala derecha."
+                    </div>
+</div>
+</div>
+</section>
+</main>
+<!-- Draggable Logic (Microinteraction Simulation) -->
+<script>
+        const tokens = document.querySelectorAll('.player-token');
+        let activeToken = null;
+        let offset = { x: 0, y: 0 };
+
+        tokens.forEach(token => {
+            token.addEventListener('mousedown', (e) => {
+                activeToken = token;
+                const rect = token.getBoundingClientRect();
+                offset.x = e.clientX - rect.left;
+                offset.y = e.clientY - rect.top;
+                token.style.zIndex = '100';
+            });
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (activeToken) {
+                const container = activeToken.parentElement.getBoundingClientRect();
+                let x = e.clientX - container.left - offset.x;
+                let y = e.clientY - container.top - offset.y;
+
+                // Boundary checks
+                x = Math.max(0, Math.min(x, container.width - 40));
+                y = Math.max(0, Math.min(y, container.height - 40));
+
+                activeToken.style.left = `${x}px`;
+                activeToken.style.top = `${y}px`;
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (activeToken) {
+                activeToken.style.zIndex = '10';
+                activeToken = null;
+            }
+        });
+
+        // Simple Toggle for Play Button
+        const playBtn = document.getElementById('playBtn');
+        let isPlaying = false;
+        playBtn.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            const icon = playBtn.querySelector('.material-symbols-outlined');
+            icon.textContent = isPlaying ? 'pause' : 'play_arrow';
+            playBtn.classList.toggle('bg-primary');
+            playBtn.classList.toggle('bg-error');
+        });
+    </script>
+</body></html>

@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Biblioteca de Ejercicios | BasketFlow</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Hanken Grotesk', sans-serif;
+            background-color: #080d3c;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .exercise-card-shadow {
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error": "#690005",
+                        "primary-container": "#1a237e",
+                        "on-background": "#dfe0ff",
+                        "secondary-fixed-dim": "#b0c6ff",
+                        "surface-container": "#161b48",
+                        "on-error-container": "#ffdad6",
+                        "outline-variant": "#454652",
+                        "tertiary": "#c6c6c7",
+                        "tertiary-fixed": "#e2e2e2",
+                        "on-primary-container": "#8690ee",
+                        "outline": "#908f9d",
+                        "on-primary": "#1b247f",
+                        "background": "#080d3c",
+                        "primary-fixed": "#e0e0ff",
+                        "on-secondary-fixed": "#001945",
+                        "surface": "#080d3c",
+                        "secondary-container": "#0068ed",
+                        "on-tertiary-fixed-variant": "#454747",
+                        "on-secondary": "#002d6e",
+                        "tertiary-fixed-dim": "#c6c6c7",
+                        "on-secondary-fixed-variant": "#00429b",
+                        "surface-variant": "#2c315f",
+                        "error": "#ffb4ab",
+                        "tertiary-container": "#2e3030",
+                        "on-tertiary-container": "#969898",
+                        "surface-dim": "#080d3c",
+                        "surface-container-lowest": "#030737",
+                        "on-surface-variant": "#c6c5d4",
+                        "on-tertiary": "#2f3131",
+                        "on-primary-fixed-variant": "#343d96",
+                        "on-secondary-container": "#f2f3ff",
+                        "surface-tint": "#bdc2ff",
+                        "on-primary-fixed": "#000767",
+                        "on-surface": "#dfe0ff",
+                        "on-tertiary-fixed": "#1a1c1c",
+                        "surface-container-highest": "#2c315f",
+                        "secondary": "#b0c6ff",
+                        "inverse-primary": "#4c56af",
+                        "secondary-fixed": "#d9e2ff",
+                        "surface-container-low": "#111644",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "inverse-on-surface": "#272c5a",
+                        "surface-bright": "#303563",
+                        "error-container": "#93000a",
+                        "surface-container-high": "#212653",
+                        "primary": "#bdc2ff",
+                        "inverse-surface": "#dfe0ff"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "card-padding": "24px",
+                        "margin-mobile": "16px",
+                        "unit": "8px",
+                        "margin-desktop": "40px",
+                        "container-max": "1440px"
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface">
+<!-- Sidebar Navigation Shell -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-surface-container-low shadow-sm flex flex-col py-unit z-50">
+<div class="px-6 py-4">
+<span class="font-headline-md text-headline-md font-extrabold text-primary">BasketFlow</span>
+<p class="text-on-surface-variant font-label-lg text-[10px] tracking-widest uppercase mt-1">Elite Coaching</p>
+</div>
+<nav class="flex-1 mt-6 px-3 space-y-1 overflow-y-auto scrollbar-hide">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-lg text-label-lg">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-label-lg text-label-lg">Equipos</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-lg text-label-lg">Jugadores</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">fitness_center</span>
+<span class="font-label-lg text-label-lg">Entrenamientos</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-primary font-bold border-r-4 border-primary bg-primary-container/10" href="#">
+<span class="material-symbols-outlined">sports_basketball</span>
+<span class="font-label-lg text-label-lg">Ejercicios</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">edit_note</span>
+<span class="font-label-lg text-label-lg">Pizarra</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-label-lg text-label-lg">Estadísticas</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">rule</span>
+<span class="font-label-lg text-label-lg">Evaluaciones</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">event_available</span>
+<span class="font-label-lg text-label-lg">Asistencia</span>
+</a>
+</nav>
+<div class="px-4 py-6 border-t border-outline-variant/30">
+<button class="w-full py-3 bg-secondary-container text-on-secondary-container rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-95">
+<span class="material-symbols-outlined">add</span>
+                New Session
+            </button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen relative overflow-hidden">
+<!-- Animated Background Ornament -->
+<div class="absolute -top-64 -right-64 w-[600px] h-[600px] bg-primary/10 blur-[120px] rounded-full pointer-events-none"></div>
+<div class="absolute top-[40%] -left-32 w-[400px] h-[400px] bg-secondary/5 blur-[100px] rounded-full pointer-events-none"></div>
+<!-- Top App Bar -->
+<header class="flex justify-between items-center h-16 px-margin-desktop bg-surface/50 backdrop-blur-md sticky top-0 z-40 border-b border-outline-variant/20">
+<div class="flex items-center gap-4">
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Biblioteca de Ejercicios</h1>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative group hidden lg:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="bg-surface-container-high border-none rounded-full pl-10 pr-4 py-2 text-sm w-64 focus:ring-2 focus:ring-primary text-on-surface transition-all" placeholder="Buscar ejercicios..." type="text"/>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:text-primary transition-opacity">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-opacity">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary-container">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of an elite basketball coach wearing a dark navy performance polo shirt. The lighting is dramatic and technical, emphasizing discipline and experience, set against a dark architectural background of a modern training facility." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNAmCCkRCtJs6V6-AR8foIZ3074s0lnA0eQkJpMbVxUHkFi1ROhh71Ds1TiW-8MvdMNaw0wcVZLwsC1IyU2PSl4CrOgEVOZqhFWWgpsUtf5m4PTH510yQzE3xGQXiBwIRiddiFHG36kqG2irZD4W-BQ3V_U_bivCTmhn7kdM9fujxdmMaQ4yT-Liizhf9kD-ZnU_1B6prXY5TSDFkR4PN1_L9MwldtRaxTQPvWn56TeTA2xIq_xPcnkq7fGljfpjHMFRanvAwZyB6F"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="p-margin-desktop max-w-[1600px] mx-auto">
+<!-- Header Section with Actions -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">Explorar Biblioteca</h2>
+<p class="text-on-surface-variant font-body-md text-body-md mt-1">Más de 250 ejercicios de alto rendimiento categorizados por habilidad.</p>
+</div>
+<button class="bg-primary text-on-primary px-6 py-3 rounded-lg font-bold flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined">add_circle</span>
+                    + Crear ejercicio
+                </button>
+</div>
+<!-- Filter Chips Section -->
+<div class="flex flex-wrap gap-3 mb-10 overflow-x-auto pb-2 scrollbar-hide">
+<button class="px-5 py-2 rounded-full bg-primary text-on-primary font-label-lg text-label-lg">Todos</button>
+<button class="px-5 py-2 rounded-full bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors font-label-lg text-label-lg border border-outline-variant/30">Tiro</button>
+<button class="px-5 py-2 rounded-full bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors font-label-lg text-label-lg border border-outline-variant/30">Defensa</button>
+<button class="px-5 py-2 rounded-full bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors font-label-lg text-label-lg border border-outline-variant/30">Manejo de Balón</button>
+<button class="px-5 py-2 rounded-full bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors font-label-lg text-label-lg border border-outline-variant/30">Táctica</button>
+<button class="px-5 py-2 rounded-full bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors font-label-lg text-label-lg border border-outline-variant/30">Físico</button>
+<button class="px-5 py-2 rounded-full bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors font-label-lg text-label-lg border border-outline-variant/30">Rebote</button>
+</div>
+<!-- Exercise Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-gutter">
+<!-- Card 1: Tiro -->
+<div class="group bg-white rounded-xl overflow-hidden exercise-card-shadow transition-all hover:-translate-y-1 hover:shadow-xl flex flex-col">
+<div class="relative h-48 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Professional basketball player practicing a mid-range jump shot in a high-tech dark arena. The lighting is cinematic with sharp highlights on the athlete's form and technical blue and white accents in the background. High contrast, elite professional sports photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB1R8VLFa5fR2WgCdT2hbKgzqg_b79a3zliA_a8sipmEgyIthIIxq3EWLtEMT0JwM5XUnhbMffDpGAxF3RsEH30D4sT5pIZuct5DZuIuXyClDx-8y5ZzyMjDoOqM2agkahpr-UAO8EIkWNZ5TIEWZie9f7g8j_uHr0nx7e2mBA11MsWa4QpfM2itTEDVc6rQppp8pjSho3gNP_0rIInnFmoh_FUTqF5wjY4PhFnXJRFqNV1tAc8OvEGC2b4NIicqoSZbsLudJVfXfb1"/>
+<div class="absolute top-4 left-4">
+<span class="px-3 py-1 bg-primary-container text-on-primary-container rounded-full text-[11px] font-bold uppercase tracking-wider">Tiro</span>
+</div>
+<div class="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-white text-[10px] flex items-center gap-1 font-bold">
+<span class="material-symbols-outlined text-[14px]">timer</span> 15 min
+                        </div>
+</div>
+<div class="p-card-padding flex flex-col flex-1">
+<h3 class="font-headline-md text-headline-md text-surface-dim mb-2 leading-tight">Mecánica de Tiro Estático</h3>
+<p class="text-on-tertiary-fixed-variant font-body-md text-sm mb-4 line-clamp-2">Perfeccionamiento del codo y seguimiento del balón tras el lanzamiento desde 5 puntos clave.</p>
+<div class="mt-auto flex items-center justify-between">
+<span class="px-3 py-1 bg-green-100 text-green-800 rounded-lg text-[12px] font-bold">Fácil</span>
+<button class="text-primary hover:text-primary-container transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 2: Defensa -->
+<div class="group bg-white rounded-xl overflow-hidden exercise-card-shadow transition-all hover:-translate-y-1 hover:shadow-xl flex flex-col">
+<div class="relative h-48 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A basketball player in a low defensive stance on a high-end polished wood court. The scene is lit with cool technical blues and crisp white lights. Focus is on the athlete's intense concentration and athletic posture. The background shows professional training equipment. Minimalist and high-performance aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA3PfjC8J5R5iHpk56njs1Zu3Uog7xESMbiOtNirRpg30sl8kTfbjWkmanFy8BcR4rDe0dZc30BHEvPNE72Y7GB1LvWP6JeOiELLZx5N56AxmwynHhM4cp8A1P-4SHrq86JcRXuhY4C--hJSf1Yt6bVPJ2tievl2FXRC6j_FVaisqV1RGDj_sPxjcFShFSdHJqg_GYsY0YKDWNcBjayMM6K_5t0KrlHYYvJU-k57nFEEOhPaIH7wbQQVGLIDfXMVEMiyQLSv2IdMj8x"/>
+<div class="absolute top-4 left-4">
+<span class="px-3 py-1 bg-primary-container text-on-primary-container rounded-full text-[11px] font-bold uppercase tracking-wider">Defensa</span>
+</div>
+<div class="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-white text-[10px] flex items-center gap-1 font-bold">
+<span class="material-symbols-outlined text-[14px]">timer</span> 20 min
+                        </div>
+</div>
+<div class="p-card-padding flex flex-col flex-1">
+<h3 class="font-headline-md text-headline-md text-surface-dim mb-2 leading-tight">Desplazamiento Lateral Explosivo</h3>
+<p class="text-on-tertiary-fixed-variant font-body-md text-sm mb-4 line-clamp-2">Taladros de reacción para mejorar el cierre de espacios y la velocidad de pies en defensa individual.</p>
+<div class="mt-auto flex items-center justify-between">
+<span class="px-3 py-1 bg-amber-100 text-amber-800 rounded-lg text-[12px] font-bold">Medio</span>
+<button class="text-primary hover:text-primary-container transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 3: Manejo -->
+<div class="group bg-white rounded-xl overflow-hidden exercise-card-shadow transition-all hover:-translate-y-1 hover:shadow-xl flex flex-col">
+<div class="relative h-48 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Close-up of a basketball player's hands performing complex ball handling drills with two basketballs simultaneously. The court surface reflects technical blue lighting. Cinematic motion blur on the basketballs emphasizes speed and high skill level. Professional film room style lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCbTvLKfG8sCE3s7JcAPE34nIFb8UVOtvKDINmS4Y83aOlqrHbKyaehk2L3ZcFzxS2yBWHK8YOTM7636EEonsBcP5juTzuDGbb31X0GtBVD5O2pSFH5PaaskUb4i0Few-v-Xo2qAHkAn_7tXaWAlSONAADCB434RC7f8Q4Q7DtlO8SLzKEGoT3s2Y9XuhePETwl-KcZP_WHrjh6aqHeEU0JMskaovglFYvMv1TkroWOCxXM5xm-c0VaJLX8ppEP4BlhZWT6DkTj9URH"/>
+<div class="absolute top-4 left-4">
+<span class="px-3 py-1 bg-primary-container text-on-primary-container rounded-full text-[11px] font-bold uppercase tracking-wider">Manejo</span>
+</div>
+<div class="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-white text-[10px] flex items-center gap-1 font-bold">
+<span class="material-symbols-outlined text-[14px]">timer</span> 25 min
+                        </div>
+</div>
+<div class="p-card-padding flex flex-col flex-1">
+<h3 class="font-headline-md text-headline-md text-surface-dim mb-2 leading-tight">Doble Balón: Control Total</h3>
+<p class="text-on-tertiary-fixed-variant font-body-md text-sm mb-4 line-clamp-2">Desarrollo de la ambidiestría y coordinación mano-ojo mediante el bote de dos balones en sincronía.</p>
+<div class="mt-auto flex items-center justify-between">
+<span class="px-3 py-1 bg-red-100 text-red-800 rounded-lg text-[12px] font-bold">Difícil</span>
+<button class="text-primary hover:text-primary-container transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 4: Táctica -->
+<div class="group bg-white rounded-xl overflow-hidden exercise-card-shadow transition-all hover:-translate-y-1 hover:shadow-xl flex flex-col">
+<div class="relative h-48 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A group of basketball players executing a complex tactical screen-and-roll play during a practice session. The scene is viewed from a coach's tactical perspective. High contrast lighting with focus on player movement and spacing. Dark, elite training environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC9ys0MjJuenfWapI0xYefueqtn1f4Pjvgfxxt-p-goJSHYSOBertOItVMgM0r8oOBCf9ajZegs9muwwUsBushHNnP-pQlWAbgcb17kfkasdzW-G-DHH0GHOx0tWDHzvAefc0Is5cfzH7cdh24gXiLAXWDuZ-w8DZBcco9x9hlFoGt2Sb5b7nCf906Tx7TFXgaucSArSC5GO0rMnIUhBrwJkz3nh7KiYns__cI1mTS-KaJyIYMeravO8NP1B0P9WESIqVjG9SXJtsXg"/>
+<div class="absolute top-4 left-4">
+<span class="px-3 py-1 bg-primary-container text-on-primary-container rounded-full text-[11px] font-bold uppercase tracking-wider">Táctica</span>
+</div>
+<div class="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-white text-[10px] flex items-center gap-1 font-bold">
+<span class="material-symbols-outlined text-[14px]">timer</span> 30 min
+                        </div>
+</div>
+<div class="p-card-padding flex flex-col flex-1">
+<h3 class="font-headline-md text-headline-md text-surface-dim mb-2 leading-tight">Pick &amp; Roll: Lectura Avanzada</h3>
+<p class="text-on-tertiary-fixed-variant font-body-md text-sm mb-4 line-clamp-2">Situaciones reales de juego para mejorar la toma de decisiones del base ante diferentes defensas.</p>
+<div class="mt-auto flex items-center justify-between">
+<span class="px-3 py-1 bg-red-100 text-red-800 rounded-lg text-[12px] font-bold">Difícil</span>
+<button class="text-primary hover:text-primary-container transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 5: Tiro (Repeated Pattern for Grid) -->
+<div class="group bg-white rounded-xl overflow-hidden exercise-card-shadow transition-all hover:-translate-y-1 hover:shadow-xl flex flex-col">
+<div class="relative h-48 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A professional basketball court from the baseline view showing a rack of basketballs and a player catching a ball to shoot. Technical lighting highlights the texture of the orange basketball against the dark arena. Focused, analytical atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRc-pcgREzoO7dRjGvK5bo85qsAPPPERcBfb5GPJYUnRHHJSM_e9o7YIMgw9y6FVCpNr6x70RKMGz-seFF4MIO0d0pFmBrSQvRbm4PyWCpm3dNrg-bCf6LBXftHu15zIMu7UqwWcIRwaXHBan-6tCycnhyO9RYcYmOdFMC0ByLpwpS0Ji7S4drT-8rjTmYH11vSy9xHASaC1kFQ36daWOXk7zSZOb71C95xlZbogQs9RHtVaJKRbFnPr7t1-1CK5wliGGHQXUcFerL"/>
+<div class="absolute top-4 left-4">
+<span class="px-3 py-1 bg-primary-container text-on-primary-container rounded-full text-[11px] font-bold uppercase tracking-wider">Tiro</span>
+</div>
+<div class="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-white text-[10px] flex items-center gap-1 font-bold">
+<span class="material-symbols-outlined text-[14px]">timer</span> 10 min
+                        </div>
+</div>
+<div class="p-card-padding flex flex-col flex-1">
+<h3 class="font-headline-md text-headline-md text-surface-dim mb-2 leading-tight">Catch and Shoot: 100 Calentamiento</h3>
+<p class="text-on-tertiary-fixed-variant font-body-md text-sm mb-4 line-clamp-2">Calentamiento rápido enfocado en la preparación del tiro tras recibir el pase.</p>
+<div class="mt-auto flex items-center justify-between">
+<span class="px-3 py-1 bg-green-100 text-green-800 rounded-lg text-[12px] font-bold">Fácil</span>
+<button class="text-primary hover:text-primary-container transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 6: Rebote -->
+<div class="group bg-white rounded-xl overflow-hidden exercise-card-shadow transition-all hover:-translate-y-1 hover:shadow-xl flex flex-col">
+<div class="relative h-48 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Two tall athletes jumping for a rebound near a high-end basketball hoop. The scene captures the power and verticality of the sport. High contrast with deep shadows and vibrant blue highlights on the court's reflective surface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuACZ-aYalo16QvA78VgtUJr6nxO64W4HCSxWJwH3ntw8GcnB1sOFscklOrdNoZ3_8rsxLmcWbi0rHXNHQCAyneuHpPK9_UeXSDVcTLgNmzJ1yR0v0vNtSuDD8andKl8s9ofcG1F0rJ6F66W0_P28IRIVhlvOTvYpKzqo_pL1uby3fIF6KATyKXUL0HBCLAc9igYBpbWs96j9eqU_1X1k9WvQLLzwivima-fm3CWavbYwpcgOid_5z_2AZ1NnRSP8FOES7uA_77PXvpn"/>
+<div class="absolute top-4 left-4">
+<span class="px-3 py-1 bg-primary-container text-on-primary-container rounded-full text-[11px] font-bold uppercase tracking-wider">Rebote</span>
+</div>
+<div class="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-white text-[10px] flex items-center gap-1 font-bold">
+<span class="material-symbols-outlined text-[14px]">timer</span> 15 min
+                        </div>
+</div>
+<div class="p-card-padding flex flex-col flex-1">
+<h3 class="font-headline-md text-headline-md text-surface-dim mb-2 leading-tight">Box-Out: Agresividad y Técnica</h3>
+<p class="text-on-tertiary-fixed-variant font-body-md text-sm mb-4 line-clamp-2">Fundamentos de bloqueo de rebote defensivo para asegurar la posesión tras el fallo rival.</p>
+<div class="mt-auto flex items-center justify-between">
+<span class="px-3 py-1 bg-amber-100 text-amber-800 rounded-lg text-[12px] font-bold">Medio</span>
+<button class="text-primary hover:text-primary-container transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 7: Físico -->
+<div class="group bg-white rounded-xl overflow-hidden exercise-card-shadow transition-all hover:-translate-y-1 hover:shadow-xl flex flex-col">
+<div class="relative h-48 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Basketball player performing agility ladder drills on a professional court. The shot is low-angle, focusing on footwork and intensity. Lighting is sharp and clinical, highlighting the high-performance training focus." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjfa1jdtcIOecbZanw2JC2S6uyHPnEh02WzMaNSiJiTSIqvYP__HGMTL-2u-xBjpzOWIqC3IjazJgIzeiV_T2YG29Yh2SezkrUmJPUHVoBAEuBhAD3ijeLdnS16jBVMY6dNwPyfQGvS9_UbARz4xOOhWjrQPqW6CoLt7_aXzRxOtK-aQ6eyFwzX7MVVOA_eEIUzoeaXA6NOqj8mVsX7uHWsE3wish39VtZIVvNy-gASpoAS17inONlhWUc9v264hqCeXbnKhwXhTd7"/>
+<div class="absolute top-4 left-4">
+<span class="px-3 py-1 bg-primary-container text-on-primary-container rounded-full text-[11px] font-bold uppercase tracking-wider">Físico</span>
+</div>
+<div class="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-white text-[10px] flex items-center gap-1 font-bold">
+<span class="material-symbols-outlined text-[14px]">timer</span> 40 min
+                        </div>
+</div>
+<div class="p-card-padding flex flex-col flex-1">
+<h3 class="font-headline-md text-headline-md text-surface-dim mb-2 leading-tight">Agilidad y Resistencia de Élite</h3>
+<p class="text-on-tertiary-fixed-variant font-body-md text-sm mb-4 line-clamp-2">Circuito de alta intensidad para maximizar la condición física específica para el último cuarto.</p>
+<div class="mt-auto flex items-center justify-between">
+<span class="px-3 py-1 bg-red-100 text-red-800 rounded-lg text-[12px] font-bold">Difícil</span>
+<button class="text-primary hover:text-primary-container transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Card 8: Táctica -->
+<div class="group bg-white rounded-xl overflow-hidden exercise-card-shadow transition-all hover:-translate-y-1 hover:shadow-xl flex flex-col">
+<div class="relative h-48 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A basketball coach pointing at a technical playbook or clipboard surrounded by players in a huddle. The focus is on communication and analytical thinking. Professional coaching environment with moody, high-contrast lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDWg2-RptrOBE6uUpuxMj3_8akMNUfX8puRNJ4LzHd5t2lkPEGQ9lEDaPZj76oDHOLE4RpNmmydv_BSY-rVPKzpuvVChqZnBJPNlTNgWa-QGCWUTnrvEXpAF7tyewhO9aIwnj6MXtyh4gUjOK8q4fFOQMgg7GAt2EMPj0QAI3MWjzt7xUn6CnDgGEUmsETVtnPiYvUO54TJX3QZviVdUR0vmVE5DCPBKBPX2T3T_u4L5RGKWQGGhkoHN9kLAj3aqVXckzSFX639xNgD"/>
+<div class="absolute top-4 left-4">
+<span class="px-3 py-1 bg-primary-container text-on-primary-container rounded-full text-[11px] font-bold uppercase tracking-wider">Táctica</span>
+</div>
+<div class="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-white text-[10px] flex items-center gap-1 font-bold">
+<span class="material-symbols-outlined text-[14px]">timer</span> 20 min
+                        </div>
+</div>
+<div class="p-card-padding flex flex-col flex-1">
+<h3 class="font-headline-md text-headline-md text-surface-dim mb-2 leading-tight">Salidas de Fondo: Sistemas A y B</h3>
+<p class="text-on-tertiary-fixed-variant font-body-md text-sm mb-4 line-clamp-2">Optimización de las jugadas de saque de fondo para conseguir tiros liberados rápidamente.</p>
+<div class="mt-auto flex items-center justify-between">
+<span class="px-3 py-1 bg-amber-100 text-amber-800 rounded-lg text-[12px] font-bold">Medio</span>
+<button class="text-primary hover:text-primary-container transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Pagination/Load More Footer -->
+<div class="mt-16 flex flex-col items-center gap-4">
+<p class="text-on-surface-variant font-label-lg text-label-lg">Mostrando 8 de 254 ejercicios</p>
+<button class="px-8 py-3 bg-surface-container-highest text-on-surface rounded-lg font-bold border border-outline-variant hover:bg-surface-bright transition-all active:scale-95">
+                    Cargar más ejercicios
+                </button>
+</div>
+</div>
+</main>
+<!-- Micro-interaction Scripts -->
+<script>
+        document.querySelectorAll('.group').forEach(card => {
+            card.addEventListener('mousedown', () => {
+                card.style.transform = 'scale(0.98) translateY(-4px)';
+            });
+            card.addEventListener('mouseup', () => {
+                card.style.transform = 'translateY(-4px)';
+            });
+        });
+
+        // Simple search filter simulation
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const cards = document.querySelectorAll('.grid > div');
+            cards.forEach(card => {
+                const title = card.querySelector('h3').textContent.toLowerCase();
+                if (title.includes(query)) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body></html>

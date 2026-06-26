@@ -1,0 +1,46 @@
+<div class="whiteboard-app">
+  <div class="wb-toolbar">
+    <div class="wb-toolgroup">
+      <a class="wb-back" routerLink="/editor">← Editor</a>
+    </div>
+
+    <div class="wb-toolgroup">
+      <span class="wb-label">Pista</span>
+      <button class="wb-btn" [class.active]="courtView === 'full'" (click)="setCourtView('full')">Completa</button>
+      <button class="wb-btn" [class.active]="courtView === 'offensive_half'" (click)="setCourtView('offensive_half')">Media Of</button>
+      <button class="wb-btn" [class.active]="courtView === 'defensive_half'" (click)="setCourtView('defensive_half')">Media Def</button>
+    </div>
+
+    <div class="wb-toolgroup">
+      <span class="wb-label">Herramienta</span>
+      <button class="wb-btn" [class.active]="currentTool === 'draw'" (click)="setTool('draw')">✏️ Rotulador</button>
+      <button class="wb-btn" [class.active]="currentTool === 'erase'" (click)="setTool('erase')">🧹 Borrador</button>
+    </div>
+
+    <div class="wb-toolgroup">
+      <span class="wb-label">Grosor</span>
+      @for (s of [2, 4, 8, 14]; track s) {
+        <button class="wb-btn size-btn" [class.active]="currentSize === s" (click)="setSize(s)">
+          <span class="size-dot" [style.width.px]="s" [style.height.px]="s"></span>
+        </button>
+      }
+    </div>
+
+    <div class="wb-toolgroup">
+      <span class="wb-label">Color</span>
+      @for (c of ['#000000', '#DD0000', '#3366FF', '#00AA00', '#FF6600', '#9900CC']; track c) {
+        <button class="wb-color-btn" [style.background]="c" [class.active]="currentColor === c" (click)="setColor(c)"></button>
+      }
+    </div>
+
+    <div class="wb-toolgroup">
+      <button class="wb-btn wb-danger" (click)="clearAll()">🗑 Borrar todo</button>
+      <button class="wb-btn" (click)="toggleFullscreen()">⛶ Pantalla completa</button>
+    </div>
+  </div>
+
+  <div class="wb-canvas-wrapper">
+    <img class="wb-bg" [src]="courtImgSrc" [style.transform]="courtFlip" alt="">
+    <canvas #whiteboardCanvas></canvas>
+  </div>
+</div>

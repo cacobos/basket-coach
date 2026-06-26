@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>BasketFlow | Elite Coaching Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-container": "#0068ed",
+                        "inverse-primary": "#4c56af",
+                        "primary-fixed-dim": "#bdc2ff",
+                        "tertiary": "#c6c6c7",
+                        "on-tertiary-container": "#969898",
+                        "secondary-fixed": "#d9e2ff",
+                        "surface-dim": "#080d3c",
+                        "outline": "#908f9d",
+                        "error-container": "#93000a",
+                        "surface-container-highest": "#2c315f",
+                        "surface-container": "#161b48",
+                        "surface-variant": "#2c315f",
+                        "surface-bright": "#303563",
+                        "secondary": "#b0c6ff",
+                        "surface-tint": "#bdc2ff",
+                        "on-secondary": "#002d6e",
+                        "on-tertiary": "#2f3131",
+                        "tertiary-fixed-dim": "#c6c6c7",
+                        "on-secondary-fixed": "#001945",
+                        "on-primary": "#1b247f",
+                        "inverse-on-surface": "#272c5a",
+                        "on-primary-fixed": "#000767",
+                        "error": "#ffb4ab",
+                        "on-secondary-container": "#f2f3ff",
+                        "outline-variant": "#454652",
+                        "surface-container-lowest": "#030737",
+                        "on-primary-container": "#8690ee",
+                        "on-tertiary-fixed-variant": "#454747",
+                        "on-surface": "#dfe0ff",
+                        "on-error": "#690005",
+                        "surface-container-high": "#212653",
+                        "on-tertiary-fixed": "#1a1c1c",
+                        "primary-fixed": "#e0e0ff",
+                        "primary-container": "#1a237e",
+                        "on-secondary-fixed-variant": "#00429b",
+                        "on-primary-fixed-variant": "#343d96",
+                        "secondary-fixed-dim": "#b0c6ff",
+                        "background": "#080d3c",
+                        "inverse-surface": "#dfe0ff",
+                        "tertiary-container": "#2e3030",
+                        "surface": "#080d3c",
+                        "tertiary-fixed": "#e2e2e2",
+                        "on-error-container": "#ffdad6",
+                        "primary": "#bdc2ff",
+                        "surface-container-low": "#111644",
+                        "on-background": "#dfe0ff",
+                        "on-surface-variant": "#c6c5d4"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-mobile": "16px",
+                        "card-padding": "24px",
+                        "unit": "8px",
+                        "margin-desktop": "40px",
+                        "gutter": "24px",
+                        "container-max": "1440px"
+                    },
+                    "fontFamily": {
+                        "label-sm": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "label-lg": ["Hanken Grotesk"],
+                        "headline-xl": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-lg": ["Hanken Grotesk"],
+                        "body-md": ["Hanken Grotesk"],
+                        "headline-lg": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+                        "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "headline-xl": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Hanken Grotesk', sans-serif;
+            background-color: #080d3c;
+            color: #dfe0ff;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-nav-item {
+            background: rgba(26, 35, 126, 0.2);
+            border-right: 4px solid #bdc2ff;
+            color: #bdc2ff;
+            font-weight: 700;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .hover-lift:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px -10px rgba(0,0,0,0.5);
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2c315f;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="overflow-hidden">
+<!-- Sidebar -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-surface-container-low shadow-sm flex flex-col h-full py-unit border-r border-outline-variant z-50">
+<div class="px-6 py-8 flex flex-col items-start gap-2">
+<div class="flex items-center gap-3">
+<img alt="BasketFlow Logo" class="h-10 w-auto brightness-200" src="https://lh3.googleusercontent.com/aida/AP1WRLsgHjz4OLV_0FdwKEdyvePJCmwPLSeugfHCbvQj19pNK7BJSnRi-_yFeV9ERa_SdwUZUHwYjdb7iOfK6N-6Qxk4MySmVDTmv8hW3fIIjFOcc3xmv5C38VnoQmqdUoJxZGQSJCAup7x4al4xQN_FZXwAoEK7wTJQp-ik5DkCqyyHrIHpxFmWRNOOJHHs0VsHWdc6cvq6lApoCPQhIp2BV3qgX0s1W_sYganvsLg7RSM24btXdsQiHUWaGLc"/>
+<h1 class="font-headline-md text-headline-md font-extrabold text-primary tracking-tight">BasketFlow</h1>
+</div>
+<p class="text-on-surface-variant font-label-lg text-xs uppercase tracking-widest opacity-60">Elite Coaching</p>
+</div>
+<nav class="flex-1 px-3 space-y-1 overflow-y-auto">
+<!-- Navigation items from JSON -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg active-nav-item transition-all duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-lg text-label-lg">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-label-lg text-label-lg">Equipos</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-lg text-label-lg">Jugadores</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">fitness_center</span>
+<span class="font-label-lg text-label-lg">Entrenamientos</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">sports_basketball</span>
+<span class="font-label-lg text-label-lg">Ejercicios</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">edit_note</span>
+<span class="font-label-lg text-label-lg">Pizarra</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-label-lg text-label-lg">Estadísticas</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">rule</span>
+<span class="font-label-lg text-label-lg">Evaluaciones</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant font-medium hover:bg-surface-container-high hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">event_available</span>
+<span class="font-label-lg text-label-lg">Asistencia</span>
+</a>
+</nav>
+<div class="p-4 mt-auto">
+<button class="w-full py-3 bg-secondary-container text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined">add</span>
+                New Session
+            </button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 flex flex-col min-h-screen relative">
+<!-- Header -->
+<header class="flex justify-between items-center h-16 px-margin-desktop sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-outline-variant">
+<div class="flex items-center gap-2">
+<span class="text-on-surface-variant font-body-md opacity-60">Home</span>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+<span class="text-primary font-bold font-body-md">Dashboard</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden md:flex items-center bg-surface-container rounded-full px-4 py-1.5 border border-outline-variant">
+<span class="material-symbols-outlined text-on-surface-variant text-sm mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm text-on-surface w-48" placeholder="Search sessions..." type="text"/>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full border-2 border-primary overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a basketball coach in a sleek navy polo shirt. The lighting is dramatic and technical, similar to a high-end sports broadcast profile. The background is a slightly blurred indoor training facility with professional equipment. The aesthetic is clean, disciplined, and authoritative." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCyLIMOPs2Q19YL30FYezstjXlcMwT2C-WfkMDgqtYKhDg1qQjtZ3TTknNpnVT1kdVW6wISRPildFvGVjmN4Jddf49i7l44_n6KvuMzLWEgdfVDVcUm4HC9RfA4MSq7SAlyWqA26VS2AONNTp2w-4TZZpnG6inprvyBPWsRpjM25nSt3j-CIOsE-QOq_aS_vNSF5xQNJy_wZqJt-wpw8cpT-GqxiQUkxa_QkLwnF8p0piFGe-fLnfWuWy2T24Sy__MaHwKYF-C4mzTg"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Dashboard Grid -->
+<section class="p-margin-desktop flex-1 overflow-y-auto">
+<div class="max-w-container-max mx-auto">
+<div class="mb-10">
+<h2 class="font-headline-xl text-headline-xl text-on-surface tracking-tight">Coach Insights</h2>
+<p class="text-on-surface-variant font-body-lg">Bienvenido de nuevo, Coach. Aquí está el resumen de hoy.</p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<!-- 1. Mis Equipos Card -->
+<div class="bg-surface-container rounded-xl p-card-padding flex flex-col gap-6 shadow-sm border border-outline-variant/30">
+<div class="flex justify-between items-center">
+<h3 class="font-headline-md text-headline-md text-on-surface">Mis Equipos</h3>
+<button class="text-primary font-label-lg flex items-center gap-1 hover:underline">
+                                Ver todos <span class="material-symbols-outlined text-sm">open_in_new</span>
+</button>
+</div>
+<div class="space-y-4">
+<!-- Team 1 -->
+<div class="flex items-center justify-between p-4 bg-white/5 rounded-lg border-l-4 border-[#2979FF] hover-lift transition-all cursor-pointer">
+<div>
+<h4 class="font-bold text-on-surface">Varsity Elite</h4>
+<p class="text-xs text-on-surface-variant">15 Jugadores • Rank #2</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant opacity-40">chevron_right</span>
+</div>
+<!-- Team 2 -->
+<div class="flex items-center justify-between p-4 bg-white/5 rounded-lg border-l-4 border-[#00C853] hover-lift transition-all cursor-pointer">
+<div>
+<h4 class="font-bold text-on-surface">Junior Varsity</h4>
+<p class="text-xs text-on-surface-variant">12 Jugadores • Rank #5</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant opacity-40">chevron_right</span>
+</div>
+<!-- Team 3 -->
+<div class="flex items-center justify-between p-4 bg-white/5 rounded-lg border-l-4 border-[#FF9100] hover-lift transition-all cursor-pointer">
+<div>
+<h4 class="font-bold text-on-surface">U-16 Boys</h4>
+<p class="text-xs text-on-surface-variant">14 Jugadores • Rank #8</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant opacity-40">chevron_right</span>
+</div>
+</div>
+</div>
+<!-- 2. Próximos Entrenamientos Card -->
+<div class="bg-surface-container rounded-xl p-card-padding flex flex-col gap-6 shadow-sm border border-outline-variant/30">
+<div class="flex justify-between items-center">
+<h3 class="font-headline-md text-headline-md text-on-surface">Próximos Entrenamientos</h3>
+<span class="material-symbols-outlined text-primary">calendar_today</span>
+</div>
+<div class="relative pl-8 space-y-8 before:content-[''] before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-outline-variant">
+<!-- Event 1 -->
+<div class="relative">
+<div class="absolute -left-[27px] top-1.5 w-3 h-3 rounded-full bg-primary ring-4 ring-surface-container"></div>
+<div class="flex flex-col gap-1">
+<span class="text-xs font-bold text-primary uppercase tracking-tighter">Hoy, 16:00</span>
+<h4 class="font-bold text-on-surface">Shooting Drills</h4>
+<p class="text-xs text-on-surface-variant">Gimnasio Principal • 90 min</p>
+</div>
+</div>
+<!-- Event 2 -->
+<div class="relative">
+<div class="absolute -left-[27px] top-1.5 w-3 h-3 rounded-full bg-primary ring-4 ring-surface-container"></div>
+<div class="flex flex-col gap-1">
+<span class="text-xs font-bold text-primary uppercase tracking-tighter">Hoy, 18:00</span>
+<h4 class="font-bold text-on-surface">Defense Strategy</h4>
+<p class="text-xs text-on-surface-variant">Sala de Video A • 60 min</p>
+</div>
+</div>
+<!-- Event 3 -->
+<div class="relative">
+<div class="absolute -left-[27px] top-1.5 w-3 h-3 rounded-full bg-outline-variant ring-4 ring-surface-container"></div>
+<div class="flex flex-col gap-1 opacity-70">
+<span class="text-xs font-bold text-on-surface-variant uppercase tracking-tighter">Mañana</span>
+<h4 class="font-bold text-on-surface">Team Scrimmage</h4>
+<p class="text-xs text-on-surface-variant">Estadio Central • 120 min</p>
+</div>
+</div>
+</div>
+</div>
+<!-- 3. Estadísticas Rápidas Card -->
+<div class="bg-surface-container rounded-xl p-card-padding flex flex-col gap-6 shadow-sm border border-outline-variant/30">
+<div class="flex justify-between items-center">
+<h3 class="font-headline-md text-headline-md text-on-surface">Estadísticas Rápidas</h3>
+<button class="p-2 rounded-lg hover:bg-surface-container-high">
+<span class="material-symbols-outlined text-on-surface-variant">more_vert</span>
+</button>
+</div>
+<div class="grid grid-cols-2 gap-4 h-full">
+<div class="bg-surface-container-high rounded-xl p-4 flex flex-col justify-between border border-white/5 hover:border-primary/50 transition-colors">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+<span class="material-symbols-outlined text-primary text-sm">trending_up</span>
+</div>
+<div>
+<p class="text-xs text-on-surface-variant font-medium">Win Rate</p>
+<p class="text-2xl font-bold text-on-surface">78%</p>
+</div>
+</div>
+<div class="bg-surface-container-high rounded-xl p-4 flex flex-col justify-between border border-white/5 hover:border-primary/50 transition-colors">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+<span class="material-symbols-outlined text-primary text-sm">sports_basketball</span>
+</div>
+<div>
+<p class="text-xs text-on-surface-variant font-medium">Avg Points</p>
+<p class="text-2xl font-bold text-on-surface">64</p>
+</div>
+</div>
+<div class="bg-surface-container-high rounded-xl p-4 flex flex-col justify-between border border-white/5 hover:border-primary/50 transition-colors">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+<span class="material-symbols-outlined text-primary text-sm">bolt</span>
+</div>
+<div>
+<p class="text-xs text-on-surface-variant font-medium">Efficiency</p>
+<p class="text-2xl font-bold text-on-surface">82</p>
+</div>
+</div>
+<div class="bg-surface-container-high rounded-xl p-4 flex flex-col justify-between border border-white/5 hover:border-primary/50 transition-colors">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+<span class="material-symbols-outlined text-primary text-sm">groups_2</span>
+</div>
+<div>
+<p class="text-xs text-on-surface-variant font-medium">Active Players</p>
+<p class="text-2xl font-bold text-on-surface">15</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Section: Training Performance Chart (Visual enhancement) -->
+<div class="mt-gutter">
+<div class="bg-surface-container rounded-xl p-card-padding border border-outline-variant/30 h-64 relative overflow-hidden group">
+<div class="relative z-10 flex flex-col gap-2">
+<h3 class="font-headline-md text-headline-md text-on-surface">Rendimiento Semanal</h3>
+<p class="text-on-surface-variant text-sm">Análisis comparativo de intensidad por equipo.</p>
+</div>
+<div class="absolute inset-0 flex items-end justify-around px-10 pb-8 opacity-40">
+<div class="w-12 bg-primary rounded-t-lg transition-all duration-700 group-hover:h-32" style="height: 40%;"></div>
+<div class="w-12 bg-primary rounded-t-lg transition-all duration-700 group-hover:h-48" style="height: 60%;"></div>
+<div class="w-12 bg-primary rounded-t-lg transition-all duration-700 group-hover:h-56" style="height: 75%;"></div>
+<div class="w-12 bg-primary rounded-t-lg transition-all duration-700 group-hover:h-40" style="height: 50%;"></div>
+<div class="w-12 bg-primary rounded-t-lg transition-all duration-700 group-hover:h-44" style="height: 55%;"></div>
+<div class="w-12 bg-primary rounded-t-lg transition-all duration-700 group-hover:h-60" style="height: 85%;"></div>
+<div class="w-12 bg-primary rounded-t-lg transition-all duration-700 group-hover:h-32" style="height: 40%;"></div>
+</div>
+<div class="absolute bottom-0 left-0 w-full h-[2px] bg-outline-variant"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Floating Action Button -->
+<button class="fixed bottom-10 right-10 w-16 h-16 bg-[#2979FF] text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all z-50 group">
+<span class="material-symbols-outlined text-3xl group-hover:rotate-90 transition-transform duration-300">add</span>
+<div class="absolute right-20 bg-surface-container-highest px-4 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none text-sm font-bold border border-outline-variant">
+                Nueva Sesión Rápida
+            </div>
+</button>
+</main>
+<script>
+        // Micro-interaction: Active nav states and hover logic
+        document.querySelectorAll('aside nav a').forEach(item => {
+            item.addEventListener('click', function(e) {
+                document.querySelectorAll('aside nav a').forEach(i => i.classList.remove('active-nav-item'));
+                this.classList.add('active-nav-item');
+            });
+        });
+
+        // Simple animation trigger for the chart
+        window.addEventListener('load', () => {
+            const bars = document.querySelectorAll('.group div[style*="height"]');
+            bars.forEach((bar, index) => {
+                const height = bar.style.height;
+                bar.style.height = '0%';
+                setTimeout(() => {
+                    bar.style.height = height;
+                }, 200 * index);
+            });
+        });
+    </script>
+</body></html>
