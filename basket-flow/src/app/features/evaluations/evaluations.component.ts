@@ -143,6 +143,19 @@ import type { Evaluation, Player } from '../../core/models/models';
     .btn-cancel { background: #212653; color: #c6c5d4; }
     .btn-save { background: #0068ed; color: white; }
     .btn-save:hover { opacity: 0.9; }
+    @media (max-width: 768px) {
+      .page { padding: 20px !important; }
+      .page-header { flex-direction: column !important; align-items: stretch !important; gap: 16px !important; }
+      .page-title { font-size: 28px !important; line-height: 36px !important; }
+      .page-sub { font-size: 14px !important; }
+      .eval-grid { grid-template-columns: 1fr !important; }
+      .modal-card { margin: 10px !important; padding: 20px !important; }
+      .field-row { flex-direction: column !important; }
+    }
+    @media (max-width: 480px) {
+      .page { padding: 12px !important; }
+      .page-title { font-size: 22px !important; }
+    }
   `]
 })
 export class EvaluationsComponent implements OnInit {

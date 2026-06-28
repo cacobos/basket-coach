@@ -1,6 +1,7 @@
-import { Component, ElementRef, viewChild, afterNextRender } from '@angular/core';
+import { Component, ElementRef, inject, viewChild, afterNextRender } from '@angular/core';
 import { NgFor } from '@angular/common';
 import Konva from 'konva';
+import { NotificationService } from '../../core/services/notification.service';
 
 type CourtView = 'full' | 'offensive_half' | 'defensive_half';
 
@@ -122,11 +123,26 @@ type CourtView = 'full' | 'offensive_half' | 'defensive_half';
       overflow: hidden; position: relative; touch-action: none;
       background: #fff;
     }
+    @media (max-width: 768px) {
+      .wb-header { flex-direction: column !important; gap: 8px !important; align-items: stretch !important; }
+      .wb-header-actions { flex-wrap: wrap !important; }
+      .wb-btn-outline { flex: 1 !important; text-align: center !important; font-size: 11px !important; padding: 6px 8px !important; }
+      .wb-toolbar { gap: 4px !important; padding: 4px 6px !important; }
+      .wb-group { padding: 0 4px !important; }
+      .wb-btn { padding: 4px 6px !important; font-size: 10px !important; }
+      .wb-label { font-size: 8px !important; }
+    }
+    @media (max-width: 480px) {
+      .wb-toolbar { flex-direction: column !important; align-items: stretch !important; }
+      .wb-group { border-right: none !important; border-bottom: 1px solid rgba(255,255,255,0.08) !important; padding: 4px 0 !important; }
+      .wb-group:last-child { border-bottom: none !important; }
+    }
   `]
 })
 export class WhiteboardComponent {
   private containerRef = viewChild<ElementRef<HTMLDivElement>>('container');
   private whiteboardRef = viewChild<ElementRef<HTMLDivElement>>('whiteboardEl');
+  private notification = inject(NotificationService);
 
   private stage!: Konva.Stage;
   private bgLayer!: Konva.Layer;
@@ -181,9 +197,9 @@ export class WhiteboardComponent {
 
     this.loadBgImage();
 
-    this.stage.on('mousedown', (e) => this.onMouseDown(e));
-    this.stage.on('mousemove', (e) => this.onMouseMove(e));
-    this.stage.on('mouseup', () => this.onMouseUp());
+    this.stage.on('mousedown touchstart pointerdown', (e) => this.onMouseDown(e));
+    this.stage.on('mousemove touchmove pointermove', (e) => this.onMouseMove(e));
+    this.stage.on('mouseup touchend pointerup', () => this.onMouseUp());
 
     window.addEventListener('resize', this.onResize);
     document.addEventListener('fullscreenchange', this.onFullscreenChange);
@@ -213,7 +229,7 @@ export class WhiteboardComponent {
       this.bgLayer.batchDraw();
     };
     img.onerror = () => {
-      console.error('Failed to load court image:', url);
+      this.notification.show(`Failed to load court image: ${url}`);
     };
     img.src = url;
   }
@@ -270,25 +286,27 @@ export class WhiteboardComponent {
     this.currentSize = size;
   }
 
-  private onMouseDown(e: Konva.KonvaEventObject<MouseEvent>): void {
-    if (e.target !== this.stage) return;
+  private onMouseDown(e: Konva.KonvaEventObject<Event>): void {
     const pos = this.stage.getPointerPosition();
     if (!pos) return;
 
     if (this.currentTool === 'erase') {
-      const clicked = this.stage.getIntersection(pos);
-      if (clicked && clicked.name() === 'drawing') {
-        const idx = this.drawnLines.indexOf(clicked as Konva.Line);
+      const hit = e.target !== this.stage && e.target.name() === 'drawing'
+        ? e.target as Konva.Line
+        : this.hitTestLine(pos);
+      if (hit) {
+        const idx = this.drawnLines.indexOf(hit);
         if (idx >= 0) {
           this.drawnLines.splice(idx, 1);
-          this.removedLines.push(clicked as Konva.Line);
+          this.removedLines.push(hit);
         }
-        clicked.destroy();
+        hit.destroy();
         this.drawLayer.batchDraw();
       }
       return;
     }
 
+    if (e.target !== this.stage) return;
     this.isDrawing = true;
     this.currentLine = new Konva.Line({
       points: [pos.x, pos.y],
@@ -303,7 +321,7 @@ export class WhiteboardComponent {
     this.drawLayer.batchDraw();
   }
 
-  private onMouseMove(_e: Konva.KonvaEventObject<MouseEvent>): void {
+  private onMouseMove(_e: Konva.KonvaEventObject<Event>): void {
     if (!this.isDrawing || !this.currentLine || this.currentTool === 'erase') return;
     const pos = this.stage.getPointerPosition();
     if (!pos) return;
@@ -321,6 +339,25 @@ export class WhiteboardComponent {
     }
     this.isDrawing = false;
     this.currentLine = null;
+  }
+
+  private hitTestLine(pos: { x: number; y: number }): Konva.Line | null {
+    const threshold = Math.max(20, this.currentSize * 3);
+    let best: Konva.Line | null = null;
+    let bestDist = threshold;
+    for (const line of this.drawnLines) {
+      const pts = line.points();
+      for (let i = 0; i < pts.length - 1; i += 2) {
+        const dx = pos.x - pts[i];
+        const dy = pos.y - pts[i + 1];
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < bestDist) {
+          bestDist = d;
+          best = line;
+        }
+      }
+    }
+    return best;
   }
 
   clearAll(): void {

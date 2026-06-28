@@ -329,8 +329,9 @@ export class LoginComponent {
     this.message = '';
   }
 
-  signInGoogle(): void {
-    this.auth.signInWithGoogle();
+  async signInGoogle(): Promise<void> {
+    const { error } = await this.auth.signInWithGoogle();
+    if (error) this.message = error.message;
   }
 
   async signIn(): Promise<void> {

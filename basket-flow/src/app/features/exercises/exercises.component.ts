@@ -3,6 +3,7 @@ import { NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DataService } from '../../core/services/data.service';
+import { NotificationService } from '../../core/services/notification.service';
 import type { Exercise, ExerciseVariant } from '../../core/models/models';
 
 @Component({
@@ -232,11 +233,29 @@ import type { Exercise, ExerciseVariant } from '../../core/models/models';
     .variant-tags { display: flex; gap: 4px; flex-wrap: wrap; }
     .variant-delete { position: absolute; top: 8px; right: 8px; }
     .empty-variants { text-align: center; color: #908f9d; padding: 20px; }
+    @media (max-width: 768px) {
+      .page { padding: 20px; }
+      .page-header { flex-direction: column; align-items: stretch; gap: 16px; }
+      .page-title { font-size: 28px; line-height: 36px; }
+      .page-sub { font-size: 14px; }
+      .search-wrap { max-width: 100%; }
+      .exercise-grid { grid-template-columns: 1fr; }
+      .header-buttons { flex-direction: column; align-items: stretch; }
+      .btn-secondary, .btn-primary { width: 100%; justify-content: center; }
+      .modal-card { margin: 10px; padding: 20px; }
+      .field-row { flex-direction: column; }
+    }
+    @media (max-width: 480px) {
+      .page { padding: 12px; }
+      .page-title { font-size: 22px; }
+      .ex-actions { opacity: 1; }
+    }
   `]
 })
 export class ExercisesComponent implements OnInit {
   private data = inject(DataService);
   private cdr = inject(ChangeDetectorRef);
+  private notification = inject(NotificationService);
 
   exercises: Exercise[] = [];
   loading = true;
@@ -287,7 +306,7 @@ export class ExercisesComponent implements OnInit {
       this.exercises = await this.data.getExercises();
       this.collectAllTags();
     } catch (e) {
-      console.error('Error loading exercises:', e);
+      this.notification.show(e instanceof Error ? e.message : String(e));
     }
     this.loading = false;
     this.cdr.detectChanges();

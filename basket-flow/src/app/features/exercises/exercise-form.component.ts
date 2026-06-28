@@ -3,6 +3,7 @@ import { NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DataService } from '../../core/services/data.service';
+import { NotificationService } from '../../core/services/notification.service';
 import type { Exercise } from '../../core/models/models';
 
 @Component({
@@ -104,12 +105,26 @@ import type { Exercise } from '../../core/models/models';
     .loading-icon { font-size: 48px; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loading p { margin: 0; color: #908f9d; }
+    @media (max-width: 768px) {
+      .page { padding: 20px !important; }
+      .page-title { font-size: 28px !important; line-height: 36px !important; }
+      .card { padding: 20px !important; }
+      .field-row { flex-direction: column !important; gap: 16px !important; }
+      .diagram-item { flex-direction: column !important; align-items: stretch !important; }
+      .form-actions { flex-direction: column !important; }
+      .form-actions .btn-cancel, .form-actions .btn-save { width: 100% !important; justify-content: center !important; }
+    }
+    @media (max-width: 480px) {
+      .page { padding: 12px !important; }
+      .page-title { font-size: 22px !important; }
+    }
   `]
 })
 export class ExerciseFormComponent implements OnInit {
   private data = inject(DataService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private notification = inject(NotificationService);
 
   loading = true;
   editing = false;
@@ -155,7 +170,7 @@ export class ExerciseFormComponent implements OnInit {
         }
       }
     } catch (e) {
-      console.error('Error loading form:', e);
+      this.notification.show(e instanceof Error ? e.message : String(e));
     }
     this.loading = false;
   }
@@ -194,7 +209,7 @@ export class ExerciseFormComponent implements OnInit {
       }
       this.router.navigate(['/exercises']);
     } catch (e) {
-      console.error('Error saving exercise:', e);
+      this.notification.show(e instanceof Error ? e.message : String(e));
       this.saving = false;
     }
   }

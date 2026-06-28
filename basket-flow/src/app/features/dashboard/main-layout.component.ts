@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, HostListener } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { NgIf } from '@angular/common';
 import { AuthService } from '../../core/auth/auth.service';
@@ -9,7 +9,16 @@ import { AuthService } from '../../core/auth/auth.service';
   imports: [RouterOutlet, RouterLink, RouterLinkActive, NgIf],
   template: `
     <div class="app-shell">
-      <aside class="sidebar" [class.collapsed]="collapsed">
+      <div class="mobile-header">
+        <button class="hamburger-btn" (click)="toggleMobileMenu()">
+          <span class="material-symbols-outlined">{{ mobileMenuOpen ? 'close' : 'menu' }}</span>
+        </button>
+        <span class="mobile-brand">BasketFlow</span>
+      </div>
+
+      <div class="mobile-backdrop" *ngIf="mobileMenuOpen" (click)="mobileMenuOpen = false"></div>
+
+      <aside class="sidebar" [class.mobile-open]="mobileMenuOpen">
         <div class="sidebar-header">
           <svg class="logo-icon" viewBox="0 0 28 28" fill="none">
             <circle cx="14" cy="12" r="8" stroke="#bdc2ff" stroke-width="1.5" fill="none"/>
@@ -19,67 +28,67 @@ import { AuthService } from '../../core/auth/auth.service';
             <rect x="15.5" y="20" width="7" height="2.5" fill="#bdc2ff" rx="0.5"/>
             <rect x="5.5" y="20" width="7" height="2.5" fill="#bdc2ff" rx="0.5"/>
           </svg>
-          <span *ngIf="!collapsed" class="brand">BasketFlow</span>
-          <button class="toggle-btn" (click)="collapsed = !collapsed">
-            <span class="material-symbols-outlined">{{ collapsed ? 'menu' : 'close' }}</span>
+          <span class="brand">BasketFlow</span>
+          <button class="toggle-btn" (click)="mobileMenuOpen = false">
+            <span class="material-symbols-outlined">close</span>
           </button>
         </div>
 
         <nav class="nav">
-          <a routerLink="/dashboard" routerLinkActive="active-nav-item" [routerLinkActiveOptions]="{exact:true}" class="nav-item">
+          <a routerLink="/dashboard" routerLinkActive="active-nav-item" [routerLinkActiveOptions]="{exact:true}" class="nav-item" (click)="mobileMenuOpen = false">
             <span class="material-symbols-outlined nav-icon">dashboard</span>
-            <span *ngIf="!collapsed">Dashboard</span>
+            <span>Dashboard</span>
           </a>
-          <a routerLink="/teams" routerLinkActive="active-nav-item" class="nav-item">
+          <a routerLink="/teams" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
             <span class="material-symbols-outlined nav-icon">groups</span>
-            <span *ngIf="!collapsed">Equipos</span>
+            <span>Equipos</span>
           </a>
-          <a routerLink="/players" routerLinkActive="active-nav-item" class="nav-item">
+          <a routerLink="/players" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
             <span class="material-symbols-outlined nav-icon">face</span>
-            <span *ngIf="!collapsed">Jugadores</span>
+            <span>Jugadores</span>
           </a>
-          <a routerLink="/exercises" routerLinkActive="active-nav-item" class="nav-item">
+          <a routerLink="/exercises" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
             <span class="material-symbols-outlined nav-icon">fitness_center</span>
-            <span *ngIf="!collapsed">Ejercicios</span>
+            <span>Ejercicios</span>
           </a>
-          <a routerLink="/sessions" routerLinkActive="active-nav-item" class="nav-item">
+          <a routerLink="/sessions" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
             <span class="material-symbols-outlined nav-icon">calendar_month</span>
-            <span *ngIf="!collapsed">Sesiones</span>
+            <span>Sesiones</span>
           </a>
-          <a routerLink="/session-builder" routerLinkActive="active-nav-item" class="nav-item">
+          <a routerLink="/session-builder" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
             <span class="material-symbols-outlined nav-icon">playlist_add</span>
-            <span *ngIf="!collapsed">Crear Sesión</span>
+            <span>Crear Sesión</span>
           </a>
-          <a routerLink="/calendar" routerLinkActive="active-nav-item" class="nav-item">
+          <a routerLink="/calendar" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
             <span class="material-symbols-outlined nav-icon">calendar_view_month</span>
-            <span *ngIf="!collapsed">Calendario</span>
+            <span>Calendario</span>
           </a>
-          <a routerLink="/tactics" routerLinkActive="active-nav-item" class="nav-item">
+          <a routerLink="/tactics" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
             <span class="material-symbols-outlined nav-icon">draw</span>
-            <span *ngIf="!collapsed">Pizarra</span>
+            <span>Pizarra</span>
           </a>
-          <a routerLink="/whiteboard" routerLinkActive="active-nav-item" class="nav-item">
+          <a routerLink="/whiteboard" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
             <span class="material-symbols-outlined nav-icon">edit</span>
-            <span *ngIf="!collapsed">Pizarra Libre</span>
+            <span>Pizarra Libre</span>
           </a>
-          <a routerLink="/stats" routerLinkActive="active-nav-item" class="nav-item">
+          <a routerLink="/stats" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
             <span class="material-symbols-outlined nav-icon">bar_chart</span>
-            <span *ngIf="!collapsed">Estadísticas</span>
+            <span>Estadísticas</span>
           </a>
-          <a routerLink="/evaluations" routerLinkActive="active-nav-item" class="nav-item">
+          <a routerLink="/evaluations" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
             <span class="material-symbols-outlined nav-icon">star</span>
-            <span *ngIf="!collapsed">Evaluaciones</span>
+            <span>Evaluaciones</span>
           </a>
-          <a routerLink="/attendance" routerLinkActive="active-nav-item" class="nav-item">
+          <a routerLink="/attendance" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
             <span class="material-symbols-outlined nav-icon">fact_check</span>
-            <span *ngIf="!collapsed">Asistencia</span>
+            <span>Asistencia</span>
           </a>
         </nav>
 
         <div class="sidebar-footer" *ngIf="auth.profile() as profile">
           <div class="user-info">
             <div class="avatar">{{ profile.full_name.charAt(0) || '?' }}</div>
-            <div *ngIf="!collapsed" class="user-details">
+            <div class="user-details">
               <span class="user-name">{{ profile.full_name }}</span>
               <span class="user-email">{{ profile.email }}</span>
             </div>
@@ -103,16 +112,32 @@ import { AuthService } from '../../core/auth/auth.service';
       background: #080d3c;
       font-family: 'Hanken Grotesk', sans-serif;
     }
+    .mobile-header {
+      display: none;
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      height: 56px; background: #030737;
+      align-items: center; gap: 12px; padding: 0 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .hamburger-btn {
+      background: none; border: none; color: #dfe0ff;
+      cursor: pointer; padding: 4px; display: flex;
+    }
+    .hamburger-btn .material-symbols-outlined { font-size: 24px; }
+    .mobile-brand { font-weight: 800; font-size: 18px; color: #dfe0ff; }
+    .mobile-backdrop {
+      display: none;
+      position: fixed; inset: 0; z-index: 150;
+      background: rgba(0,0,0,0.6);
+    }
     .sidebar {
       width: 240px;
       background: #030737;
       display: flex;
       flex-direction: column;
-      transition: width 0.3s;
       flex-shrink: 0;
       border-right: 1px solid rgba(255,255,255,0.05);
     }
-    .sidebar.collapsed { width: 64px; }
     .sidebar-header {
       display: flex;
       align-items: center;
@@ -134,7 +159,7 @@ import { AuthService } from '../../core/auth/auth.service';
       border: none;
       color: #908f9d;
       cursor: pointer;
-      display: flex;
+      display: none;
       align-items: center;
       padding: 4px;
     }
@@ -190,9 +215,36 @@ import { AuthService } from '../../core/auth/auth.service';
       overflow-y: auto;
       background: #080d3c;
     }
+
+    @media (max-width: 768px) {
+      .app-shell { padding-top: 56px; }
+      .mobile-header { display: flex; }
+      .mobile-backdrop { display: block; }
+      .sidebar {
+        position: fixed; top: 56px; left: 0; bottom: 0; z-index: 180;
+        transform: translateX(-100%); transition: transform 0.25s;
+        width: 280px;
+      }
+      .sidebar.mobile-open { transform: translateX(0); }
+      .toggle-btn { display: flex; }
+      .main-content { min-height: calc(100vh - 56px); }
+    }
+
+    @media (min-width: 769px) {
+      .toggle-btn { display: none; }
+    }
   `]
 })
 export class MainLayoutComponent {
   auth = inject(AuthService);
-  collapsed = false;
+  mobileMenuOpen = false;
+
+  @HostListener('window:resize')
+  onResize() {
+    if (window.innerWidth > 768) this.mobileMenuOpen = false;
+  }
+
+  toggleMobileMenu() {
+    this.mobileMenuOpen = !this.mobileMenuOpen;
+  }
 }

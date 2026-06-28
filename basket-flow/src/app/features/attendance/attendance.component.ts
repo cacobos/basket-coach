@@ -16,9 +16,13 @@ import type { TrainingSession, Player, Team } from '../../core/models/models';
           <p class="page-sub">Registro de presencia y puntualidad en entrenamientos.</p>
         </div>
         <div class="header-actions">
-          <select class="select-input" [(ngModel)]="selectedSession">
+          <select class="select-input" [(ngModel)]="selectedTeam" (change)="onTeamChange()">
+            <option value="">Todos los equipos</option>
+            <option *ngFor="let t of teams" [value]="t.id">{{ t.name }}</option>
+          </select>
+          <select class="select-input" [(ngModel)]="selectedSession" (change)="onSessionChange()">
             <option value="">Seleccionar sesión...</option>
-            <option *ngFor="let s of sessions" [value]="s.id">{{ s.title }} ({{ s.date }})</option>
+            <option *ngFor="let s of filteredSessions" [value]="s.id">{{ s.title }} ({{ s.date }})</option>
           </select>
           <button class="btn-primary" (click)="toggleTaking()" [disabled]="!selectedSession">
             <span class="material-symbols-outlined fill">checklist</span>
@@ -161,6 +165,22 @@ import type { TrainingSession, Player, Team } from '../../core/models/models';
     .empty-state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 80px 20px; color: #908f9d; }
     .empty-icon { font-size: 48px; }
     .empty-state p { margin: 0; font-size: 16px; }
+    @media (max-width: 768px) {
+      .page { padding: 20px !important; }
+      .page-header { flex-direction: column !important; align-items: stretch !important; gap: 16px !important; }
+      .page-title { font-size: 28px !important; line-height: 36px !important; }
+      .page-sub { font-size: 14px !important; }
+      .header-actions { flex-direction: column !important; }
+      .select-input { min-width: 100% !important; }
+      .btn-primary { width: 100% !important; justify-content: center !important; }
+      .summary { flex-direction: column !important; }
+      .table-section { overflow-x: auto !important; }
+      .att-table { min-width: 400px !important; }
+    }
+    @media (max-width: 480px) {
+      .page { padding: 12px !important; }
+      .page-title { font-size: 22px !important; }
+    }
   `]
 })
 export class AttendanceComponent implements OnInit {
@@ -172,6 +192,7 @@ export class AttendanceComponent implements OnInit {
   teamMap: Record<string, Team> = {};
   teamPlayers: Player[] = [];
   selectedSession = '';
+  selectedTeam = '';
   takingAttendance = false;
   attendanceMap: Record<string, string> = {};
   days = ['L', 'M', 'X', 'J', 'V', 'S'];
@@ -180,6 +201,11 @@ export class AttendanceComponent implements OnInit {
   stats: { presentPct: number; late: number; absent: number } | null = null;
 
   rows: DisplayRow[] = [];
+
+  get filteredSessions(): TrainingSession[] {
+    if (!this.selectedTeam) return this.sessions;
+    return this.sessions.filter(s => s.team_id === this.selectedTeam);
+  }
 
   get displayRows(): DisplayRow[] {
     return this.rows;
@@ -197,9 +223,19 @@ export class AttendanceComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
+  onTeamChange() {
+    this.selectedSession = '';
+    this.teamPlayers = [];
+    this.rows = [];
+    this.attendanceMap = {};
+    this.takingAttendance = false;
+    this.stats = null;
+  }
+
   async onSessionChange() {
     if (!this.selectedSession) return;
     this.takingAttendance = false;
+    this.attendanceMap = {};
     const session = this.sessions.find(s => s.id === this.selectedSession);
     if (!session) return;
     this.teamPlayers = await this.data.getPlayers(session.team_id);

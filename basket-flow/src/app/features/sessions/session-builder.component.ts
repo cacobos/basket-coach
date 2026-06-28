@@ -369,6 +369,32 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team }
       background: rgba(189,194,255,0.03);
     }
     .add-section-btn .material-symbols-outlined { font-size: 20px; }
+    @media (max-width: 768px) {
+      .builder-page { padding: 16px !important; }
+      .builder-header { flex-direction: column !important; align-items: stretch !important; gap: 16px !important; }
+      .page-title { font-size: 28px !important; line-height: 36px !important; }
+      .page-sub { font-size: 14px !important; }
+      .header-actions { flex-direction: column !important; }
+      .header-actions .btn-primary, .header-actions .btn-secondary { width: 100% !important; justify-content: center !important; }
+      .builder-body { flex-direction: column !important; gap: 16px !important; }
+      .metadata-panel { width: 100% !important; }
+      .section-header { flex-wrap: wrap !important; gap: 8px !important; }
+      .section-title-group { min-width: 0 !important; flex-wrap: wrap !important; }
+      .section-name-input { width: 100% !important; }
+      .section-actions { width: 100% !important; justify-content: flex-end !important; }
+      .section-add-ex { flex-direction: column !important; align-items: stretch !important; }
+      .add-ex-select { width: 100% !important; }
+      .add-ex-dur { width: 100% !important; }
+      .add-ex-notes { width: 100% !important; }
+      .btn-add-ex { width: 100% !important; justify-content: center !important; }
+      .field-row { flex-direction: column !important; }
+    }
+    @media (max-width: 480px) {
+      .builder-page { padding: 12px !important; }
+      .page-title { font-size: 22px !important; }
+      .ex-item { flex-wrap: wrap !important; }
+      .ex-notes { max-width: 100% !important; }
+    }
   `]
 })
 export class SessionBuilderComponent implements OnInit {

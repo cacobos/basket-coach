@@ -103,6 +103,21 @@ import { DataService } from '../../core/services/data.service';
     .stats-table tr:last-child td { border-bottom: none; }
     .td-name { font-weight: 600; }
     .stats-table tbody tr:hover td { color: #bdc2ff; }
+    @media (max-width: 768px) {
+      .page { padding: 20px !important; }
+      .page-header { flex-direction: column !important; align-items: stretch !important; gap: 16px !important; }
+      .page-title { font-size: 28px !important; line-height: 36px !important; }
+      .page-sub { font-size: 14px !important; }
+      .filter-row { flex-direction: column !important; }
+      .select-input { min-width: 100% !important; }
+      .stats-grid { grid-template-columns: 1fr 1fr !important; }
+      .table-section { overflow-x: auto !important; }
+    }
+    @media (max-width: 480px) {
+      .page { padding: 12px !important; }
+      .page-title { font-size: 22px !important; }
+      .stats-grid { grid-template-columns: 1fr !important; }
+    }
   `]
 })
 export class StatsComponent implements OnInit {

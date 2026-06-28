@@ -577,3 +577,9 @@
   .sidebar-right { border-left: none; border-top: 1px solid rgba(255,255,255,0.05); }
   .canvas-area { min-height: 400px; }
 }
+
+@media (max-width: 768px) {
+  .tactics-layout { flex-direction: column !important; }
+  .tactics-sidebar { width: 100% !important; flex-direction: row !important; flex-wrap: wrap !important; padding: 8px !important; }
+  .tactics-canvas-wrap { min-height: 400px !important; }
+}

@@ -3,6 +3,7 @@ import { NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DataService } from '../../core/services/data.service';
+import { NotificationService } from '../../core/services/notification.service';
 import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team } from '../../core/models/models';
 
 @Component({
@@ -567,6 +568,35 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team }
     .picker-empty .material-symbols-outlined { font-size: 32px; }
 
 
+    @media (max-width: 768px) {
+      .detail-page { padding: 16px !important; }
+      .detail-header { flex-direction: column !important; gap: 16px !important; }
+      .page-title { font-size: 28px !important; line-height: 36px !important; }
+      .detail-header-actions { width: 100% !important; }
+      .detail-header-actions .btn-secondary { flex: 1 !important; justify-content: center !important; }
+      .detail-body { flex-direction: column !important; gap: 16px !important; }
+      .sections-nav { width: 100% !important; }
+      .nav-list { flex-direction: row !important; flex-wrap: wrap !important; }
+      .nav-item { flex: 1 !important; min-width: 120px !important; }
+      .section-header { flex-wrap: wrap !important; gap: 8px !important; }
+      .section-title-group { min-width: 0 !important; flex-wrap: wrap !important; }
+      .section-name-input { width: 100% !important; }
+      .section-header-actions { width: 100% !important; justify-content: flex-end !important; }
+      .section-add-ex { flex-direction: column !important; align-items: stretch !important; }
+      .btn-select-ex { width: 100% !important; }
+      .add-ex-dur { width: 100% !important; }
+      .add-ex-notes { width: 100% !important; }
+      .modal-card { margin: 10px !important; padding: 20px !important; }
+      .field-row { flex-direction: column !important; }
+      .picker-card { margin: 10px !important; max-height: 90vh !important; }
+    }
+    @media (max-width: 480px) {
+      .detail-page { padding: 12px !important; }
+      .page-title { font-size: 22px !important; }
+      .ex-item { flex-wrap: wrap !important; }
+      .ex-duration { margin-left: auto !important; }
+      .ex-notes { max-width: 100% !important; }
+    }
   `]
 })
 export class SessionDetailComponent implements OnInit {
@@ -574,6 +604,7 @@ export class SessionDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
+  private notification = inject(NotificationService);
 
   session: TrainingSession | null = null;
   sections: SessionSection[] = [];
@@ -677,7 +708,7 @@ export class SessionDetailComponent implements OnInit {
         }
       }
     } catch (e) {
-      console.error('Error loading session detail:', e);
+      this.notification.show(e instanceof Error ? e.message : String(e));
     }
     this.loading = false;
   }
@@ -889,7 +920,7 @@ export class SessionDetailComponent implements OnInit {
       const safeName = this.session.title.replace(/[/\\:*?"<>|]/g, '_');
       doc.save(`${safeName}.pdf`);
     } catch (err) {
-      console.error('PDF generation error:', err);
+      this.notification.show(err instanceof Error ? err.message : String(err));
     } finally {
       document.body.removeChild(el);
     }

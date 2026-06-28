@@ -1,6 +1,7 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { SupabaseService } from '../supabase/supabase.service';
+import { NotificationService } from '../services/notification.service';
 import type { User, AuthError } from '@supabase/supabase-js';
 import type { Profile } from '../models/models';
 
@@ -19,7 +20,8 @@ export class AuthService {
 
   constructor(
     private supabase: SupabaseService,
-    private router: Router
+    private router: Router,
+    private notification: NotificationService
   ) {
     this._initSession();
   }
@@ -59,14 +61,15 @@ export class AuthService {
     }
   }
 
-  async signInWithGoogle(): Promise<void> {
+  async signInWithGoogle(): Promise<{ error: AuthError | null }> {
     this._loading.set(true);
     const { error } = await this.supabase.client.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin },
     });
-    if (error) this._handleError(error);
     this._loading.set(false);
+    if (error) this._handleError(error);
+    return { error };
   }
 
   async signInWithEmail(email: string, password: string): Promise<{ error: AuthError | null }> {
@@ -96,6 +99,6 @@ export class AuthService {
   }
 
   private _handleError(error: AuthError): void {
-    console.error('Auth error:', error.message);
+    this.notification.show(error.message);
   }
 }

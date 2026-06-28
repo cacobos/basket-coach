@@ -3,6 +3,7 @@ import { NgFor, NgIf, SlicePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DataService } from '../../core/services/data.service';
+import { NotificationService } from '../../core/services/notification.service';
 import type { TrainingSession, Team } from '../../core/models/models';
 
 @Component({
@@ -166,12 +167,29 @@ import type { TrainingSession, Team } from '../../core/models/models';
     .btn-cancel { background: #212653; color: #c6c5d4; }
     .btn-save { background: #0068ed; color: white; }
     .btn-save:hover { opacity: 0.9; }
+    @media (max-width: 768px) {
+      .page { padding: 20px !important; }
+      .page-header { flex-direction: column !important; align-items: stretch !important; gap: 16px !important; }
+      .page-title { font-size: 28px !important; line-height: 36px !important; }
+      .page-sub { font-size: 14px !important; }
+      .btn-primary { width: 100% !important; justify-content: center !important; }
+      .session-card { flex-wrap: wrap !important; gap: 12px !important; }
+      .session-meta { flex-direction: column !important; gap: 4px !important; }
+      .session-delete { opacity: 1 !important; }
+      .modal-card { margin: 10px !important; padding: 20px !important; }
+      .field-row { flex-direction: column !important; }
+    }
+    @media (max-width: 480px) {
+      .page { padding: 12px !important; }
+      .page-title { font-size: 22px !important; }
+    }
   `]
 })
 export class SessionsComponent implements OnInit {
   private data = inject(DataService);
   router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
+  private notification = inject(NotificationService);
 
   sessions: TrainingSession[] = [];
   teams: Team[] = [];
@@ -212,7 +230,7 @@ export class SessionsComponent implements OnInit {
       this.teams.forEach(t => this.teamNames[t.id] = t.name);
       this.sessions = await this.data.getSessions();
     } catch (e) {
-      console.error('Error loading sessions:', e);
+      this.notification.show(e instanceof Error ? e.message : String(e));
     }
     this.loading = false;
     this.cdr.detectChanges();

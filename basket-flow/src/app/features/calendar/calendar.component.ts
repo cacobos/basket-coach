@@ -188,6 +188,25 @@ import type { TrainingSession, Team } from '../../core/models/models';
     .detail-info { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
     .detail-info p { display: flex; align-items: center; gap: 8px; color: #c6c5d4; margin: 0; font-size: 14px; }
     .detail-info .material-symbols-outlined { font-size: 18px; color: #908f9d; }
+    @media (max-width: 768px) {
+      .page { padding: 20px !important; }
+      .page-header { flex-direction: column !important; gap: 12px !important; align-items: stretch !important; }
+      .page-title { font-size: 28px !important; line-height: 36px !important; }
+      .page-sub { font-size: 14px !important; }
+      .header-actions { justify-content: center !important; }
+      .cal-day { min-height: 80px !important; padding: 4px !important; }
+      .day-number { font-size: 11px !important; }
+      .day-session { font-size: 9px !important; }
+      .modal-card { margin: 10px !important; padding: 20px !important; }
+      .field-row { flex-direction: column !important; }
+    }
+    @media (max-width: 480px) {
+      .page { padding: 12px !important; }
+      .page-title { font-size: 22px !important; }
+      .cal-day-header { font-size: 9px !important; padding: 8px 2px !important; }
+      .cal-day { min-height: 60px !important; }
+      .add-session-btn { opacity: 1 !important; }
+    }
   `]
 })
 export class CalendarComponent implements OnInit {

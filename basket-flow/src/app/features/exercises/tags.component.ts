@@ -3,6 +3,7 @@ import { NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DataService } from '../../core/services/data.service';
+import { NotificationService } from '../../core/services/notification.service';
 import type { Exercise } from '../../core/models/models';
 
 @Component({
@@ -131,10 +132,24 @@ import type { Exercise } from '../../core/models/models';
     .btn-cancel { background: #212653; color: #c6c5d4; }
     .btn-danger { background: #d32f2f; color: white; }
     .btn-danger:hover { opacity: 0.9; }
+    @media (max-width: 768px) {
+      .page { padding: 20px !important; }
+      .page-title { font-size: 28px !important; line-height: 36px !important; }
+      .page-sub { font-size: 14px !important; }
+      .card { padding: 16px !important; }
+      .add-row { flex-direction: column !important; }
+      .add-row .btn-primary { width: 100% !important; justify-content: center !important; }
+      .modal-card { margin: 10px !important; padding: 20px !important; }
+    }
+    @media (max-width: 480px) {
+      .page { padding: 12px !important; }
+      .page-title { font-size: 22px !important; }
+    }
   `]
 })
 export class TagsComponent implements OnInit {
   private data = inject(DataService);
+  private notification = inject(NotificationService);
 
   exercises: Exercise[] = [];
   tags: string[] = [];
@@ -160,7 +175,7 @@ export class TagsComponent implements OnInit {
       this.exercises = await this.data.getExercises();
       this.rebuildTags();
     } catch (e) {
-      console.error('Error loading tags:', e);
+      this.notification.show(e instanceof Error ? e.message : String(e));
     }
     this.loading = false;
   }

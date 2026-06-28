@@ -191,6 +191,23 @@ import { RouterLink } from '@angular/router';
     .chart-axis { position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; background: #454652; }
     .empty-state-sml p { color: #908f9d; font-size: 13px; text-align: center; margin: 0; }
     .empty-state-sml a { color: #bdc2ff; }
+    @media (max-width: 768px) {
+      .content { padding: 20px !important; }
+      .greeting-title { font-size: 32px !important; line-height: 40px !important; }
+      .greeting-sub { font-size: 15px !important; }
+      .grid-3 { grid-template-columns: 1fr !important; }
+      .page-title { font-size: 32px !important; }
+      .topbar { padding: 0 20px !important; }
+      .stats-grid { grid-template-columns: 1fr 1fr !important; }
+    }
+    @media (max-width: 480px) {
+      .content { padding: 16px !important; }
+      .greeting-title { font-size: 26px !important; }
+      .topbar { padding: 0 16px !important; height: 56px !important; }
+      .stats-grid { grid-template-columns: 1fr !important; }
+      .chart-card { height: 180px !important; }
+      .bar { width: 24px !important; }
+    }
   `]
 })
 export class DashboardComponent implements OnInit {

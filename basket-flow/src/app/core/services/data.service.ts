@@ -1,6 +1,7 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AuthService } from '../auth/auth.service';
+import { NotificationService } from './notification.service';
 import type {
   Club, ClubMember, Team, Player, Exercise, ExerciseCategory, ExerciseVariant,
   TrainingSession, SessionSection, SessionExercise, Attendance, GameStats,
@@ -9,6 +10,7 @@ import type {
 
 @Injectable({ providedIn: 'root' })
 export class DataService {
+  private notification = inject(NotificationService);
   private _clubs = signal<Club[]>([]);
   private _currentClub = signal<Club | null>(null);
 
@@ -37,7 +39,7 @@ export class DataService {
           if (clubs.length > 0) this._currentClub.set(clubs[0]);
         }
       } catch (e) {
-        console.error('Error loading clubs:', e);
+        this.notification.show(e instanceof Error ? e.message : String(e));
       }
     }
   }
