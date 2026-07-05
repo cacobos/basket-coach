@@ -1,21 +1,25 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
-import { NgFor, NgIf } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { AsyncPipe, NgFor, NgIf } from '@angular/common';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { ExerciseRepository } from '../../core/repositories/exercise.repository';
 import { DataService } from '../../core/services/data.service';
 import { NotificationService } from '../../core/services/notification.service';
 import type { Exercise, ExerciseVariant } from '../../core/models/models';
+import { from, forkJoin, of } from 'rxjs';
+import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
 
 @Component({
   selector: 'app-exercises',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule, RouterLink],
+  imports: [AsyncPipe, NgFor, NgIf, FormsModule, RouterLink],
   template: `
-    <div class="page">
+    <div class="page" *ngIf="vm$ | async as vm">
       <header class="page-header">
         <div>
           <h2 class="page-title">Biblioteca de Ejercicios</h2>
-          <p class="page-sub">Diseña, organiza y reutiliza ejercicios para tus sesiones.</p>
+          <p class="page-sub">Dise&ntilde;a, organiza y reutiliza ejercicios para tus sesiones.</p>
         </div>
         <div class="header-buttons">
           <a class="btn-secondary" routerLink="/exercises/tags">
@@ -40,11 +44,11 @@ import type { Exercise, ExerciseVariant } from '../../core/models/models';
         </div>
       </div>
 
-      <div class="exercise-grid" *ngIf="!loading; else loadingTpl">
+      <div class="exercise-grid" *ngIf="!vm.loading; else loadingTpl">
         <div class="ex-card" *ngFor="let ex of filtered">
           <div class="ex-body">
             <div class="ex-tags">
-              <span class="ex-tag" *ngFor="let tag of (ex.tags || [])">{{ tag }}</span>
+              <span class="ex-tag" *ngFor="let tag of (ex.tags || [])">{{ tag.name }}</span>
             </div>
             <h3 class="ex-title">{{ ex.name }}</h3>
             <p class="ex-desc">{{ ex.description }}</p>
@@ -52,7 +56,7 @@ import type { Exercise, ExerciseVariant } from '../../core/models/models';
             <div class="ex-meta">
               <span class="ex-meta-item">
                 <span class="material-symbols-outlined">schedule</span>
-                {{ ex.duration_minutes ? ex.duration_minutes + ' min' : '—' }}
+                {{ ex.duration_minutes ? ex.duration_minutes + ' min' : '&mdash;' }}
               </span>
               <span class="ex-meta-item">
                 <span class="material-symbols-outlined">people</span>
@@ -74,7 +78,7 @@ import type { Exercise, ExerciseVariant } from '../../core/models/models';
         </div>
         <div class="empty-state" *ngIf="filtered.length === 0">
           <span class="material-symbols-outlined empty-icon">fitness_center</span>
-          <p>No hay ejercicios aún.</p>
+          <p>No hay ejercicios a&uacute;n.</p>
         </div>
       </div>
 
@@ -101,7 +105,7 @@ import type { Exercise, ExerciseVariant } from '../../core/models/models';
               <button class="btn-icon variant-delete" (click)="deleteVariant(v)"><span class="material-symbols-outlined">delete</span></button>
             </div>
           </div>
-          <p class="empty-variants" *ngIf="variants.length === 0">Sin variantes aún.</p>
+          <p class="empty-variants" *ngIf="variants.length === 0">Sin variantes a&uacute;n.</p>
           <button class="btn-primary btn-full" (click)="generateVariant()">
             <span class="material-symbols-outlined">call_split</span>
             Generar Variante
@@ -252,13 +256,12 @@ import type { Exercise, ExerciseVariant } from '../../core/models/models';
     }
   `]
 })
-export class ExercisesComponent implements OnInit {
+export class ExercisesComponent {
+  private exerciseRepo = inject(ExerciseRepository);
   private data = inject(DataService);
-  private cdr = inject(ChangeDetectorRef);
   private notification = inject(NotificationService);
 
   exercises: Exercise[] = [];
-  loading = true;
   search = '';
   selectedTags: string[] = [];
   allTags: string[] = [];
@@ -267,14 +270,32 @@ export class ExercisesComponent implements OnInit {
   selectedEx: Exercise | null = null;
   variants: ExerciseVariant[] = [];
 
+  private club$ = toObservable(this.data.currentClub).pipe(filter(Boolean));
+
+  vm$ = this.club$.pipe(
+    switchMap(club => forkJoin({
+      exercises: from(this.exerciseRepo.findAll(club.id)),
+    })),
+    map(({ exercises }) => {
+      this.exercises = exercises;
+      this.collectAllTags();
+      return { loading: false };
+    }),
+    catchError(err => {
+      this.notification.show(err instanceof Error ? err.message : String(err));
+      return of({ loading: false });
+    }),
+    startWith({ loading: true }),
+  );
+
   get filtered() {
     let list = this.exercises;
     if (this.search) {
       const q = this.search.toLowerCase();
-      list = list.filter(e => e.name.toLowerCase().includes(q) || (e.tags || []).some(t => t.toLowerCase().includes(q)));
+      list = list.filter(e => e.name.toLowerCase().includes(q) || (e.tags || []).some(t => t.name.toLowerCase().includes(q)));
     }
     if (this.selectedTags.length > 0) {
-      list = list.filter(e => (e.tags || []).some(t => this.selectedTags.includes(t)));
+      list = list.filter(e => (e.tags || []).some(t => this.selectedTags.includes(t.name)));
     }
     return list;
   }
@@ -288,39 +309,20 @@ export class ExercisesComponent implements OnInit {
   private collectAllTags() {
     const set = new Set<string>();
     for (const ex of this.exercises) {
-      for (const tag of ex.tags || []) set.add(tag);
+      for (const tag of ex.tags || []) set.add(tag.name);
     }
     this.allTags = Array.from(set).sort();
   }
 
-  async ngOnInit() {
-    while (!this.data.currentClub()) {
-      await new Promise(r => setTimeout(r, 50));
-    }
-    await this.load();
-  }
-
-  async load() {
-    this.loading = true;
-    try {
-      this.exercises = await this.data.getExercises();
-      this.collectAllTags();
-    } catch (e) {
-      this.notification.show(e instanceof Error ? e.message : String(e));
-    }
-    this.loading = false;
-    this.cdr.detectChanges();
-  }
-
   async deleteExercise(ex: Exercise) {
     if (!confirm(`¿Eliminar "${ex.name}"?`)) return;
-    await this.data.deleteExercise(ex.id);
+    await this.exerciseRepo.remove(ex.id);
     await this.load();
   }
 
   async openVariants(ex: Exercise) {
     this.selectedEx = ex;
-    this.variants = await this.data.getVariants(ex.id);
+    this.variants = await this.exerciseRepo.getVariants(ex.id);
     this.showVariants = true;
   }
 
@@ -334,7 +336,7 @@ export class ExercisesComponent implements OnInit {
     const ex = this.selectedEx;
     if (!ex) return;
     const count = this.variants.length + 1;
-    await this.data.createVariant({
+    await this.exerciseRepo.createVariant({
       exercise_id: ex.id,
       name: `${ex.name} - Variante ${count}`,
       description: ex.description,
@@ -342,16 +344,22 @@ export class ExercisesComponent implements OnInit {
       duration_minutes: ex.duration_minutes ? ex.duration_minutes + 5 : null,
       players_min: ex.players_min,
       players_max: ex.players_max,
-      tags: [...(ex.tags || [])],
+      tags: [...(ex.tags || []).map(t => t.name)],
       diagrams: [...(ex.diagrams || [])],
       notes: null,
     });
-    this.variants = await this.data.getVariants(ex.id);
+    this.variants = await this.exerciseRepo.getVariants(ex.id);
   }
 
   async deleteVariant(v: ExerciseVariant) {
     if (!confirm(`¿Eliminar variante "${v.name}"?`)) return;
-    await this.data.deleteVariant(v.id);
+    await this.exerciseRepo.deleteVariant(v.id);
     this.variants = this.variants.filter(x => x.id !== v.id);
+  }
+
+  private async load() {
+    const clubId = this.data.currentClub()!.id;
+    this.exercises = await this.exerciseRepo.findAll(clubId);
+    this.collectAllTags();
   }
 }

@@ -1,15 +1,28 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
-import { NgFor, NgIf } from '@angular/common';
+import { Component, inject, signal } from '@angular/core';
+import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { forkJoin, from, of } from 'rxjs';
+import { filter, map, switchMap } from 'rxjs/operators';
 import { DataService } from '../../core/services/data.service';
+import { PlayerRepository } from '../../core/repositories/player.repository';
+import { TeamRepository } from '../../core/repositories/team.repository';
+import { SupabaseService } from '../../core/supabase/supabase.service';
+import { AuthService } from '../../core/auth/auth.service';
+import { NotificationService } from '../../core/services/notification.service';
+import { PermissionService } from '../../core/services/permission.service';
+import type { Role } from '../../core/services/permission.service';
 import type { Team } from '../../core/models/models';
+
+const STAFF_ROLES = ['head_coach', 'assistant_coach'] as const;
 
 @Component({
   selector: 'app-teams',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule],
+  imports: [AsyncPipe, NgFor, NgIf, FormsModule],
   template: `
-    <div class="page">
+    <div class="page" *ngIf="vm$ | async">
       <header class="page-header">
         <div>
           <h2 class="page-title">Mis Equipos</h2>
@@ -32,7 +45,7 @@ import type { Team } from '../../core/models/models';
         </div>
       </div>
 
-      <div class="team-grid" *ngIf="!loading; else loadingTpl">
+      <div class="team-grid">
         <div class="team-card" *ngFor="let team of filtered" (click)="openPlayers(team)">
           <div class="card-accent" [style.background]="teamColors[team.category] || '#454652'"></div>
           <div class="card-body">
@@ -47,6 +60,11 @@ import type { Team } from '../../core/models/models';
               <span class="material-symbols-outlined">groups</span>
               <span>{{ team._playerCount ?? '—' }} Jugadores</span>
             </div>
+            <div class="card-staff">
+              <span class="material-symbols-outlined">badge</span>
+              <span>{{ team._staffCount ?? 0 }} Staff</span>
+              <button class="staff-btn" *ngIf="userCanManage" (click)="$event.stopPropagation(); openStaff(team)">Gestionar</button>
+            </div>
             <div class="card-footer">
               <span class="card-action">ABRIR ROSTER</span>
               <span class="material-symbols-outlined card-arrow">arrow_forward</span>
@@ -58,13 +76,6 @@ import type { Team } from '../../core/models/models';
           <p>No hay equipos aún. Crea el primero.</p>
         </div>
       </div>
-
-      <ng-template #loadingTpl>
-        <div class="loading-state">
-          <span class="material-symbols-outlined loading-icon">sync</span>
-          <p>Cargando equipos...</p>
-        </div>
-      </ng-template>
 
       <div class="modal-overlay" *ngIf="showForm" (click)="showForm = false">
         <div class="modal-card" (click)="$event.stopPropagation()">
@@ -93,6 +104,36 @@ import type { Team } from '../../core/models/models';
           <div class="modal-actions">
             <button class="btn-cancel" (click)="showForm = false">Cancelar</button>
             <button class="btn-save" (click)="save()">{{ editing ? 'Guardar' : 'Crear' }}</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-overlay" *ngIf="showStaffModal && staffTeam" (click)="closeStaff()">
+        <div class="modal-card" (click)="$event.stopPropagation()">
+          <h3 class="modal-title">Staff — {{ staffTeam.name }}</h3>
+          <div class="staff-list">
+            <div class="staff-item" *ngFor="let s of staffMembers">
+              <span>{{ s.profiles?.full_name || s.user_id?.slice(0,8) }}</span>
+              <span class="staff-role-label">{{ s.role }}</span>
+              <button class="btn-remove" *ngIf="userCanManage" (click)="removeStaff(s)">✕</button>
+            </div>
+            <p class="empty-msg" *ngIf="staffMembers.length === 0">Sin staff asignado.</p>
+          </div>
+          <div class="add-section" *ngIf="userCanManage && availableUsers.length > 0">
+            <h4>Añadir staff</h4>
+            <div class="add-row">
+              <select class="field-input" [(ngModel)]="newStaffUserId">
+                <option value="" disabled>Seleccionar usuario…</option>
+                <option *ngFor="let u of availableUsers" [value]="u.id">{{ u.email }} {{ u.full_name ? '— ' + u.full_name : '' }}</option>
+              </select>
+              <select class="field-input role-select-sm" [(ngModel)]="newStaffRole">
+                <option *ngFor="let r of staffRoles" [value]="r">{{ r }}</option>
+              </select>
+              <button class="btn-add" (click)="addStaff()">Añadir</button>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn-cancel" (click)="closeStaff()">Cerrar</button>
           </div>
         </div>
       </div>
@@ -152,8 +193,12 @@ import type { Team } from '../../core/models/models';
     .team-card:hover .more-btn { opacity: 1; }
     .more-btn .material-symbols-outlined { font-size: 18px; }
     .card-name { font-size: 24px; line-height: 32px; font-weight: 700; color: #dfe0ff; margin: 0 0 8px; }
-    .card-players { display: flex; align-items: center; gap: 8px; color: #c6c5d4; font-size: 14px; margin-bottom: 32px; }
+    .card-players { display: flex; align-items: center; gap: 8px; color: #c6c5d4; font-size: 14px; margin-bottom: 8px; }
     .card-players .material-symbols-outlined { font-size: 16px; }
+    .card-staff { display: flex; align-items: center; gap: 8px; color: #908f9d; font-size: 13px; margin-bottom: 24px; }
+    .card-staff .material-symbols-outlined { font-size: 16px; }
+    .staff-btn { background: none; border: 1px solid rgba(69,70,82,0.3); color: #bdc2ff; border-radius: 6px; padding: 2px 10px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: 'Hanken Grotesk', sans-serif; }
+    .staff-btn:hover { border-color: #bdc2ff; }
     .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
     .card-action { color: #b0c6ff; font-weight: 700; font-size: 12px; letter-spacing: 0.02em; }
     .team-card:hover .card-action { text-decoration: underline; }
@@ -206,14 +251,33 @@ import type { Team } from '../../core/models/models';
       .page-title { font-size: 22px !important; }
       .btn-primary { width: 100% !important; justify-content: center !important; }
     }
+    .staff-list { margin-bottom: 16px; }
+    .staff-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid rgba(69,70,82,0.1); font-size: 14px; color: #c6c5d4; }
+    .staff-item span:first-child { flex: 1; }
+    .staff-role-label { text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; padding: 2px 8px; border-radius: 9999px; background: rgba(255,255,255,0.05); }
+    .btn-remove { background: none; border: none; color: #f44336; cursor: pointer; font-size: 14px; padding: 4px; opacity: 0.5; }
+    .btn-remove:hover { opacity: 1; }
+    .add-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(69,70,82,0.2); }
+    .add-section h4 { font-size: 13px; font-weight: 700; color: #908f9d; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 12px; }
+    .add-row { display: flex; gap: 8px; align-items: center; }
+    .add-row .field-input { flex: 1; }
+    .role-select-sm { width: 140px; }
+    .btn-add { background: #0068ed; color: white; border: none; border-radius: 8px; padding: 10px 16px; font-family: 'Hanken Grotesk', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .btn-add:hover { opacity: 0.9; }
+    .empty-msg { font-size: 13px; color: #908f9d; margin: 12px 0 0; }
   `]
 })
-export class TeamsComponent implements OnInit {
+export class TeamsComponent {
   private data = inject(DataService);
-  private cdr = inject(ChangeDetectorRef);
+  private playerRepo = inject(PlayerRepository);
+  private teamRepo = inject(TeamRepository);
+  private supabase = inject(SupabaseService);
+  private auth = inject(AuthService);
+  private notification = inject(NotificationService);
+  private permissions = inject(PermissionService);
+  private router = inject(Router);
 
-  teams: (Team & { _playerCount?: number })[] = [];
-  loading = true;
+  teams: (Team & { _playerCount?: number; _staffCount?: number })[] = [];
   search = '';
   categoryFilter = '';
   categories = ['U10', 'U12', 'U14', 'U16', 'U18', 'Varsity'];
@@ -228,6 +292,15 @@ export class TeamsComponent implements OnInit {
     'U16': '#9C27B0', 'U18': '#F44336', 'Varsity': '#0068ed'
   };
 
+  readonly staffRoles = STAFF_ROLES;
+  showStaffModal = false;
+  staffTeam: (Team & { _staffCount?: number }) | null = null;
+  staffMembers: any[] = [];
+  availableUsers: any[] = [];
+  newStaffUserId = '';
+  newStaffRole: string = 'assistant_coach';
+  userCanManage = false;
+
   get filtered() {
     let list = this.teams;
     if (this.search) {
@@ -240,25 +313,34 @@ export class TeamsComponent implements OnInit {
     return list;
   }
 
-  async ngOnInit() {
-    while (!this.data.currentClub()) {
-      await new Promise(r => setTimeout(r, 50));
-    }
-    await this.loadTeams();
-  }
+  private club$ = toObservable(this.data.currentClub).pipe(filter(Boolean));
 
-  async loadTeams() {
-    this.loading = true;
-    const teams = await this.data.getTeams();
-    const withCounts = await Promise.all(
-      teams.map(async (t) => {
-        const players = await this.data.getPlayers(t.id);
-        return { ...t, _playerCount: players.length };
-      })
-    );
-    this.teams = withCounts;
-    this.loading = false;
-    this.cdr.detectChanges();
+  vm$ = this.club$.pipe(
+    switchMap(club => from(this._loadUserRole(club.id)).pipe(
+      switchMap(() => from(this.loadTeams())),
+    )),
+    map(() => ({})),
+  );
+
+  private async _loadUserRole(clubId: string) {
+    const profile = this.auth.profile();
+    if (profile?.is_superadmin) {
+      this.userCanManage = true;
+      return;
+    }
+    const userId = this.auth.user()?.id;
+    if (!userId) { this.userCanManage = false; return; }
+    const { data } = await this.supabase.client
+      .from('club_members')
+      .select('role')
+      .eq('club_id', clubId)
+      .eq('user_id', userId)
+      .single();
+    if (data) {
+      this.userCanManage = this.permissions.hasPermission(data.role as Role, 'team.staff.manage');
+    } else {
+      this.userCanManage = false;
+    }
   }
 
   openCreate() {
@@ -277,17 +359,81 @@ export class TeamsComponent implements OnInit {
   }
 
   async deleteTeam(team: Team) {
-    const players = await this.data.getPlayers(team.id);
+    const players = await this.playerRepo.findAll(team.id);
     if (players.length > 0) {
       if (!confirm(`¿Eliminar "${team.name}"? También se eliminarán sus ${players.length} jugadores.`)) return;
     } else {
       if (!confirm(`¿Eliminar "${team.name}"?`)) return;
     }
-    await this.data.deleteTeam(team.id);
+    await this.teamRepo.remove(team.id);
     await this.loadTeams();
   }
 
   openPlayers(team: Team) {
-    // TODO: navigate to players filtered by team
+    this.router.navigate(['/players'], { queryParams: { teamId: team.id } });
+  }
+
+  async openStaff(team: Team & { _staffCount?: number }) {
+    this.staffTeam = team;
+    this.showStaffModal = true;
+    const clubId = this.data.currentClub()?.id;
+    if (!clubId) return;
+    const [{ data: staff }, { data: profiles }] = await Promise.all([
+      this.supabase.client.from('team_staff').select('*, profiles(*)').eq('team_id', team.id),
+      this.supabase.client.from('profiles').select('id, email, full_name').order('email'),
+    ]);
+    this.staffMembers = (staff as any[]) || [];
+    const allProfiles = (profiles as any[]) || [];
+    const staffUserIds = new Set(this.staffMembers.map(s => s.user_id));
+    this.availableUsers = allProfiles.filter(p => !staffUserIds.has(p.id));
+    this.newStaffUserId = '';
+    this.newStaffRole = 'assistant_coach';
+  }
+
+  closeStaff() {
+    this.showStaffModal = false;
+    this.staffTeam = null;
+    this.staffMembers = [];
+    this.availableUsers = [];
+  }
+
+  async addStaff() {
+    if (!this.newStaffUserId || !this.staffTeam) return;
+    await this.supabase.client
+      .from('team_staff')
+      .insert({ team_id: this.staffTeam.id, user_id: this.newStaffUserId, role: this.newStaffRole });
+    await this.openStaff(this.staffTeam);
+    await this.loadTeams();
+  }
+
+  async removeStaff(member: any) {
+    if (!this.staffTeam) return;
+    if (member.role === 'head_coach') {
+      const coachCount = this.staffMembers.filter((s: any) => s.role === 'head_coach').length;
+      if (coachCount <= 1) {
+        this.notification.show('Debe haber al menos un head_coach en el equipo');
+        return;
+      }
+    }
+    await this.supabase.client
+      .from('team_staff')
+      .delete()
+      .eq('id', member.id);
+    await this.openStaff(this.staffTeam);
+    await this.loadTeams();
+  }
+
+  private async loadTeams() {
+    const teams = await this.data.getTeams();
+    const withCounts = await Promise.all(
+      teams.map(async (t) => {
+        const [players, staff] = await Promise.all([
+          this.playerRepo.findAll(t.id),
+          this.supabase.client.from('team_staff').select('id', { count: 'exact', head: true }).eq('team_id', t.id),
+        ]);
+        return { ...t, _playerCount: players.length, _staffCount: staff.count ?? 0 };
+      })
+    );
+    this.teams = withCounts;
   }
 }

@@ -1,15 +1,20 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
-import { NgFor, NgIf } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { forkJoin } from 'rxjs';
+import { filter, map, switchMap, tap } from 'rxjs/operators';
 import { DataService } from '../../core/services/data.service';
+import { PlayerRepository } from '../../core/repositories/player.repository';
 import type { Player, Team } from '../../core/models/models';
 
 @Component({
   selector: 'app-players',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule],
+  imports: [AsyncPipe, NgFor, NgIf, FormsModule],
   template: `
-    <div class="page">
+    <div class="page" *ngIf="vm$ | async">
       <header class="page-header">
         <div>
           <h2 class="page-title">Jugadores</h2>
@@ -49,7 +54,7 @@ import type { Player, Team } from '../../core/models/models';
       </div>
 
       <div class="player-grid" *ngIf="!loading; else loadingTpl">
-        <div class="player-card" *ngFor="let player of filtered">
+        <div class="player-card" *ngFor="let player of filtered" (click)="viewPlayer(player.id)">
           <div class="player-avatar" [style.background]="playerColors[player.position!] || '#454652'">
             <span class="player-initials">{{ (player.first_name[0] + player.last_name[0]).toUpperCase() }}</span>
           </div>
@@ -228,9 +233,11 @@ import type { Player, Team } from '../../core/models/models';
     }
   `]
 })
-export class PlayersComponent implements OnInit {
+export class PlayersComponent {
   private data = inject(DataService);
-  private cdr = inject(ChangeDetectorRef);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private playerRepo = inject(PlayerRepository);
 
   players: Player[] = [];
   teams: Team[] = [];
@@ -263,20 +270,29 @@ export class PlayersComponent implements OnInit {
     return list;
   }
 
-  async ngOnInit() {
-    while (!this.data.currentClub()) {
-      await new Promise(r => setTimeout(r, 50));
-    }
-    await this.load();
-  }
+  private club$ = toObservable(this.data.currentClub).pipe(filter(Boolean));
 
-  async load() {
-    this.loading = true;
-    this.teams = await this.data.getTeams();
-    this.teams.forEach(t => this.teamNames[t.id] = t.name);
-    this.players = await this.data.getPlayers();
-    this.loading = false;
-    this.cdr.detectChanges();
+  vm$ = this.club$.pipe(
+    switchMap(club => forkJoin({
+      teams: this.data.getTeams(),
+      players: this.playerRepo.findByClub(club.id),
+    })),
+    tap(({ teams, players }) => {
+      this.teams = teams;
+      this.players = players;
+      this.teamNames = {};
+      teams.forEach(t => this.teamNames[t.id] = t.name);
+      this.loading = false;
+    }),
+    map(() => ({})),
+  );
+
+  constructor() {
+    this.route.queryParams.subscribe(params => {
+      if (params['teamId']) {
+        this.teamFilter = params['teamId'];
+      }
+    });
   }
 
   openCreate() {
@@ -287,7 +303,8 @@ export class PlayersComponent implements OnInit {
 
   async save() {
     if (!this.formFirstName.trim() || !this.formLastName.trim()) return;
-    await this.data.createPlayer({
+    await this.playerRepo.create({
+      club_id: this.data.currentClub()!.id,
       team_id: this.formTeamId,
       first_name: this.formFirstName.trim(),
       last_name: this.formLastName.trim(),
@@ -307,7 +324,19 @@ export class PlayersComponent implements OnInit {
 
   async deletePlayer(player: Player) {
     if (!confirm(`¿Eliminar a ${player.first_name} ${player.last_name}?`)) return;
-    await this.data.deletePlayer(player.id);
+    await this.playerRepo.remove(player.id);
     await this.load();
+  }
+
+  viewPlayer(id: string) {
+    this.router.navigate(['/players', id]);
+  }
+
+  private async load() {
+    this.loading = true;
+    this.teams = await this.data.getTeams();
+    this.teams.forEach(t => this.teamNames[t.id] = t.name);
+    this.players = await this.playerRepo.findByClub(this.data.currentClub()!.id);
+    this.loading = false;
   }
 }

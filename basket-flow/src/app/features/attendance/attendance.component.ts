@@ -1,15 +1,20 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
-import { NgFor, NgIf } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { NgFor, NgIf, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../../core/services/data.service';
+import { PlayerRepository } from '../../core/repositories/player.repository';
+import { SessionRepository } from '../../core/repositories/session.repository';
+import { Subject, forkJoin, from, of } from 'rxjs';
+import { startWith, switchMap, filter, map, tap, catchError } from 'rxjs/operators';
+import { toObservable } from '@angular/core/rxjs-interop';
 import type { TrainingSession, Player, Team } from '../../core/models/models';
 
 @Component({
   selector: 'app-attendance',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule],
+  imports: [NgFor, NgIf, FormsModule, AsyncPipe],
   template: `
-    <div class="page">
+    <div class="page" *ngIf="vm$ | async as vm; else loadingTpl">
       <header class="page-header">
         <div>
           <h2 class="page-title">Control de Asistencia</h2>
@@ -18,7 +23,7 @@ import type { TrainingSession, Player, Team } from '../../core/models/models';
         <div class="header-actions">
           <select class="select-input" [(ngModel)]="selectedTeam" (change)="onTeamChange()">
             <option value="">Todos los equipos</option>
-            <option *ngFor="let t of teams" [value]="t.id">{{ t.name }}</option>
+            <option *ngFor="let t of vm.teams" [value]="t.id">{{ t.name }}</option>
           </select>
           <select class="select-input" [(ngModel)]="selectedSession" (change)="onSessionChange()">
             <option value="">Seleccionar sesión...</option>
@@ -85,6 +90,7 @@ import type { TrainingSession, Player, Team } from '../../core/models/models';
                     <option value="late">Retraso</option>
                     <option value="absent">Ausente</option>
                     <option value="excused">Justificado</option>
+                    <option value="injured">Lesionado</option>
                   </select>
                 </td>
                 <td><button class="btn-save-sml" (click)="saveOne(p.player)">✓</button></td>
@@ -99,6 +105,10 @@ import type { TrainingSession, Player, Team } from '../../core/models/models';
         <p>No hay jugadores en el equipo de esta sesión.</p>
       </div>
     </div>
+
+    <ng-template #loadingTpl>
+      <div class="page"><div class="loading-state"><span class="material-symbols-outlined loading-icon">sync</span><p>Cargando...</p></div></div>
+    </ng-template>
   `,
   styles: [`
     .page { padding: 40px; max-width: 1440px; margin: 0 auto; }
@@ -162,6 +172,9 @@ import type { TrainingSession, Player, Team } from '../../core/models/models';
       background: #0068ed; color: white; border: none; border-radius: 6px;
       padding: 6px 12px; font-size: 12px; cursor: pointer;
     }
+    .loading-state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 80px 20px; color: #908f9d; }
+    .loading-icon { font-size: 48px; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .empty-state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 80px 20px; color: #908f9d; }
     .empty-icon { font-size: 48px; }
     .empty-state p { margin: 0; font-size: 16px; }
@@ -183,9 +196,11 @@ import type { TrainingSession, Player, Team } from '../../core/models/models';
     }
   `]
 })
-export class AttendanceComponent implements OnInit {
+export class AttendanceComponent {
   private data = inject(DataService);
-  private cdr = inject(ChangeDetectorRef);
+  private playerRepo = inject(PlayerRepository);
+  private sessionRepo = inject(SessionRepository);
+  private reload = new Subject<void>();
 
   sessions: TrainingSession[] = [];
   teams: Team[] = [];
@@ -211,17 +226,29 @@ export class AttendanceComponent implements OnInit {
     return this.rows;
   }
 
-  async ngOnInit() {
-    while (!this.data.currentClub()) {
-      await new Promise(r => setTimeout(r, 50));
-    }
-    this.loading = true;
-    this.sessions = await this.data.getSessions();
-    this.teams = await this.data.getTeams();
-    this.teams.forEach(t => this.teamMap[t.id] = t);
-    this.loading = false;
-    this.cdr.detectChanges();
-  }
+  readonly vm$ = toObservable(this.data.currentClub).pipe(
+    filter(Boolean),
+    switchMap(club => this.reload.pipe(
+      startWith(undefined),
+      switchMap(() => forkJoin({
+        sessions: from(this.data.getSessions()),
+        teams: from(this.data.getTeams()),
+      }).pipe(
+        catchError(err => {
+          console.error(err);
+          return of({ sessions: [] as TrainingSession[], teams: [] as Team[] });
+        })
+      )),
+      tap(({ sessions, teams }) => {
+        this.sessions = sessions;
+        this.teams = teams;
+        const teamMap: Record<string, Team> = {};
+        teams.forEach(t => teamMap[t.id] = t);
+        this.teamMap = teamMap;
+      }),
+      map(({ sessions, teams }) => ({ sessions, teams }))
+    ))
+  );
 
   onTeamChange() {
     this.selectedSession = '';
@@ -238,7 +265,7 @@ export class AttendanceComponent implements OnInit {
     this.attendanceMap = {};
     const session = this.sessions.find(s => s.id === this.selectedSession);
     if (!session) return;
-    this.teamPlayers = await this.data.getPlayers(session.team_id);
+    this.teamPlayers = await this.playerRepo.findAll(session.team_id);
 
     const existing = await this.data.getAttendance(this.selectedSession);
     existing.forEach(a => { this.attendanceMap[a.player_id] = a.status; });
@@ -281,7 +308,7 @@ export class AttendanceComponent implements OnInit {
   }
 
   async saveOne(player: Player) {
-    const status = (this.attendanceMap[player.id] || 'present') as 'present' | 'absent' | 'late' | 'excused';
+    const status = (this.attendanceMap[player.id] || 'present') as 'present' | 'absent' | 'late';
     await this.data.setAttendance(this.selectedSession, player.id, status);
     this.updateStats();
   }

@@ -2,10 +2,10 @@ import { Injectable, NgZone, OnDestroy } from '@angular/core';
 import { fabric } from 'fabric';
 import { BehaviorSubject } from 'rxjs';
 import { PlaybookService } from './playbook.service';
-import { ActionType, CourtType, Player, PlayerType, ActionCurve, DrawingShape, Ball, Cone } from './player.model';
+import { ActionType, CourtType, CanvasPlayer, PlayerType, ActionCurve, DrawingShape, CanvasBall, CanvasCone } from './canvas.models';
 
 export interface EditorState {
-  selectedTool: 'select' | 'move' | 'dribble' | 'block' | 'pass' | 'hand_pass' | 'shoot' | 'draw' | 'draw_circle' | 'draw_rect' | null;
+  selectedTool: 'select' | 'move' | 'dribble' | 'block' | 'pass' | 'hand_pass' | 'shoot' | 'draw' | 'draw_circle' | 'draw_rect' | 'eraser' | null;
   selectedColor: string;
   selectedPlayerId: string | null;
   selectedCurveId: string | null;
@@ -157,7 +157,7 @@ export class CanvasService implements OnDestroy {
     this.shapeObjects.clear();
   }
 
-  private drawPlayer(player: Player): void {
+  private drawPlayer(player: CanvasPlayer): void {
     if (player.type === 'DEFENDER') {
       this.drawDefenderX(player);
       return;
@@ -202,7 +202,7 @@ export class CanvasService implements OnDestroy {
     this.playerObjects.set(player.id, group);
   }
 
-  private drawDefenderX(player: Player): void {
+  private drawDefenderX(player: CanvasPlayer): void {
     const size = 16;
     const half = size / 2;
     const line1 = new fabric.Line(
@@ -230,7 +230,7 @@ export class CanvasService implements OnDestroy {
     this.playerObjects.set(player.id, group);
   }
 
-  private drawBall(ball: Ball): void {
+  private drawBall(ball: CanvasBall): void {
     const obj = new fabric.Circle({
       radius: 9,
       fill: '#FF8C00',
@@ -251,7 +251,7 @@ export class CanvasService implements OnDestroy {
     this.ballObjects.set(ball.id, obj);
   }
 
-  private drawCone(cone: Cone): void {
+  private drawCone(cone: CanvasCone): void {
     const triangle = new fabric.Triangle({
       width: 18,
       height: 18,
@@ -449,7 +449,7 @@ export class CanvasService implements OnDestroy {
     const step = this.playbookService.getCurrentStep();
 
     const positions = this.getDefaultPositions(type, number, step.players.length, pb.courtType);
-    const player: Player = {
+    const player: CanvasPlayer = {
       id: `p_${type}_${number}_${Date.now()}`,
       number,
       type,
@@ -466,7 +466,7 @@ export class CanvasService implements OnDestroy {
     const cx = this.canvasWidth / 2;
     const cy = this.canvasHeight / 2;
     const existing = step.balls.length;
-    const ball: Ball = {
+    const ball: CanvasBall = {
       id: `ball_${Date.now()}`,
       x: cx + 120 + existing * 5,
       y: cy - 100 + existing * 5
@@ -481,7 +481,7 @@ export class CanvasService implements OnDestroy {
     const cx = this.canvasWidth / 2;
     const cy = this.canvasHeight / 2;
     const existing = step.cones.length;
-    const cone: Cone = {
+    const cone: CanvasCone = {
       id: `cone_${Date.now()}`,
       x: cx - 150 + existing * 5,
       y: cy - 150 + existing * 5
@@ -531,6 +531,11 @@ export class CanvasService implements OnDestroy {
   private handleMouseDown(opt: fabric.IEvent): void {
     const tool = this.editorState.value.selectedTool;
     if (tool === 'select' || tool === 'draw') return;
+    if (tool === 'eraser' && opt.target) {
+      this.canvas.remove(opt.target);
+      this.canvas.renderAll();
+      return;
+    }
     if (tool === 'draw_circle' || tool === 'draw_rect') {
       this.isDrawing = true;
       this.drawStartPoint = { x: opt.pointer!.x, y: opt.pointer!.y };

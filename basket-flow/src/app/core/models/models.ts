@@ -4,6 +4,7 @@ export interface Profile {
   full_name: string;
   avatar_url: string | null;
   created_at: string;
+  is_superadmin: boolean;
 }
 
 export interface Club {
@@ -36,6 +37,7 @@ export interface Team {
 export interface Player {
   id: string;
   team_id: string;
+  club_id: string;
   first_name: string;
   last_name: string;
   birth_date: string | null;
@@ -45,10 +47,32 @@ export interface Player {
   weight: number | null;
   photo_url: string | null;
   is_active: boolean;
+  deleted_at: string | null;
+  created_at: string;
+}
+
+export interface PlayerTeam {
+  id: string;
+  player_id: string;
+  team_id: string;
   created_at: string;
 }
 
 export interface ExerciseCategory {
+  id: string;
+  club_id: string;
+  name: string;
+  color: string;
+  created_at: string;
+}
+
+export interface TagInfo {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface Tag {
   id: string;
   club_id: string;
   name: string;
@@ -75,7 +99,8 @@ export interface Exercise {
   diagram_url: string | null;
   diagrams: ExerciseDiagram[];
   video_url: string | null;
-  tags: string[];
+  tags: TagInfo[];
+  deleted_at: string | null;
   created_at: string;
   created_by: string;
 }
@@ -109,6 +134,12 @@ export interface TrainingSession {
   end_time: string;
   status: 'draft' | 'planned' | 'completed' | 'cancelled';
   notes: string | null;
+  intensity?: string | null;
+  focus?: string | null;
+  collective_notes?: string | null;
+  what_worked?: string | null;
+  what_to_improve?: string | null;
+  deleted_at: string | null;
   created_at: string;
   created_by: string;
 }
@@ -136,43 +167,17 @@ export interface Attendance {
   id: string;
   session_id: string;
   player_id: string;
-  status: 'present' | 'absent' | 'late' | 'excused';
+  status: 'present' | 'absent' | 'late' | 'injured';
   notes: string | null;
+  late_minutes: number | null;
   created_at: string;
 }
 
-export interface GameStats {
+export interface SessionPlayerReview {
   id: string;
-  club_id: string;
-  team_id: string;
-  opponent: string;
-  date: string;
-  location: string | null;
-  is_home: boolean;
-  our_score: number | null;
-  opponent_score: number | null;
-  notes: string | null;
-  created_at: string;
-}
-
-export interface PlayerGameStats {
-  id: string;
-  game_id: string;
+  session_id: string;
   player_id: string;
-  minutes_played: number;
-  points: number;
-  rebounds: number;
-  assists: number;
-  steals: number;
-  blocks: number;
-  turnovers: number;
-  fouls: number;
-  field_goals_made: number;
-  field_goals_attempted: number;
-  three_points_made: number;
-  three_points_attempted: number;
-  free_throws_made: number;
-  free_throws_attempted: number;
+  comments: string;
   created_at: string;
 }
 
@@ -190,6 +195,129 @@ export interface PlaybookDB {
   created_at: string;
   updated_at: string;
   created_by: string;
+}
+
+// ── Match Analysis (Possession-based) ──
+export interface Match {
+  id: string;
+  club_id: string;
+  team_id: string;
+  rival: string;
+  competition: string | null;
+  round: string | null;
+  location: string | null;
+  date: string;
+  status: 'created' | 'in_progress' | 'finished' | 'closed';
+  current_period: number;
+  score_own: number;
+  score_rival: number;
+  is_home: boolean;
+  start_time: string | null;
+  end_time: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MatchSquad {
+  id: string;
+  match_id: string;
+  player_id: string;
+  starter: boolean;
+  created_at: string;
+}
+
+export interface MatchSubstitution {
+  id: string;
+  match_id: string;
+  player_out: string;
+  player_in: string;
+  period: number;
+  order_in_period: number;
+  created_at: string;
+}
+
+export interface Possession {
+  id: string;
+  match_id: string;
+  period: number;
+  number: number;
+  side: 'own' | 'rival';
+  init_type_id: string;
+  attack_type_id: string;
+  system_id: string | null;
+  result_id: string;
+  finisher_id: string | null;
+  creator_id: string | null;
+  time_bucket: '0-8' | '9-16' | '17-24';
+  points: number;
+  notes: string | null;
+  tags: string[] | null;
+  video_timestamp: number | null;
+  deleted: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CatalogItem {
+  id: string;
+  club_id: string;
+  name: string;
+  short_name: string | null;
+  color: string;
+  sort_order: number;
+  active: boolean;
+}
+
+export interface CatalogAttackType extends CatalogItem {}
+export interface CatalogSystem {
+  id: string;
+  team_id: string;
+  name: string;
+  short_name: string | null;
+  color: string;
+  sort_order: number;
+  active: boolean;
+}
+export interface CatalogResult extends CatalogItem {
+  points: number;
+  is_miss: boolean;
+  is_turnover: boolean;
+  is_foul_drawn: boolean;
+}
+export interface CatalogInitType extends CatalogItem {}
+export interface CatalogTag {
+  id: string;
+  club_id: string;
+  name: string;
+  color: string;
+  active: boolean;
+}
+
+export interface MatchSummary {
+  match_id: string;
+  club_id: string;
+  team_id: string;
+  rival: string;
+  date: string;
+  status: string;
+  score_own: number;
+  score_rival: number;
+  current_period: number;
+  own_possessions: number;
+  rival_possessions: number;
+  calculated_score_own: number;
+  calculated_score_rival: number;
+  own_ppp: number;
+  rival_ppp: number;
+}
+
+// ── Lineup (from get_match_lineup RPC) ──
+export interface LineupPlayer {
+  player_id: string;
+  player_name: string;
+  jersey_number: number;
+  position: string;
 }
 
 export interface Evaluation {

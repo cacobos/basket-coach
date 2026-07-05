@@ -1,16 +1,20 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
-import { NgFor, NgIf } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { forkJoin, Subject } from 'rxjs';
+import { filter, map, startWith, switchMap, tap } from 'rxjs/operators';
 import { DataService } from '../../core/services/data.service';
+import { SessionRepository } from '../../core/repositories/session.repository';
 import type { TrainingSession, Team } from '../../core/models/models';
 
 @Component({
   selector: 'app-calendar',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule],
+  imports: [AsyncPipe, NgFor, NgIf, FormsModule],
   template: `
-    <div class="page">
+    <div class="page" *ngIf="vm$ | async">
       <header class="page-header">
         <div>
           <h2 class="page-title">Calendario</h2>
@@ -209,8 +213,9 @@ import type { TrainingSession, Team } from '../../core/models/models';
     }
   `]
 })
-export class CalendarComponent implements OnInit {
+export class CalendarComponent {
   private data = inject(DataService);
+  private sessionRepo = inject(SessionRepository);
   private router = inject(Router);
 
   month = new Date().getMonth();
@@ -234,37 +239,107 @@ export class CalendarComponent implements OnInit {
   formObjectives = '';
 
   selectedSession: TrainingSession | null = null;
-  private cdr = inject(ChangeDetectorRef);
 
-  async ngOnInit() {
-    await this._waitForClub();
-    this.teams = await this.data.getTeams();
-    this.teams.forEach(t => this.teamNames[t.id] = t.name);
-    await this.loadMonth();
-    this.cdr.detectChanges();
+  private club$ = toObservable(this.data.currentClub).pipe(filter(Boolean));
+  private refresh$ = new Subject<void>();
+
+  vm$ = this.club$.pipe(
+    switchMap(() => this.refresh$.pipe(startWith(undefined))),
+    switchMap(() => forkJoin({
+      teams: this.data.getTeams(),
+      sessions: this.fetchSessions(),
+    })),
+    tap(({ teams, sessions }) => {
+      this.teams = teams;
+      this.sessions = sessions;
+      this.teamNames = {};
+      teams.forEach(t => this.teamNames[t.id] = t.name);
+      this.buildDays();
+    }),
+    map(() => ({})),
+    startWith({}),
+  );
+
+  prevMonth() {
+    if (this.month === 0) { this.month = 11; this.year--; }
+    else this.month--;
+    this.refresh$.next();
   }
 
-  private async _waitForClub() {
-    while (!this.data.currentClub()) {
-      await new Promise(r => setTimeout(r, 50));
+  nextMonth() {
+    if (this.month === 11) { this.month = 0; this.year++; }
+    else this.month++;
+    this.refresh$.next();
+  }
+
+  selectDay(day: CalendarDay) {
+    if (day.otherMonth) return;
+    if (day.sessions.length > 0) {
+      this.selectedSession = day.sessions[0];
+    } else {
+      this.openCreateOnDay(day);
     }
   }
 
-  async loadMonth() {
+  openCreateOnDay(day: CalendarDay) {
+    this.formDate = day.date.toISOString().slice(0, 10);
+    this.formTitle = '';
+    this.formTeam = this.teams[0]?.id || '';
+    this.formObjectives = '';
+    this.showForm = true;
+  }
+
+  async saveFromCalendar() {
+    if (!this.formTitle.trim() || !this.formDate) return;
+    const clubId = this.data.currentClub()?.id;
+    if (!clubId) return;
+    const session = await this.sessionRepo.create({
+      club_id: clubId,
+      team_id: this.formTeam,
+      title: this.formTitle.trim(),
+      description: null,
+      location: this.formLocation.trim() || null,
+      date: this.formDate,
+      start_time: this.formStart,
+      end_time: this.formEnd,
+      status: 'draft',
+      notes: null,
+      objectives: this.formObjectives.trim() || null,
+    });
+    this.showForm = false;
+    if (session) {
+      this.router.navigate(['/sessions', session.id, 'builder']);
+    }
+  }
+
+  openSessionDetail(s: TrainingSession) {
+    this.selectedSession = s;
+  }
+
+  goToSession(s: TrainingSession) {
+    this.router.navigate(['/sessions', s.id]);
+  }
+
+  private fetchSessions(): Promise<TrainingSession[]> {
     const first = new Date(this.year, this.month, 1);
     const last = new Date(this.year, this.month + 1, 0);
     const from = new Date(first);
     from.setDate(from.getDate() - ((from.getDay() + 6) % 7));
     const to = new Date(last);
     to.setDate(to.getDate() + (7 - ((to.getDay() + 6) % 7) - 1));
-    this.sessions = await this.data.getSessionsByDateRange(
+    return this.data.getSessionsByDateRange(
       from.toISOString().slice(0, 10),
       to.toISOString().slice(0, 10)
     );
-    this.buildDays(from, to);
   }
 
-  buildDays(from: Date, to: Date) {
+  private buildDays() {
+    const first = new Date(this.year, this.month, 1);
+    const last = new Date(this.year, this.month + 1, 0);
+    const from = new Date(first);
+    from.setDate(from.getDate() - ((from.getDay() + 6) % 7));
+    const to = new Date(last);
+    to.setDate(to.getDate() + (7 - ((to.getDay() + 6) % 7) - 1));
     this.days = [];
     const current = new Date(from);
     while (current <= to) {
@@ -280,61 +355,8 @@ export class CalendarComponent implements OnInit {
     }
   }
 
-  isSameDay(a: Date, b: Date): boolean {
+  private isSameDay(a: Date, b: Date): boolean {
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  }
-
-  prevMonth() {
-    if (this.month === 0) { this.month = 11; this.year--; }
-    else this.month--;
-    this.loadMonth();
-  }
-
-  nextMonth() {
-    if (this.month === 11) { this.month = 0; this.year++; }
-    else this.month++;
-    this.loadMonth();
-  }
-
-  selectDay(day: CalendarDay) {
-    if (day.otherMonth) return;
-  }
-
-  openCreateOnDay(day: CalendarDay) {
-    this.formDate = day.date.toISOString().slice(0, 10);
-    this.formTitle = '';
-    this.formTeam = this.teams[0]?.id || '';
-    this.formObjectives = '';
-    this.showForm = true;
-  }
-
-  async saveFromCalendar() {
-    if (!this.formTitle.trim() || !this.formDate) return;
-    const clubId = this.data.currentClub()?.id;
-    if (!clubId) return;
-    await this.data.createSession({
-      club_id: clubId,
-      team_id: this.formTeam,
-      title: this.formTitle.trim(),
-      description: null,
-      location: this.formLocation.trim() || null,
-      date: this.formDate,
-      start_time: this.formStart,
-      end_time: this.formEnd,
-      status: 'planned',
-      notes: null,
-      objectives: this.formObjectives.trim() || null,
-    });
-    this.showForm = false;
-    await this.loadMonth();
-  }
-
-  openSessionDetail(s: TrainingSession) {
-    this.selectedSession = s;
-  }
-
-  goToSession(s: TrainingSession) {
-    this.router.navigate(['/sessions'], { queryParams: { id: s.id } });
   }
 }
 

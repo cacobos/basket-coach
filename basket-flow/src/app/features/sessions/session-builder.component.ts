@@ -1,16 +1,21 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
-import { NgFor, NgIf } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { NgFor, NgIf, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subject, forkJoin, from, of } from 'rxjs';
+import { startWith, switchMap, filter, map, tap, catchError } from 'rxjs/operators';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { DataService } from '../../core/services/data.service';
-import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team } from '../../core/models/models';
+import { ExerciseRepository } from '../../core/repositories/exercise.repository';
+import { SessionRepository } from '../../core/repositories/session.repository';
+import type { TrainingSession, Exercise } from '../../core/models/models';
 
 @Component({
   selector: 'app-session-builder',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule],
+  imports: [NgFor, NgIf, FormsModule, AsyncPipe],
   template: `
-    <div class="builder-page">
+    <div class="builder-page" *ngIf="vm$ | async as vm; else loadingTpl">
       <header class="builder-header">
         <div>
           <h1 class="page-title">Crear Sesión</h1>
@@ -37,7 +42,7 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team }
               <label class="field-label">Equipo</label>
               <select class="field-input" [(ngModel)]="formTeam">
                 <option value="" disabled>Seleccionar equipo...</option>
-                <option *ngFor="let t of teams" [value]="t.id">{{ t.name }}</option>
+                <option *ngFor="let t of vm.teams" [value]="t.id">{{ t.name }}</option>
               </select>
             </div>
             <div class="field-row">
@@ -115,7 +120,7 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team }
                 <div class="ex-item" *ngFor="let se of getSectionExercises(sec.id); let ei = index">
                   <div class="ex-order">{{ ei + 1 }}</div>
                   <div class="ex-info">
-                    <span class="ex-name">{{ exerciseNames[se.exercise_id] || 'Ejercicio' }}</span>
+                    <span class="ex-name">{{ vm.exerciseNames[se.exercise_id] || 'Ejercicio' }}</span>
                     <span class="ex-duration">{{ se.duration_minutes }} min</span>
                   </div>
                   <input class="ex-notes field-input" [(ngModel)]="se.notes" (blur)="updateExNotes(se)" placeholder="Notas opcionales..."/>
@@ -132,7 +137,7 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team }
               <div class="section-add-ex">
                 <select class="field-input add-ex-select" [(ngModel)]="addExExerciseId">
                   <option value="">Seleccionar ejercicio...</option>
-                  <option *ngFor="let e of exercises" [value]="e.id">{{ e.name }}</option>
+                  <option *ngFor="let e of vm.exercises" [value]="e.id">{{ e.name }}</option>
                 </select>
                 <input class="field-input add-ex-dur" type="number" [(ngModel)]="addExDuration" min="1" max="120" placeholder="min"/>
                 <input class="field-input add-ex-notes" [(ngModel)]="addExNotes" placeholder="Notas..."/>
@@ -151,6 +156,10 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team }
         </main>
       </div>
     </div>
+
+    <ng-template #loadingTpl>
+      <div class="builder-page"><div class="loading-state"><span class="material-symbols-outlined loading-icon">sync</span><p>Cargando...</p></div></div>
+    </ng-template>
   `,
   styles: [`
     .builder-page {
@@ -198,6 +207,10 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team }
     .btn-secondary { background: #212653; color: #c6c5d4; }
     .btn-secondary:hover { background: #2a3160; }
     .builder-body { display: flex; gap: 32px; flex: 1; min-height: 0; }
+
+    .loading-state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 80px 20px; color: #908f9d; }
+    .loading-icon { font-size: 48px; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* Metadata panel */
     .metadata-panel { width: 320px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
@@ -397,10 +410,13 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team }
     }
   `]
 })
-export class SessionBuilderComponent implements OnInit {
+export class SessionBuilderComponent {
   private data = inject(DataService);
+  private exerciseRepo = inject(ExerciseRepository);
+  private sessionRepo = inject(SessionRepository);
   private router = inject(Router);
-  private cdr = inject(ChangeDetectorRef);
+  private route = inject(ActivatedRoute);
+  private reload = new Subject<void>();
   editingSession: TrainingSession | null = null;
 
   teams: Team[] = [];
@@ -423,18 +439,40 @@ export class SessionBuilderComponent implements OnInit {
 
   sectionColors = ['#0068ed', '#00c853', '#ff9100', '#e040fb', '#00bcd4', '#ff6d00'];
 
-  async ngOnInit() {
-    while (!this.data.currentClub()) {
-      await new Promise(r => setTimeout(r, 50));
-    }
-    this.teams = await this.data.getTeams();
-    this.exercises = await this.data.getExercises();
-    this.exercises.forEach(e => this.exerciseNames[e.id] = e.name);
-    if (this.teams.length > 0) this.formTeam = this.teams[0].id;
-    this.formDate = new Date().toISOString().slice(0, 10);
-    this.initSections();
-    this.cdr.detectChanges();
-  }
+  readonly vm$ = toObservable(this.data.currentClub).pipe(
+    filter(Boolean),
+    switchMap(club => this.reload.pipe(
+      startWith(undefined),
+      switchMap(() => forkJoin({
+        teams: from(this.data.getTeams()),
+        exercises: from(this.exerciseRepo.findAll(club.id)),
+      }).pipe(
+        catchError(err => {
+          console.error(err);
+          return of({ teams: [] as Team[], exercises: [] as Exercise[] });
+        })
+      )),
+      tap(({ teams, exercises }) => {
+        this.teams = teams;
+        this.exercises = exercises;
+        exercises.forEach(e => this.exerciseNames[e.id] = e.name);
+      }),
+      map(({ teams, exercises }) => {
+        if (teams.length > 0 && !this.formTeam) this.formTeam = teams[0].id;
+        if (!this.formDate) this.formDate = new Date().toISOString().slice(0, 10);
+        if (this.sections.length === 0) this.initSections();
+
+        const sessionId = this.route.snapshot.paramMap.get('id');
+        if (sessionId && !this.editingSession) {
+          this.loadEditingSession(sessionId);
+        }
+
+        const exerciseNames: Record<string, string> = {};
+        exercises.forEach(e => exerciseNames[e.id] = e.name);
+        return { teams, exercises, exerciseNames };
+      })
+    ))
+  );
 
   initSections() {
     this.sections = [];
@@ -445,9 +483,37 @@ export class SessionBuilderComponent implements OnInit {
   addDefaultSections() {
     const defaults = ['Calentamiento', 'Parte Principal', 'Vuelta a la Calma'];
     for (const name of defaults) {
-      const id = crypto.randomUUID();
+      const id = 'new-' + crypto.randomUUID();
       this.sections.push({ id, name, sort_order: this.sections.length + 1 });
       this.sectionExercisesMap[id] = [];
+    }
+  }
+
+  private async loadEditingSession(sessionId: string) {
+    const clubId = this.data.currentClub()?.id;
+    if (!clubId) return;
+    const sessions = await this.sessionRepo.findAll(clubId);
+    this.editingSession = sessions.find(s => s.id === sessionId) || null;
+    if (this.editingSession) {
+      this.formTitle = this.editingSession.title;
+      this.formTeam = this.editingSession.team_id;
+      this.formDate = this.editingSession.date;
+      this.formStart = this.editingSession.start_time;
+      this.formEnd = this.editingSession.end_time;
+      this.formLocation = this.editingSession.location || '';
+      this.formObjectives = this.editingSession.objectives || '';
+
+      const dbSections = await this.data.getSections(sessionId);
+      const allEx = await this.data.getSessionExercises(sessionId);
+      this.sections = [];
+      this.sectionExercisesMap = {};
+      for (const sec of dbSections) {
+        this.sections.push({ id: sec.id, name: sec.name, sort_order: sec.sort_order });
+        this.sectionExercisesMap[sec.id] = allEx
+          .filter(e => e.section_id === sec.id)
+          .map(e => ({ id: e.id, exercise_id: e.exercise_id, section_id: e.section_id!, duration_minutes: e.duration_minutes, notes: e.notes, order: e.order }));
+      }
+      if (this.sections.length === 0) this.addDefaultSections();
     }
   }
 
@@ -468,7 +534,7 @@ export class SessionBuilderComponent implements OnInit {
   }
 
   addSection() {
-    const id = crypto.randomUUID();
+    const id = 'new-' + crypto.randomUUID();
     this.sections.push({ id, name: 'Nueva Sección', sort_order: this.sections.length + 1 });
     this.sectionExercisesMap[id] = [];
   }
@@ -492,7 +558,7 @@ export class SessionBuilderComponent implements OnInit {
 
   addExerciseToSection(sec: SectionVM) {
     if (!this.addExExerciseId) return;
-    const id = crypto.randomUUID();
+    const id = 'new-' + crypto.randomUUID();
     const vm: ExerciseVM = {
       id,
       exercise_id: this.addExExerciseId,
@@ -519,47 +585,87 @@ export class SessionBuilderComponent implements OnInit {
     const clubId = this.data.currentClub()?.id;
     if (!clubId) return;
 
-    const session = await this.data.createSession({
-      club_id: clubId,
-      team_id: this.formTeam,
-      title: this.formTitle.trim(),
-      description: null,
-      location: this.formLocation.trim() || null,
-      date: this.formDate,
-      start_time: this.formStart,
-      end_time: this.formEnd,
-      status: 'planned',
-      notes: null,
-      objectives: this.formObjectives.trim() || null,
-    });
+    let sessionId = this.editingSession?.id;
+    if (sessionId) {
+      await this.sessionRepo.update(sessionId, {
+        title: this.formTitle.trim(),
+        team_id: this.formTeam,
+        date: this.formDate,
+        start_time: this.formStart,
+        end_time: this.formEnd,
+        location: this.formLocation.trim() || null,
+        objectives: this.formObjectives.trim() || null,
+      });
+    } else {
+      const session = await this.sessionRepo.create({
+        club_id: clubId,
+        team_id: this.formTeam,
+        title: this.formTitle.trim(),
+        description: null,
+        location: this.formLocation.trim() || null,
+        date: this.formDate,
+        start_time: this.formStart,
+        end_time: this.formEnd,
+        status: 'planned',
+        notes: null,
+        objectives: this.formObjectives.trim() || null,
+      });
+      if (session) sessionId = session.id;
+    }
+    if (!sessionId) return;
 
-    if (session) {
-      for (const sec of this.sections) {
-        const section = await this.data.createSection({
-          session_id: session.id,
-          name: sec.name,
-          sort_order: sec.sort_order,
-        });
-        if (section) {
-          for (const ex of this.sectionExercisesMap[sec.id] || []) {
-            await this.data.addSessionExercise({
-              session_id: session.id,
-              section_id: section.id,
-              exercise_id: ex.exercise_id,
-              order: ex.order,
-              duration_minutes: ex.duration_minutes,
-              notes: ex.notes,
-            });
-          }
+    const existingSections = await this.data.getSections(sessionId);
+    const existingExIds = new Set<string>();
+    for (const sec of this.sections) {
+      const existingSec = sec.id.startsWith('new-') ? null : existingSections.find(s => s.id === sec.id);
+      let sectionId: string;
+      if (existingSec) {
+        await this.data.updateSection(sec.id, { name: sec.name, sort_order: sec.sort_order });
+        sectionId = sec.id;
+      } else {
+        const created = await this.data.createSection({ session_id: sessionId, name: sec.name, sort_order: sec.sort_order });
+        if (!created) continue;
+        sectionId = created.id;
+      }
+      for (const ex of this.sectionExercisesMap[sec.id] || []) {
+        if (ex.id.startsWith('new-')) {
+          const created = await this.data.addSessionExercise({
+            session_id: sessionId,
+            section_id: sectionId,
+            exercise_id: ex.exercise_id,
+            order: ex.order,
+            duration_minutes: ex.duration_minutes,
+            notes: ex.notes,
+          });
+          if (created) existingExIds.add(created.id);
+        } else {
+          await this.data.updateSessionExercise(ex.id, {
+            order: ex.order,
+            duration_minutes: ex.duration_minutes,
+            notes: ex.notes,
+          });
+          existingExIds.add(ex.id);
         }
       }
     }
+    for (const sec of existingSections) {
+      const keeps = this.sections.some(s => s.id === sec.id);
+      if (!keeps) await this.data.deleteSection(sec.id);
+    }
+    const allExistingExs = await this.data.getSessionExercises(sessionId);
+    for (const ex of allExistingExs) {
+      if (!existingExIds.has(ex.id)) await this.data.removeSessionExercise(ex.id);
+    }
 
-    this.router.navigate(['/sessions']);
+    this.router.navigate(['/sessions', sessionId]);
   }
 
   cancel() {
-    this.router.navigate(['/sessions']);
+    if (this.editingSession) {
+      this.router.navigate(['/sessions', this.editingSession.id]);
+    } else {
+      this.router.navigate(['/sessions']);
+    }
   }
 }
 
@@ -577,3 +683,5 @@ interface ExerciseVM {
   notes: string | null;
   order: number;
 }
+
+interface Team { id: string; name: string; }

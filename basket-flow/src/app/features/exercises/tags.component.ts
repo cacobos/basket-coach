@@ -1,15 +1,19 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { NgFor, NgIf } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { BehaviorSubject, from, of, forkJoin } from 'rxjs';
+import { switchMap, filter, map, tap, catchError, take } from 'rxjs/operators';
+import { ExerciseRepository } from '../../core/repositories/exercise.repository';
 import { DataService } from '../../core/services/data.service';
 import { NotificationService } from '../../core/services/notification.service';
-import type { Exercise } from '../../core/models/models';
+import type { Club, Exercise, Tag } from '../../core/models/models';
 
 @Component({
   selector: 'app-tags',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule, RouterLink],
+  imports: [AsyncPipe, NgFor, NgIf, FormsModule, RouterLink],
   template: `
     <div class="page">
       <header class="page-header">
@@ -33,11 +37,11 @@ import type { Exercise } from '../../core/models/models';
           </button>
         </div>
 
-        <div class="tag-list" *ngIf="!loading; else loadingTpl">
+        <div class="tag-list" *ngIf="vm$ | async; else loadingTpl">
           <div class="tag-item" *ngFor="let t of tags">
             <div class="tag-info">
-              <span class="tag-chip">{{ t }}</span>
-              <span class="tag-count">{{ countByTag[t] }} ejercicio{{ countByTag[t] === 1 ? '' : 's' }}</span>
+              <span class="tag-chip" [style.background]="t.color + '22'" [style.color]="t.color">{{ t.name }}</span>
+              <span class="tag-count">{{ countByTag[t.id] || 0 }} ejercicio{{ (countByTag[t.id] || 0) === 1 ? '' : 's' }}</span>
             </div>
             <button class="btn-icon btn-icon-danger" (click)="deleteTag(t)" title="Eliminar tag">
               <span class="material-symbols-outlined">delete</span>
@@ -97,7 +101,6 @@ import type { Exercise } from '../../core/models/models';
     .tag-chip {
       font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
       padding: 4px 12px; border-radius: 9999px;
-      background: rgba(189,194,255,0.1); color: #bdc2ff;
     }
     .tag-count { font-size: 12px; color: #908f9d; }
     .btn-icon {
@@ -147,14 +150,13 @@ import type { Exercise } from '../../core/models/models';
     }
   `]
 })
-export class TagsComponent implements OnInit {
+export class TagsComponent {
+  private exerciseRepo = inject(ExerciseRepository);
   private data = inject(DataService);
   private notification = inject(NotificationService);
 
-  exercises: Exercise[] = [];
-  tags: string[] = [];
+  tags: Tag[] = [];
   countByTag: Record<string, number> = {};
-  loading = true;
   newTagName = '';
 
   showConfirm = false;
@@ -162,54 +164,65 @@ export class TagsComponent implements OnInit {
   confirmMessage = '';
   private confirmAction: (() => Promise<void>) | null = null;
 
-  async ngOnInit() {
-    while (!this.data.currentClub()) {
-      await new Promise(r => setTimeout(r, 50));
-    }
-    await this.load();
-  }
+  private refresh$ = new BehaviorSubject<void>(undefined);
 
-  async load() {
-    this.loading = true;
-    try {
-      this.exercises = await this.data.getExercises();
-      this.rebuildTags();
-    } catch (e) {
-      this.notification.show(e instanceof Error ? e.message : String(e));
-    }
-    this.loading = false;
-  }
+  private club$ = toObservable(this.data.currentClub).pipe(
+    filter((c): c is Club => c !== null)
+  );
 
-  private rebuildTags() {
-    const set = new Set<string>();
+  vm$ = this.refresh$.pipe(
+    switchMap(() => this.club$.pipe(
+      take(1),
+      switchMap(club => forkJoin([
+        from(this.exerciseRepo.findAll(club.id)),
+        from(this.exerciseRepo.getTags(club.id)),
+      ])),
+    )),
+    tap(([exercises, tags]) => {
+      this.tags = tags;
+      this.rebuildCounts(exercises);
+    }),
+    map(() => true),
+    catchError(err => {
+      this.notification.show(err instanceof Error ? err.message : String(err));
+      return of(true);
+    })
+  );
+
+  private rebuildCounts(exercises: Exercise[]) {
     const counts: Record<string, number> = {};
-    for (const ex of this.exercises) {
+    for (const ex of exercises) {
       for (const tag of ex.tags || []) {
-        set.add(tag);
-        counts[tag] = (counts[tag] || 0) + 1;
+        counts[tag.id] = (counts[tag.id] || 0) + 1;
       }
     }
-    this.tags = Array.from(set).sort();
     this.countByTag = counts;
   }
 
-  addTag() {
-    const t = this.newTagName.trim();
-    if (!t || this.tags.includes(t)) return;
-    this.tags.push(t);
-    this.tags.sort();
-    this.countByTag[t] = 0;
-    this.newTagName = '';
+  async addTag() {
+    const name = this.newTagName.trim();
+    if (!name) return;
+    if (this.tags.some(t => t.name === name)) {
+      this.notification.show('Este tag ya existe');
+      return;
+    }
+    try {
+      const clubId = this.data.currentClub()?.id;
+      if (!clubId) return;
+      await this.exerciseRepo.createTag({ name, club_id: clubId });
+      this.newTagName = '';
+      this.refresh$.next();
+    } catch (e) {
+      this.notification.show(e instanceof Error ? e.message : String(e));
+    }
   }
 
-  deleteTag(tag: string) {
+  deleteTag(tag: Tag) {
     this.confirmTitle = 'Eliminar tag';
-    this.confirmMessage = `¿Eliminar "${tag}" de todos los ejercicios?`;
+    this.confirmMessage = `¿Eliminar "${tag.name}" de todos los ejercicios?`;
     this.confirmAction = async () => {
-      await this.data.removeTagFromExercises(tag);
-      this.tags = this.tags.filter(t => t !== tag);
-      delete this.countByTag[tag];
-      this.exercises = await this.data.getExercises();
+      await this.exerciseRepo.deleteTag(tag.id);
+      this.refresh$.next();
     };
     this.showConfirm = true;
   }

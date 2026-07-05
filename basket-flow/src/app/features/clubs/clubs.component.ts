@@ -1,7 +1,9 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { DataService } from '../../core/services/data.service';
+import { ClubRepository } from '../../core/repositories/club.repository';
 
 @Component({
   selector: 'app-clubs',
@@ -20,7 +22,7 @@ import { DataService } from '../../core/services/data.service';
         </button>
       </header>
 
-      <div class="club-grid" *ngIf="!loading; else loadingTpl">
+      <div class="club-grid">
         <div class="club-card" *ngFor="let club of data.clubs()" (click)="data.setCurrentClub(club)">
           <div class="club-avatar">{{ club.name.charAt(0) }}</div>
           <div class="club-info">
@@ -28,16 +30,13 @@ import { DataService } from '../../core/services/data.service';
             <p class="club-slug">{{ club.slug }}</p>
           </div>
           <span class="material-symbols-outlined club-check" [style.opacity]="(data.currentClub()?.id === club.id) ? 1 : 0">check_circle</span>
+          <button class="manage-btn" (click)="$event.stopPropagation(); router.navigate(['/clubs', club.id, 'members'])">Gestionar miembros</button>
         </div>
         <div class="empty-state" *ngIf="data.clubs().length === 0">
           <span class="material-symbols-outlined empty-icon">business</span>
           <p>No hay clubs todavía. Crea el primero.</p>
         </div>
       </div>
-
-      <ng-template #loadingTpl>
-        <div class="loading-state"><span class="material-symbols-outlined loading-icon">sync</span><p>Cargando clubs...</p></div>
-      </ng-template>
 
       <div class="modal-overlay" *ngIf="showForm" (click)="showForm = false">
         <div class="modal-card" (click)="$event.stopPropagation()">
@@ -70,6 +69,8 @@ import { DataService } from '../../core/services/data.service';
     .club-name { font-size: 18px; font-weight: 700; color: #dfe0ff; margin: 0; }
     .club-slug { font-size: 12px; color: #908f9d; margin: 2px 0 0; }
     .club-check { color: #69f0ae; font-size: 20px; }
+    .manage-btn { background: none; border: 1px solid rgba(69,70,82,0.3); color: #bdc2ff; border-radius: 6px; padding: 4px 12px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: 'Hanken Grotesk', sans-serif; white-space: nowrap; }
+    .manage-btn:hover { border-color: #bdc2ff; }
     .empty-state, .loading-state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 80px 20px; color: #908f9d; }
     .empty-icon, .loading-icon { font-size: 48px; }
     .loading-icon { animation: spin 1s linear infinite; }
@@ -102,16 +103,13 @@ import { DataService } from '../../core/services/data.service';
     }
   `]
 })
-export class ClubsComponent implements OnInit {
+export class ClubsComponent {
   data = inject(DataService);
-  loading = true;
+  private clubRepo = inject(ClubRepository);
+  protected router = inject(Router);
   showForm = false;
   formName = '';
   formDescription = '';
-
-  async ngOnInit() {
-    this.loading = false;
-  }
 
   openCreate() {
     this.showForm = true;
@@ -119,7 +117,8 @@ export class ClubsComponent implements OnInit {
 
   async save() {
     if (!this.formName.trim()) return;
-    await this.data.createClub(this.formName.trim(), this.formDescription.trim() || undefined);
+    await this.clubRepo.create({ name: this.formName.trim(), description: this.formDescription.trim() || undefined });
+    await this.data.loadClubs();
     this.showForm = false;
     this.formName = '';
     this.formDescription = '';

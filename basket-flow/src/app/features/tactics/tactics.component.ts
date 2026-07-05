@@ -1,9 +1,10 @@
 import { Component, inject, AfterViewInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { PlaybookService } from './playbook.service';
 import { CanvasService, EditorState } from './canvas.service';
-import { Playbook, Player, PlayerType } from './player.model';
+import { Playbook, CanvasPlayer, PlayerType } from './canvas.models';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -18,6 +19,7 @@ export class TacticsComponent implements AfterViewInit, OnDestroy {
 
   pbService = inject(PlaybookService);
   canvasService = inject(CanvasService);
+  router = inject(Router);
 
   playbook: Playbook = this.pbService.getPlaybook();
   editorState: EditorState = this.canvasService.editorState.value;
@@ -144,6 +146,13 @@ export class TacticsComponent implements AfterViewInit, OnDestroy {
     link.click();
   }
 
+  async exportAsDiagram(): Promise<void> {
+    const dataUrl = this.canvasService.getCanvasDataUrl();
+    const caption = `${this.playbook.name || 'Pizarra'} — Paso ${this.currentStepNum}`;
+    sessionStorage.setItem('tactics-diagram-export', JSON.stringify([{ url: dataUrl, caption }]));
+    this.router.navigate(['/exercises/new']);
+  }
+
   async exportAllPDF(): Promise<void> {
     const steps = await this.canvasService.exportStepsAsImages();
     if (!steps.length) return;
@@ -221,7 +230,7 @@ export class TacticsComponent implements AfterViewInit, OnDestroy {
     pdf.save(`${this.playbook.name || 'pizarra'}.pdf`);
   }
 
-  get passTargetPlayers(): Player[] {
+  get passTargetPlayers(): CanvasPlayer[] {
     return this.pbService.getCurrentStep()?.players || [];
   }
 

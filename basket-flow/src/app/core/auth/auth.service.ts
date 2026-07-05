@@ -2,6 +2,7 @@ import { Injectable, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { SupabaseService } from '../supabase/supabase.service';
 import { NotificationService } from '../services/notification.service';
+import { PermissionService } from '../services/permission.service';
 import type { User, AuthError } from '@supabase/supabase-js';
 import type { Profile } from '../models/models';
 
@@ -21,24 +22,26 @@ export class AuthService {
   constructor(
     private supabase: SupabaseService,
     private router: Router,
-    private notification: NotificationService
+    private notification: NotificationService,
+    private permissions: PermissionService
   ) {
     this._initSession();
   }
 
-  private _initSession(): void {
-    this.supabase.client.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        this._user.set(session.user);
-        this._loadProfile(session.user.id);
-      }
-      this._resolveReady();
-    });
+  private async _initSession(): Promise<void> {
+    const { data: { session } } = await this.supabase.client.auth.getSession();
+    if (session?.user) {
+      this._user.set(session.user);
+      await this._loadProfile(session.user.id);
+      await this.permissions.load();
+    }
+    this._resolveReady();
 
     this.supabase.client.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         this._user.set(session.user);
         this._loadProfile(session.user.id);
+        this.permissions.load();
         if (event === 'SIGNED_IN' && this.router.url === '/login') {
           this.router.navigate(['/dashboard']);
         }

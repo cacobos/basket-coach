@@ -1,0 +1,56 @@
+<div class="whiteboard-app" #whiteboardEl>
+  <div class="wb-header">
+    <div class="wb-header-left">
+      <span class="wb-title">Pizarra libre</span>
+    </div>
+    <div class="wb-header-actions">
+      <button class="wb-btn-outline" (click)="undo()"><span class="material-symbols-outlined">undo</span> Deshacer</button>
+      <button class="wb-btn-outline" (click)="redo()"><span class="material-symbols-outlined">redo</span> Rehacer</button>
+      <button class="wb-btn-outline" (click)="clearAll()"><span class="material-symbols-outlined">delete</span> Borrar todo</button>
+      <button class="wb-btn-outline" (click)="downloadPng()"><span class="material-symbols-outlined">image</span> Exportar PNG</button>
+    </div>
+  </div>
+
+  <div class="wb-toolbar">
+    <div class="wb-group">
+      <span class="wb-label">Pista</span>
+      <button class="wb-btn" [class.active]="courtView === 'full'" (click)="setCourtView('full')">Completa</button>
+      <button class="wb-btn" [class.active]="courtView === 'offensive_half'" (click)="setCourtView('offensive_half')">Media Of</button>
+      <button class="wb-btn" [class.active]="courtView === 'defensive_half'" (click)="setCourtView('defensive_half')">Media Def</button>
+    </div>
+
+    <div class="wb-group">
+      <span class="wb-label">Herramienta</span>
+      <button class="wb-btn" [class.active]="currentTool === 'draw'" (click)="setTool('draw')">
+        <span class="material-symbols-outlined">draw</span>
+      </button>
+      <button class="wb-btn" [class.active]="currentTool === 'erase'" (click)="setTool('erase')">
+        <span class="material-symbols-outlined">auto_fix_off</span>
+      </button>
+    </div>
+
+    <div class="wb-group">
+      <span class="wb-label">Grosor</span>
+      @for (s of sizes; track s) {
+        <button class="wb-btn size-btn" [class.active]="currentSize === s" (click)="setSize(s)">
+          <span class="size-dot" [style.width.px]="s" [style.height.px]="s"></span>
+        </button>
+      }
+    </div>
+
+    <div class="wb-group">
+      <span class="wb-label">Color</span>
+      @for (c of colors; track c) {
+        <button class="wb-color-btn" [style.background]="c" [class.active]="currentColor === c" (click)="setColor(c)"></button>
+      }
+    </div>
+
+    <div class="wb-group">
+      <button class="wb-btn" (click)="toggleFullscreen()">
+        <span class="material-symbols-outlined">{{ isFullscreen ? 'fullscreen_exit' : 'fullscreen' }}</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="wb-canvas-wrapper" #container></div>
+</div>

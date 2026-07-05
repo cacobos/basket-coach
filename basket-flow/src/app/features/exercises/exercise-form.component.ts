@@ -1,15 +1,19 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { NgFor, NgIf } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { from, of, forkJoin } from 'rxjs';
+import { switchMap, filter, map, tap, catchError, take, shareReplay } from 'rxjs/operators';
+import { ExerciseRepository } from '../../core/repositories/exercise.repository';
 import { DataService } from '../../core/services/data.service';
 import { NotificationService } from '../../core/services/notification.service';
-import type { Exercise } from '../../core/models/models';
+import type { Club, Tag } from '../../core/models/models';
 
 @Component({
   selector: 'app-exercise-form',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule, RouterLink],
+  imports: [AsyncPipe, NgFor, NgIf, FormsModule, RouterLink],
   template: `
     <div class="page">
       <header class="page-header">
@@ -22,7 +26,7 @@ import type { Exercise } from '../../core/models/models';
         </div>
       </header>
 
-      <div class="card" *ngIf="!loading; else loadingTpl">
+      <div class="card" *ngIf="vm$ | async; else loadingTpl">
         <div class="form-body">
           <label class="field"><span>Nombre</span><input class="field-input" [(ngModel)]="formName" placeholder="Triángulo Ofensivo"/></label>
           <label class="field"><span>Descripción</span><textarea class="field-input field-textarea" [(ngModel)]="formDescription" rows="2" placeholder="Descripción del ejercicio..."></textarea></label>
@@ -32,7 +36,19 @@ import type { Exercise } from '../../core/models/models';
             <label class="field flex-1"><span>Jugadores min</span><input class="field-input" type="number" [(ngModel)]="formPlayersMin"/></label>
             <label class="field flex-1"><span>Jugadores max</span><input class="field-input" type="number" [(ngModel)]="formPlayersMax"/></label>
           </div>
-          <label class="field"><span>Tags (coma separados)</span><input class="field-input" [(ngModel)]="formTags" placeholder="Pases, Intermedio"/></label>
+          <label class="field"><span>Tags</span>
+            <div class="tag-selector">
+              <button class="tag-chip" *ngFor="let t of availableTags"
+                [class.active]="selectedTagIds.has(t.id)"
+                (click)="toggleTag(t.id)"
+                [style.--tag-color]="t.color">
+                {{ t.name }}
+              </button>
+              <span class="no-tags" *ngIf="availableTags.length === 0">
+                No hay tags. <a routerLink="/exercises/tags">Crear tags</a>
+              </span>
+            </div>
+          </label>
           <fieldset class="diagrams-section">
             <legend>Diagramas</legend>
             <div class="diagram-item" *ngFor="let d of formDiagrams; let i = index">
@@ -73,6 +89,17 @@ import type { Exercise } from '../../core/models/models';
     }
     .field-input:focus { border-color: #bdc2ff; }
     .field-textarea { resize: vertical; }
+    .tag-selector { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 0; }
+    .tag-chip {
+      font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+      padding: 6px 14px; border-radius: 9999px; border: 1px solid rgba(69,70,82,0.3);
+      background: transparent; color: #908f9d; cursor: pointer;
+      font-family: 'Hanken Grotesk', sans-serif; transition: all 0.15s;
+    }
+    .tag-chip:hover { border-color: var(--tag-color, #bdc2ff); color: var(--tag-color, #bdc2ff); }
+    .tag-chip.active { background: color-mix(in srgb, var(--tag-color, #4f6ef7) 20%, transparent); color: var(--tag-color, #bdc2ff); border-color: var(--tag-color, #4f6ef7); }
+    .no-tags { font-size: 13px; color: #908f9d; }
+    .no-tags a { color: #bdc2ff; }
     .diagrams-section { border: 1px solid rgba(69,70,82,0.3); border-radius: 8px; padding: 12px; }
     .diagrams-section legend { font-size: 12px; font-weight: 600; color: #c6c5d4; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 6px; }
     .diagram-item { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
@@ -120,13 +147,13 @@ import type { Exercise } from '../../core/models/models';
     }
   `]
 })
-export class ExerciseFormComponent implements OnInit {
+export class ExerciseFormComponent {
+  private exerciseRepo = inject(ExerciseRepository);
   private data = inject(DataService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private notification = inject(NotificationService);
 
-  loading = true;
   editing = false;
   saving = false;
   exerciseId: string | null = null;
@@ -137,42 +164,63 @@ export class ExerciseFormComponent implements OnInit {
   formDuration: number | null = null;
   formPlayersMin: number | null = null;
   formPlayersMax: number | null = null;
-  formTags = '';
   formDiagrams: { url: string; caption?: string }[] = [];
 
-  async ngOnInit() {
-    while (!this.data.currentClub()) {
-      await new Promise(r => setTimeout(r, 50));
-    }
-    const id = this.route.snapshot.paramMap.get('id');
-    if (id) {
-      this.editing = true;
-      this.exerciseId = id;
-    }
-    await this.load();
-  }
+  availableTags: Tag[] = [];
+  selectedTagIds = new Set<string>();
 
-  async load() {
-    this.loading = true;
-    try {
-      if (this.editing && this.exerciseId) {
-        const exercises = await this.data.getExercises();
-        const ex = exercises.find(e => e.id === this.exerciseId);
-        if (ex) {
-          this.formName = ex.name;
-          this.formDescription = ex.description || '';
-          this.formObjectives = ex.objectives || '';
-          this.formDuration = ex.duration_minutes;
-          this.formPlayersMin = ex.players_min;
-          this.formPlayersMax = ex.players_max;
-          this.formTags = (ex.tags || []).join(', ');
-          this.formDiagrams = (ex.diagrams || []).length > 0 ? [...ex.diagrams] : [];
-        }
+  private club$ = toObservable(this.data.currentClub).pipe(
+    filter((c): c is Club => c !== null)
+  );
+
+  vm$ = this.club$.pipe(
+    take(1),
+    switchMap(club => {
+      const id = this.route.snapshot.paramMap.get('id');
+      this.editing = !!id;
+      this.exerciseId = id;
+
+      const tags$ = from(this.exerciseRepo.getTags(club.id));
+      const exercise$ = id ? from(this.exerciseRepo.findById(id)) : of(null);
+      return forkJoin([tags$, exercise$]);
+    }),
+    tap(([tags, exercise]) => {
+      this.availableTags = tags;
+      if (exercise) {
+        this.formName = exercise.name;
+        this.formDescription = exercise.description || '';
+        this.formObjectives = exercise.objectives || '';
+        this.formDuration = exercise.duration_minutes;
+        this.formPlayersMin = exercise.players_min;
+        this.formPlayersMax = exercise.players_max;
+        this.selectedTagIds = new Set((exercise.tags || []).map((t: any) => t.id));
+        this.formDiagrams = (exercise.diagrams || []).length > 0 ? [...exercise.diagrams] : [];
       }
-    } catch (e) {
-      this.notification.show(e instanceof Error ? e.message : String(e));
+      const importedDiagrams = sessionStorage.getItem('tactics-diagram-export');
+      if (importedDiagrams) {
+        sessionStorage.removeItem('tactics-diagram-export');
+        try {
+          const diagrams = JSON.parse(importedDiagrams) as { url: string; caption?: string }[];
+          if (diagrams.length > 0) {
+            this.formDiagrams = diagrams;
+          }
+        } catch {}
+      }
+    }),
+    map(() => true),
+    catchError(err => {
+      this.notification.show(err instanceof Error ? err.message : String(err));
+      return of(true);
+    }),
+    shareReplay(1)
+  );
+
+  toggleTag(tagId: string) {
+    if (this.selectedTagIds.has(tagId)) {
+      this.selectedTagIds.delete(tagId);
+    } else {
+      this.selectedTagIds.add(tagId);
     }
-    this.loading = false;
   }
 
   addDiagram() {
@@ -199,13 +247,17 @@ export class ExerciseFormComponent implements OnInit {
       diagram_url: this.formDiagrams[0]?.url || null,
       diagrams: this.formDiagrams,
       video_url: null,
-      tags: this.formTags.split(',').map(t => t.trim()).filter(Boolean),
+      tags: [] as any[],
     };
     try {
       if (this.editing && this.exerciseId) {
-        await this.data.updateExercise(this.exerciseId, payload);
+        await this.exerciseRepo.update(this.exerciseId, payload);
+        await this.exerciseRepo.updateExerciseTags(this.exerciseId, Array.from(this.selectedTagIds));
       } else {
-        await this.data.createExercise(payload);
+        const created = await this.exerciseRepo.create(payload);
+        if (this.selectedTagIds.size > 0) {
+          await this.exerciseRepo.updateExerciseTags(created.id, Array.from(this.selectedTagIds));
+        }
       }
       this.router.navigate(['/exercises']);
     } catch (e) {

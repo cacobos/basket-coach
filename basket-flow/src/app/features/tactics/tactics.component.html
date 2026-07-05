@@ -13,23 +13,23 @@
       <div class="panel-section">
         <h6>PREVISUALIZA</h6>
         <button class="btn-outline" disabled>
-          <span>👁</span> Previsualiza - 3D
+          <span class="material-symbols-outlined">visibility</span> Previsualiza - 3D
         </button>
         <button class="btn-outline" disabled>
-          <span>👁</span> Previsualiza
+          <span class="material-symbols-outlined">visibility</span> Previsualiza
         </button>
       </div>
 
       <div class="panel-section">
         <h6>PASOS</h6>
         <div class="step-nav">
-          <button class="btn-icon" (click)="pbService.prevStep()" [disabled]="currentStepNum <= 1">◀</button>
+          <button class="btn-icon" (click)="pbService.prevStep()" [disabled]="currentStepNum <= 1"><span class="material-symbols-outlined">chevron_left</span></button>
           <span class="step-counter"><b>PASO {{currentStepNum}}/{{totalSteps}}</b></span>
-          <button class="btn-icon" (click)="pbService.nextStep()" [disabled]="currentStepNum >= totalSteps">▶</button>
+          <button class="btn-icon" (click)="pbService.nextStep()" [disabled]="currentStepNum >= totalSteps"><span class="material-symbols-outlined">chevron_right</span></button>
         </div>
         <div class="step-actions">
           <button class="btn-info" (click)="pbService.addStep()">+ Añade paso</button>
-          <button class="btn-danger" (click)="pbService.removeStep()" [style.visibility]="canRemoveStep ? 'visible' : 'hidden'">🗑 Elimina</button>
+          <button class="btn-danger" (click)="pbService.removeStep()" [style.visibility]="canRemoveStep ? 'visible' : 'hidden'"><span class="material-symbols-outlined">delete</span> Elimina</button>
         </div>
       </div>
 
@@ -64,33 +64,33 @@
       <div class="panel-section">
         <h6>OBJETOS</h6>
         <div class="player-group">
-          <button class="btn-item ball" (click)="addBall()">🏀 Balón</button>
-          <button class="btn-item cone" (click)="addCone()">🟠 Cono</button>
+          <button class="btn-item ball" (click)="addBall()"><span class="material-symbols-outlined">sports_basketball</span> Balón</button>
+          <button class="btn-item cone" (click)="addCone()"><span class="material-symbols-outlined">change_history</span> Cono</button>
         </div>
       </div>
 
       <div class="panel-section">
-        <button class="btn-danger btn-full" (click)="clearAll()">🗑 Borrar todo</button>
+        <button class="btn-danger btn-full" (click)="clearAll()"><span class="material-symbols-outlined">delete</span> Borrar todo</button>
       </div>
     </aside>
 
     <main class="canvas-area">
       <div class="canvas-toolbar">
         <div class="tool-group">
-          <button class="tool-btn" [class.active]="editorState.selectedTool === 'select'" (click)="setTool('select')" title="Seleccionar">⇱</button>
-          <button class="tool-btn" [class.active]="editorState.selectedTool === 'move'" (click)="setTool('move')" title="Movimiento">↝</button>
-          <button class="tool-btn" [class.active]="editorState.selectedTool === 'dribble'" (click)="setTool('dribble')" title="Dribling">↯</button>
-          <button class="tool-btn" [class.active]="editorState.selectedTool === 'block'" (click)="setTool('block')" title="Bloqueo">⊞</button>
-          <button class="tool-btn" [class.active]="editorState.selectedTool === 'pass'" (click)="setTool('pass')" title="Pase">⇢</button>
-          <button class="tool-btn" [class.active]="editorState.selectedTool === 'hand_pass'" (click)="setTool('hand_pass')" title="Pase de mano">⇝</button>
-          <button class="tool-btn" [class.active]="editorState.selectedTool === 'shoot'" (click)="setTool('shoot')" title="Tiro">◎</button>
+          <button class="tool-btn" [class.active]="editorState.selectedTool === 'select'" (click)="setTool('select')" title="Seleccionar"><span class="material-symbols-outlined">touch_app</span></button>
+          <button class="tool-btn" [class.active]="editorState.selectedTool === 'move'" (click)="setTool('move')" title="Movimiento"><span class="material-symbols-outlined">open_with</span></button>
+          <button class="tool-btn" [class.active]="editorState.selectedTool === 'dribble'" (click)="setTool('dribble')" title="Dribling"><span class="material-symbols-outlined">sports_handball</span></button>
+          <button class="tool-btn" [class.active]="editorState.selectedTool === 'block'" (click)="setTool('block')" title="Bloqueo"><span class="material-symbols-outlined">block</span></button>
+          <button class="tool-btn" [class.active]="editorState.selectedTool === 'pass'" (click)="setTool('pass')" title="Pase"><span class="material-symbols-outlined">send</span></button>
+          <button class="tool-btn" [class.active]="editorState.selectedTool === 'hand_pass'" (click)="setTool('hand_pass')" title="Pase de mano"><span class="material-symbols-outlined">pan_tool</span></button>
+          <button class="tool-btn" [class.active]="editorState.selectedTool === 'shoot'" (click)="setTool('shoot')" title="Tiro"><span class="material-symbols-outlined">ads_click</span></button>
         </div>
         <div class="tool-group">
           <span class="tool-label">DIBUJO</span>
-          <button class="tool-btn" [class.active]="editorState.selectedTool === 'draw'" (click)="setTool('draw')" title="Dibujo libre">✏️</button>
-          <button class="tool-btn" [class.active]="editorState.selectedTool === 'draw_circle'" (click)="setTool('draw_circle')" title="Círculo">○</button>
-          <button class="tool-btn" [class.active]="editorState.selectedTool === 'draw_rect'" (click)="setTool('draw_rect')" title="Rectángulo">▭</button>
-          <button class="tool-btn" (click)="clearDrawings()" title="Limpiar trazos">🗑</button>
+          <button class="tool-btn" [class.active]="editorState.selectedTool === 'draw'" (click)="setTool('draw')" title="Dibujo libre"><span class="material-symbols-outlined">draw</span></button>
+          <button class="tool-btn" [class.active]="editorState.selectedTool === 'draw_circle'" (click)="setTool('draw_circle')" title="Círculo"><span class="material-symbols-outlined">radio_button_unchecked</span></button>
+          <button class="tool-btn" [class.active]="editorState.selectedTool === 'draw_rect'" (click)="setTool('draw_rect')" title="Rectángulo"><span class="material-symbols-outlined">crop_square</span></button>
+          <button class="tool-btn" (click)="clearDrawings()" title="Limpiar trazos"><span class="material-symbols-outlined">delete</span></button>
         </div>
         <div class="tool-group">
           <span class="tool-label">COLOR</span>
@@ -125,10 +125,10 @@
         <div class="edit-panel">
           <div class="edit-header">
             <h4>Elemento seleccionado</h4>
-            <button class="btn-close" (click)="canvasService.setTool('select')">✕</button>
+            <button class="btn-close" (click)="canvasService.setTool('select')"><span class="material-symbols-outlined">close</span></button>
           </div>
           <div class="edit-body">
-            <button class="btn-danger btn-sm" (click)="removeSelected()">🗑 Eliminar</button>
+            <button class="btn-danger btn-sm" (click)="removeSelected()"><span class="material-symbols-outlined">delete</span> Eliminar</button>
           </div>
         </div>
       }
@@ -137,7 +137,7 @@
         <div class="edit-panel">
           <div class="edit-header">
             <h4>Editar movimiento</h4>
-            <button class="btn-close" (click)="canvasService.setTool('select')">✕</button>
+            <button class="btn-close" (click)="canvasService.setTool('select')"><span class="material-symbols-outlined">close</span></button>
           </div>
           <div class="edit-body">
             <h6>Color</h6>
@@ -146,7 +146,7 @@
                 <button class="color-btn" [style.background]="c" (click)="setColor(c)"></button>
               }
             </div>
-            <button class="btn-danger btn-sm mt-2" (click)="removeCurve()">🗑 Elimina</button>
+            <button class="btn-danger btn-sm mt-2" (click)="removeCurve()"><span class="material-symbols-outlined">delete</span> Elimina</button>
           </div>
         </div>
       }
@@ -155,7 +155,7 @@
         <div class="edit-panel">
           <div class="edit-header">
             <h4>Edita dibujo</h4>
-            <button class="btn-close" (click)="canvasService.setTool('select')">✕</button>
+            <button class="btn-close" (click)="canvasService.setTool('select')"><span class="material-symbols-outlined">close</span></button>
           </div>
           <div class="edit-body">
             <h6>Color</h6>
@@ -164,14 +164,14 @@
                 <button class="color-btn" [style.background]="c" (click)="setColor(c)"></button>
               }
             </div>
-            <button class="btn-danger btn-sm mt-2" (click)="removeShape()">🗑 Elimina</button>
+            <button class="btn-danger btn-sm mt-2" (click)="removeShape()"><span class="material-symbols-outlined">delete</span> Elimina</button>
           </div>
         </div>
       }
 
       <div class="info-panel">
         <div class="info-box">
-          <span>ℹ</span> Haz click sobre un jugador/a o curva para añadir acciones
+          <span class="material-symbols-outlined">info</span> Haz click sobre un jugador/a o curva para añadir acciones
         </div>
 
         <hr />
@@ -179,10 +179,13 @@
         <div class="panel-section">
           <h6>EXPORTAR</h6>
           <button class="btn-outline btn-full" (click)="exportCurrentStep()">
-            <span>🖼</span> Paso actual como PNG
+            <span class="material-symbols-outlined">image</span> Paso actual como PNG
           </button>
           <button class="btn-outline btn-full" (click)="exportAllPDF()">
-            <span>📄</span> Todos los pasos como PDF
+            <span class="material-symbols-outlined">picture_as_pdf</span> Todos los pasos como PDF
+          </button>
+          <button class="btn-outline btn-full" (click)="exportAsDiagram()">
+            <span class="material-symbols-outlined">sports_basketball</span> Exportar como diagrama
           </button>
         </div>
       </div>

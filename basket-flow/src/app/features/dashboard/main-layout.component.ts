@@ -1,7 +1,19 @@
-import { Component, inject, HostListener } from '@angular/core';
+import { Component, inject, computed, signal, HostListener, OnDestroy } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { NgIf } from '@angular/common';
+import { Subscription, from, of, timer, switchMap, takeWhile, filter, map } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
+import { PermissionService, type Permission } from '../../core/services/permission.service';
+import { DataService } from '../../core/services/data.service';
+
+interface NavItem {
+  path: string;
+  label: string;
+  icon: string;
+  exact?: boolean;
+  permission?: Permission;
+  adminOnly?: boolean;
+}
 
 @Component({
   selector: 'app-main-layout',
@@ -35,58 +47,19 @@ import { AuthService } from '../../core/auth/auth.service';
         </div>
 
         <nav class="nav">
-          <a routerLink="/dashboard" routerLinkActive="active-nav-item" [routerLinkActiveOptions]="{exact:true}" class="nav-item" (click)="mobileMenuOpen = false">
-            <span class="material-symbols-outlined nav-icon">dashboard</span>
-            <span>Dashboard</span>
-          </a>
-          <a routerLink="/teams" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
-            <span class="material-symbols-outlined nav-icon">groups</span>
-            <span>Equipos</span>
-          </a>
-          <a routerLink="/players" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
-            <span class="material-symbols-outlined nav-icon">face</span>
-            <span>Jugadores</span>
-          </a>
-          <a routerLink="/exercises" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
-            <span class="material-symbols-outlined nav-icon">fitness_center</span>
-            <span>Ejercicios</span>
-          </a>
-          <a routerLink="/sessions" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
-            <span class="material-symbols-outlined nav-icon">calendar_month</span>
-            <span>Sesiones</span>
-          </a>
-          <a routerLink="/session-builder" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
-            <span class="material-symbols-outlined nav-icon">playlist_add</span>
-            <span>Crear Sesión</span>
-          </a>
-          <a routerLink="/calendar" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
-            <span class="material-symbols-outlined nav-icon">calendar_view_month</span>
-            <span>Calendario</span>
-          </a>
-          <a routerLink="/tactics" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
-            <span class="material-symbols-outlined nav-icon">draw</span>
-            <span>Pizarra</span>
-          </a>
-          <a routerLink="/whiteboard" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
-            <span class="material-symbols-outlined nav-icon">edit</span>
-            <span>Pizarra Libre</span>
-          </a>
-          <a routerLink="/stats" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
-            <span class="material-symbols-outlined nav-icon">bar_chart</span>
-            <span>Estadísticas</span>
-          </a>
-          <a routerLink="/evaluations" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
-            <span class="material-symbols-outlined nav-icon">star</span>
-            <span>Evaluaciones</span>
-          </a>
-          <a routerLink="/attendance" routerLinkActive="active-nav-item" class="nav-item" (click)="mobileMenuOpen = false">
-            <span class="material-symbols-outlined nav-icon">fact_check</span>
-            <span>Asistencia</span>
-          </a>
+          @for (item of visibleItems(); track item.path) {
+            <a [routerLink]="item.path" routerLinkActive="active-nav-item"
+               [routerLinkActiveOptions]="item.exact ? {exact:true} : {}"
+               class="nav-item" (click)="mobileMenuOpen = false">
+              <span class="material-symbols-outlined nav-icon">{{ item.icon }}</span>
+              <span>{{ item.label }}</span>
+            </a>
+          }
         </nav>
 
-        <div class="sidebar-footer" *ngIf="auth.profile() as profile">
-          <div class="user-info">
+        <div class="sidebar-footer">
+          <a routerLink="/upgrade" class="upgrade-link">Mejorar plan</a>
+          <div class="user-info" *ngIf="auth.profile() as profile">
             <div class="avatar">{{ profile.full_name.charAt(0) || '?' }}</div>
             <div class="user-details">
               <span class="user-name">{{ profile.full_name }}</span>
@@ -190,8 +163,19 @@ import { AuthService } from '../../core/auth/auth.service';
       padding: 12px;
       border-top: 1px solid rgba(255,255,255,0.05);
       display: flex;
-      align-items: center;
+      flex-direction: column;
+      gap: 8px;
     }
+    .upgrade-link {
+      display: block; text-align: center;
+      padding: 8px; border-radius: 8px;
+      background: rgba(0,104,237,0.12);
+      color: #bdc2ff; text-decoration: none;
+      font-size: 12px; font-weight: 700;
+      letter-spacing: 0.03em;
+      transition: all 0.15s;
+    }
+    .upgrade-link:hover { background: rgba(0,104,237,0.2); }
     .user-info { display: flex; align-items: center; gap: 10px; flex: 1; overflow: hidden; }
     .avatar {
       width: 32px; height: 32px; border-radius: 50%;
@@ -235,9 +219,59 @@ import { AuthService } from '../../core/auth/auth.service';
     }
   `]
 })
-export class MainLayoutComponent {
+export class MainLayoutComponent implements OnDestroy {
   auth = inject(AuthService);
+  perms = inject(PermissionService);
+  private data = inject(DataService);
   mobileMenuOpen = false;
+  private pollSub?: Subscription;
+
+  private allNavItems: NavItem[] = [
+    { path: '/dashboard', label: 'Dashboard', icon: 'dashboard', exact: true },
+    { path: '/teams', label: 'Equipos', icon: 'groups' },
+    { path: '/players', label: 'Jugadores', icon: 'face' },
+    { path: '/matches', label: 'Partidos', icon: 'sports_basketball', permission: 'match.manage' },
+    { path: '/exercises', label: 'Ejercicios', icon: 'fitness_center', permission: 'exercise.manage' },
+    { path: '/sessions', label: 'Sesiones', icon: 'calendar_month', permission: 'session.manage' },
+    { path: '/sessions/new', label: 'Crear Sesión', icon: 'playlist_add', permission: 'session.manage' },
+    { path: '/planning', label: 'Planificación', icon: 'timeline', permission: 'planning.manage' },
+    { path: '/calendar', label: 'Calendario', icon: 'calendar_view_month' },
+    { path: '/tactics', label: 'Pizarra', icon: 'draw', permission: 'tactics.manage' },
+    { path: '/whiteboard', label: 'Pizarra Libre', icon: 'edit' },
+    { path: '/evaluations', label: 'Evaluar', icon: 'fact_check', permission: 'evaluation.manage' },
+    { path: '/superadmin', label: 'Admin', icon: 'admin_panel_settings', adminOnly: true },
+  ];
+
+  private clubRole = signal<string | null>(null);
+
+  visibleItems = computed(() => {
+    const role = this.clubRole();
+    const isSuperadmin = this.auth.profile()?.is_superadmin;
+    return this.allNavItems.filter(item => {
+      if (item.adminOnly && !isSuperadmin) return false;
+      if (item.permission) return this.perms.hasPermission(role as any, item.permission);
+      return true;
+    });
+  });
+
+  constructor() {
+    this.pollSub = from(this.auth.ready).pipe(
+      switchMap(() => {
+        const profile = this.auth.profile();
+        if (!profile) return of(null);
+        return timer(0, 50).pipe(
+          map(() => this.data.currentClub()?.id),
+          takeWhile(id => !id, true),
+          filter(Boolean)
+        );
+      }),
+      switchMap(clubId => this.perms.getRoleInClub(clubId!))
+    ).subscribe(role => this.clubRole.set(role));
+  }
+
+  ngOnDestroy() {
+    this.pollSub?.unsubscribe();
+  }
 
   @HostListener('window:resize')
   onResize() {

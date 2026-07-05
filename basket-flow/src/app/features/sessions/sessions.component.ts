@@ -1,30 +1,34 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
-import { NgFor, NgIf, SlicePipe } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { NgFor, NgIf, SlicePipe, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { Subject, forkJoin, from, of } from 'rxjs';
+import { startWith, switchMap, filter, map, catchError } from 'rxjs/operators';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { DataService } from '../../core/services/data.service';
+import { SessionRepository } from '../../core/repositories/session.repository';
 import { NotificationService } from '../../core/services/notification.service';
 import type { TrainingSession, Team } from '../../core/models/models';
 
 @Component({
   selector: 'app-sessions',
   standalone: true,
-  imports: [NgFor, NgIf, SlicePipe, FormsModule],
+  imports: [NgFor, NgIf, SlicePipe, FormsModule, AsyncPipe],
   template: `
-    <div class="page">
+    <div class="page" *ngIf="vm$ | async as vm; else loadingTpl">
       <header class="page-header">
         <div>
           <h2 class="page-title">Planificador de Sesiones</h2>
           <p class="page-sub">Diseña la próxima práctica. Organiza ejercicios por secciones.</p>
         </div>
-        <button class="btn-primary" (click)="openCreate()">
+        <button class="btn-primary" (click)="openCreate(vm)">
           <span class="material-symbols-outlined fill">add</span>
           Nueva Sesión
         </button>
       </header>
 
-      <div class="session-list" *ngIf="!loading; else loadingTpl">
-        <div class="session-card" *ngFor="let session of sessions"
+      <div class="session-list">
+        <div class="session-card" *ngFor="let session of vm.sessions"
              (click)="router.navigate(['/sessions', session.id])">
           <div class="session-date">
             <span class="session-day">{{ session.date | slice:8:10 }}</span>
@@ -34,7 +38,7 @@ import type { TrainingSession, Team } from '../../core/models/models';
             <h3 class="session-name">{{ session.title }}</h3>
             <div class="session-meta">
               <span><span class="material-symbols-outlined">schedule</span>{{ session.start_time.slice(0,5) }} - {{ session.end_time.slice(0,5) }}</span>
-              <span><span class="material-symbols-outlined">groups</span>{{ teamNames[session.team_id] || '—' }}</span>
+              <span><span class="material-symbols-outlined">groups</span>{{ vm.teamNames[session.team_id] || '—' }}</span>
               <span *ngIf="session.objectives"><span class="material-symbols-outlined">track_changes</span>{{ session.objectives }}</span>
             </div>
           </div>
@@ -45,15 +49,11 @@ import type { TrainingSession, Team } from '../../core/models/models';
             <span class="material-symbols-outlined">delete</span>
           </button>
         </div>
-        <div class="empty-state" *ngIf="sessions.length === 0">
+        <div class="empty-state" *ngIf="vm.sessions.length === 0">
           <span class="material-symbols-outlined empty-icon">calendar_month</span>
           <p>No hay sesiones planificadas.</p>
         </div>
       </div>
-
-      <ng-template #loadingTpl>
-        <div class="loading-state"><span class="material-symbols-outlined loading-icon">sync</span><p>Cargando sesiones...</p></div>
-      </ng-template>
 
       <div class="modal-overlay" *ngIf="showForm" (click)="showForm = false">
         <div class="modal-card" (click)="$event.stopPropagation()">
@@ -62,7 +62,7 @@ import type { TrainingSession, Team } from '../../core/models/models';
             <label class="field"><span>Título</span><input class="field-input" [(ngModel)]="formTitle" placeholder="Shooting Drills"/></label>
             <label class="field"><span>Equipo</span>
               <select class="field-input" [(ngModel)]="formTeam">
-                <option *ngFor="let t of teams" [value]="t.id">{{ t.name }}</option>
+                <option *ngFor="let t of vm.teams" [value]="t.id">{{ t.name }}</option>
               </select>
             </label>
             <label class="field"><span>Fecha</span><input class="field-input" type="date" [(ngModel)]="formDate"/></label>
@@ -80,6 +80,10 @@ import type { TrainingSession, Team } from '../../core/models/models';
         </div>
       </div>
     </div>
+
+    <ng-template #loadingTpl>
+      <div class="loading-state"><span class="material-symbols-outlined loading-icon">sync</span><p>Cargando sesiones...</p></div>
+    </ng-template>
   `,
   styles: [`
     .page { padding: 40px; max-width: 1440px; margin: 0 auto; }
@@ -185,16 +189,12 @@ import type { TrainingSession, Team } from '../../core/models/models';
     }
   `]
 })
-export class SessionsComponent implements OnInit {
+export class SessionsComponent {
   private data = inject(DataService);
+  private sessionRepo = inject(SessionRepository);
   router = inject(Router);
-  private cdr = inject(ChangeDetectorRef);
   private notification = inject(NotificationService);
-
-  sessions: TrainingSession[] = [];
-  teams: Team[] = [];
-  teamNames: Record<string, string> = {};
-  loading = true;
+  private reload = new Subject<void>();
 
   showForm = false;
   formTitle = '';
@@ -207,6 +207,27 @@ export class SessionsComponent implements OnInit {
 
   monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
+  readonly vm$ = toObservable(this.data.currentClub).pipe(
+    filter(Boolean),
+    switchMap(club => this.reload.pipe(
+      startWith(undefined),
+      switchMap(() => forkJoin({
+        teams: from(this.data.getTeams()),
+        sessions: from(this.sessionRepo.findAll(club.id)),
+      }).pipe(
+        catchError(err => {
+          this.notification.show(err instanceof Error ? err.message : String(err));
+          return of({ teams: [] as Team[], sessions: [] as TrainingSession[] });
+        })
+      )),
+      map(({ teams, sessions }) => ({
+        teams,
+        sessions,
+        teamNames: Object.fromEntries(teams.map(t => [t.id, t.name])),
+      }))
+    ))
+  );
+
   statusLabel(s: string): string {
     switch (s) {
       case 'completed': return 'Completado';
@@ -216,29 +237,9 @@ export class SessionsComponent implements OnInit {
     }
   }
 
-  async ngOnInit() {
-    while (!this.data.currentClub()) {
-      await new Promise(r => setTimeout(r, 50));
-    }
-    await this.load();
-  }
-
-  async load() {
-    this.loading = true;
-    try {
-      this.teams = await this.data.getTeams();
-      this.teams.forEach(t => this.teamNames[t.id] = t.name);
-      this.sessions = await this.data.getSessions();
-    } catch (e) {
-      this.notification.show(e instanceof Error ? e.message : String(e));
-    }
-    this.loading = false;
-    this.cdr.detectChanges();
-  }
-
-  openCreate() {
-    if (this.teams.length === 0) return;
-    this.formTeam = this.teams[0].id;
+  openCreate(vm: { teams: Team[] }) {
+    if (vm.teams.length === 0) return;
+    this.formTeam = vm.teams[0].id;
     this.formDate = new Date().toISOString().slice(0, 10);
     this.formObjectives = '';
     this.showForm = true;
@@ -249,7 +250,7 @@ export class SessionsComponent implements OnInit {
     const clubId = this.data.currentClub()?.id;
     if (!clubId) return;
 
-    const session = await this.data.createSession({
+    const session = await this.sessionRepo.create({
       club_id: clubId,
       team_id: this.formTeam,
       title: this.formTitle.trim(),
@@ -268,13 +269,13 @@ export class SessionsComponent implements OnInit {
       await this.data.createSection({ session_id: session.id, name: 'Vuelta a la Calma', sort_order: 3 });
     }
     this.showForm = false;
-    await this.load();
+    this.reload.next();
   }
 
   async deleteSession(session: TrainingSession) {
     if (!confirm(`¿Eliminar la sesión "${session.title}"?`)) return;
-    await this.data.deleteSession(session.id);
-    await this.load();
+    await this.sessionRepo.remove(session.id);
+    this.reload.next();
   }
 
   closeForm() {

@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { Playbook, Step, CourtType, CourtOrientation } from './player.model';
+import { Playbook, Step, CourtType, CourtOrientation } from './canvas.models';
 import { DataService } from '../../core/services/data.service';
 import { AuthService } from '../../core/auth/auth.service';
 

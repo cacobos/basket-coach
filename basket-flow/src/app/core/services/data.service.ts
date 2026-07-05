@@ -4,10 +4,16 @@ import { AuthService } from '../auth/auth.service';
 import { NotificationService } from './notification.service';
 import type {
   Club, ClubMember, Team, Player, Exercise, ExerciseCategory, ExerciseVariant,
-  TrainingSession, SessionSection, SessionExercise, Attendance, GameStats,
-  PlayerGameStats, Evaluation, PlaybookDB
+  TrainingSession, SessionSection, SessionExercise, Attendance,
+  Evaluation, PlaybookDB, SessionPlayerReview, TagInfo
 } from '../models/models';
 
+/**
+ * @deprecated Migrate to feature-specific repositories:
+ *   ClubRepository, TeamRepository, PlayerRepository, ExerciseRepository,
+ *   SessionRepository, AttendanceRepository, EvaluationRepository, PlaybookRepository.
+ *   DataService remains as facade for backward compatibility during migration.
+ */
 @Injectable({ providedIn: 'root' })
 export class DataService {
   private notification = inject(NotificationService);
@@ -16,6 +22,8 @@ export class DataService {
 
   clubs = this._clubs.asReadonly();
   currentClub = this._currentClub.asReadonly();
+
+  get client() { return this.supabase.client; }
 
   constructor(
     private supabase: SupabaseService,
@@ -44,11 +52,16 @@ export class DataService {
     }
   }
 
+  async loadClubs(): Promise<void> {
+    await this._init();
+  }
+
   setCurrentClub(club: Club) {
     this._currentClub.set(club);
   }
 
   // ── Clubs ──
+  /** @deprecated Use ClubRepository.create() instead */
   async createClub(name: string, description?: string): Promise<Club | null> {
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const { data } = await this.supabase.client
@@ -66,6 +79,7 @@ export class DataService {
   }
 
   // ── Teams ──
+  /** @deprecated Use TeamRepository (to be created) */
   async getTeams(clubId?: string): Promise<Team[]> {
     const cid = clubId || this._currentClub()?.id;
     if (!cid) return [];
@@ -77,6 +91,7 @@ export class DataService {
     return (data as Team[]) || [];
   }
 
+  /** @deprecated Use TeamRepository (to be created) */
   async createTeam(name: string, category: string, season?: string): Promise<Team | null> {
     const clubId = this._currentClub()?.id;
     if (!clubId) return null;
@@ -103,6 +118,7 @@ export class DataService {
         .from('players')
         .select('*')
         .eq('team_id', teamId)
+        .is('deleted_at', null)
         .order('last_name');
       return (data as Player[]) || [];
     }
@@ -110,13 +126,14 @@ export class DataService {
     if (!clubId) return [];
     const { data } = await this.supabase.client
       .from('players')
-      .select('*, teams!inner(club_id)')
-      .eq('teams.club_id', clubId)
+      .select('*, teams(name)')
+      .eq('club_id', clubId)
+      .is('deleted_at', null)
       .order('last_name');
     return (data as any[])?.map(p => ({ ...p, team_id: p.team_id })) as Player[] || [];
   }
 
-  async createPlayer(player: Omit<Player, 'id' | 'created_at' | 'is_active'> & { is_active?: boolean }): Promise<Player | null> {
+  async createPlayer(player: Omit<Player, 'id' | 'created_at' | 'is_active' | 'deleted_at'> & { is_active?: boolean }): Promise<Player | null> {
     const { data } = await this.supabase.client
       .from('players')
       .insert({ ...player, is_active: player.is_active ?? true })
@@ -130,7 +147,7 @@ export class DataService {
   }
 
   async deletePlayer(id: string): Promise<void> {
-    await this.supabase.client.from('players').delete().eq('id', id);
+    await this.supabase.client.from('players').update({ deleted_at: new Date().toISOString() }).eq('id', id);
   }
 
   // ── Exercise Categories ──
@@ -162,13 +179,22 @@ export class DataService {
     if (!cid) return [];
     const { data } = await this.supabase.client
       .from('exercises')
-      .select('*')
+      .select(`
+        *,
+        exercise_tags (
+          tags (*)
+        )
+      `)
       .eq('club_id', cid)
+      .is('deleted_at', null)
       .order('name');
-    return (data as Exercise[]) || [];
+    return ((data || []) as any[]).map(ex => ({
+      ...ex,
+      tags: (ex.exercise_tags || []).map((et: any) => et.tags).filter(Boolean) as TagInfo[],
+    })) as Exercise[];
   }
 
-  async createExercise(ex: Omit<Exercise, 'id' | 'created_at' | 'created_by'>): Promise<Exercise | null> {
+  async createExercise(ex: Omit<Exercise, 'id' | 'created_at' | 'created_by' | 'deleted_at'>): Promise<Exercise | null> {
     const { data } = await this.supabase.client
       .from('exercises')
       .insert({ ...ex, created_by: this.auth.user()!.id })
@@ -182,7 +208,7 @@ export class DataService {
   }
 
   async deleteExercise(id: string): Promise<void> {
-    await this.supabase.client.from('exercises').delete().eq('id', id);
+    await this.supabase.client.from('exercises').update({ deleted_at: new Date().toISOString() }).eq('id', id);
   }
 
   async removeTagFromExercises(tag: string): Promise<void> {
@@ -196,6 +222,7 @@ export class DataService {
         .from('training_sessions')
         .select('*')
         .eq('team_id', teamId)
+        .is('deleted_at', null)
         .order('date', { ascending: false });
       return (data as TrainingSession[]) || [];
     }
@@ -205,11 +232,12 @@ export class DataService {
       .from('training_sessions')
       .select('*')
       .eq('club_id', clubId)
+      .is('deleted_at', null)
       .order('date', { ascending: false });
     return (data as TrainingSession[]) || [];
   }
 
-  async createSession(session: Omit<TrainingSession, 'id' | 'created_at' | 'created_by'>): Promise<TrainingSession | null> {
+  async createSession(session: Omit<TrainingSession, 'id' | 'created_at' | 'created_by' | 'deleted_at'>): Promise<TrainingSession | null> {
     const { data } = await this.supabase.client
       .from('training_sessions')
       .insert({ ...session, created_by: this.auth.user()!.id })
@@ -223,7 +251,7 @@ export class DataService {
   }
 
   async deleteSession(id: string): Promise<void> {
-    await this.supabase.client.from('training_sessions').delete().eq('id', id);
+    await this.supabase.client.from('training_sessions').update({ deleted_at: new Date().toISOString() }).eq('id', id);
   }
 
   // ── Session Sections ──
@@ -376,43 +404,37 @@ export class DataService {
     return (data as Attendance[]) || [];
   }
 
-  async setAttendance(sessionId: string, playerId: string, status: Attendance['status'], notes?: string): Promise<void> {
+  async setAttendance(sessionId: string, playerId: string, status: Attendance['status'], notes?: string, lateMinutes?: number): Promise<void> {
     await this.supabase.client
       .from('attendance')
-      .upsert({ session_id: sessionId, player_id: playerId, status, notes }, { onConflict: 'session_id,player_id' });
+      .upsert({ session_id: sessionId, player_id: playerId, status, notes, late_minutes: lateMinutes }, { onConflict: 'session_id,player_id' });
   }
 
-  // ── Game Stats ──
-  async getGames(teamId: string): Promise<GameStats[]> {
+  // ── Session Analysis ──
+  async getSessionReviews(sessionId: string): Promise<SessionPlayerReview[]> {
     const { data } = await this.supabase.client
-      .from('game_stats')
+      .from('session_player_reviews')
       .select('*')
-      .eq('team_id', teamId)
-      .order('date', { ascending: false });
-    return (data as GameStats[]) || [];
+      .eq('session_id', sessionId);
+    return (data as SessionPlayerReview[]) || [];
   }
 
-  async createGame(game: Omit<GameStats, 'id' | 'created_at'>): Promise<GameStats | null> {
-    const { data } = await this.supabase.client
-      .from('game_stats')
-      .insert(game)
-      .select()
-      .single();
-    return data as GameStats | null;
-  }
-
-  async getPlayerGameStats(gameId: string): Promise<PlayerGameStats[]> {
-    const { data } = await this.supabase.client
-      .from('player_game_stats')
-      .select('*')
-      .eq('game_id', gameId);
-    return (data as PlayerGameStats[]) || [];
-  }
-
-  async savePlayerGameStats(stats: Omit<PlayerGameStats, 'id' | 'created_at'>): Promise<void> {
+  async upsertSessionReview(sessionId: string, playerId: string, review: Partial<SessionPlayerReview>): Promise<void> {
     await this.supabase.client
-      .from('player_game_stats')
-      .upsert(stats, { onConflict: 'game_id,player_id' });
+      .from('session_player_reviews')
+      .upsert({
+        session_id: sessionId,
+        player_id: playerId,
+        comments: review.comments ?? '',
+      }, { onConflict: 'session_id,player_id' });
+  }
+
+  async deleteSessionReview(sessionId: string, playerId: string): Promise<void> {
+    await this.supabase.client
+      .from('session_player_reviews')
+      .delete()
+      .eq('session_id', sessionId)
+      .eq('player_id', playerId);
   }
 
   // ── Evaluations ──

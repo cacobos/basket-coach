@@ -1,248 +1,257 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
-import { NgFor, NgIf } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { NgFor, NgIf, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { Subject, forkJoin, from, of } from 'rxjs';
+import { startWith, switchMap, filter, map, tap, catchError } from 'rxjs/operators';
+import { toObservable } from '@angular/core/rxjs-interop';
 import { DataService } from '../../core/services/data.service';
+import { ExerciseRepository } from '../../core/repositories/exercise.repository';
+import { SessionRepository } from '../../core/repositories/session.repository';
 import { NotificationService } from '../../core/services/notification.service';
 import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team } from '../../core/models/models';
 
 @Component({
   selector: 'app-session-detail',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule],
+  imports: [NgFor, NgIf, FormsModule, AsyncPipe],
   template: `
-    <div class="detail-page" *ngIf="session">
-      <header class="detail-header">
-        <button class="btn-back" (click)="goBack()">
-          <span class="material-symbols-outlined">arrow_back</span>
-        </button>
-        <div class="detail-header-info">
-          <h1 class="page-title">{{ session.title }}</h1>
-          <div class="detail-meta">
-            <span class="meta-chip">{{ session.date }}</span>
-            <span class="meta-chip">{{ session.start_time.slice(0,5) }} - {{ session.end_time.slice(0,5) }}</span>
-            <span class="meta-chip" *ngIf="teamName">{{ teamName }}</span>
-            <span class="meta-chip" *ngIf="session.location">{{ session.location }}</span>
-            <span class="session-status" [class]="session.status">{{ statusLabel(session.status) }}</span>
+    <ng-container *ngIf="vm$ | async as vm; else loadingTpl">
+      <div class="detail-page" *ngIf="vm.session; else notFoundTpl">
+        <header class="detail-header">
+          <button class="btn-back" (click)="goBack()">
+            <span class="material-symbols-outlined">arrow_back</span>
+          </button>
+          <div class="detail-header-info">
+            <h1 class="page-title">{{ vm.session.title }}</h1>
+            <div class="detail-meta">
+              <span class="meta-chip">{{ vm.session.date }}</span>
+              <span class="meta-chip">{{ vm.session.start_time.slice(0,5) }} - {{ vm.session.end_time.slice(0,5) }}</span>
+              <span class="meta-chip" *ngIf="vm.teamName">{{ vm.teamName }}</span>
+              <span class="meta-chip" *ngIf="vm.session.location">{{ vm.session.location }}</span>
+              <span class="session-status" [class]="vm.session.status">{{ statusLabel(vm.session.status) }}</span>
+            </div>
+            <p class="detail-objectives" *ngIf="vm.session.objectives">{{ vm.session.objectives }}</p>
           </div>
-          <p class="detail-objectives" *ngIf="session.objectives">{{ session.objectives }}</p>
-        </div>
-        <div class="detail-header-actions">
-          <button class="btn-secondary" (click)="exportPDF()">
-            <span class="material-symbols-outlined">picture_as_pdf</span>
-            Exportar PDF
-          </button>
-          <button class="btn-secondary" (click)="editSession()">
-            <span class="material-symbols-outlined">edit</span>
-            Editar
-          </button>
-        </div>
-      </header>
-
-      <div class="detail-body">
-        <aside class="sections-nav">
-          <h3 class="nav-title">Secciones</h3>
-          <div class="nav-list">
-            <button class="nav-item" *ngFor="let sec of sections; let si = index"
-              (click)="scrollToSection(si)">
-              <span class="nav-badge" [style.background]="sectionColors[si % sectionColors.length]">{{ sec.name }}</span>
-              <span class="nav-duration">{{ getSectionDuration(sec.id) }} min</span>
+          <div class="detail-header-actions">
+            <button class="btn-secondary" (click)="exportPDF()">
+              <span class="material-symbols-outlined">picture_as_pdf</span>
+              Exportar PDF
+            </button>
+            <button class="btn-secondary" (click)="editSession()">
+              <span class="material-symbols-outlined">edit</span>
+              Editar
+            </button>
+            <button class="btn-secondary" *ngIf="vm.session.status === 'completed'" (click)="goAnalysis()">
+              <span class="material-symbols-outlined">insights</span>
+              Análisis
             </button>
           </div>
-          <div class="nav-summary">
-            <div class="nav-summary-row">
-              <span>Ejercicios</span>
-              <strong>{{ totalExercises }}</strong>
-            </div>
-            <div class="nav-summary-row">
-              <span>Duración</span>
-              <strong>{{ totalDuration }} min</strong>
-            </div>
-          </div>
-        </aside>
+        </header>
 
-        <main class="detail-main">
-          <div class="sections-list">
-            <div class="section-card" *ngFor="let sec of sections; let si = index"
-              [id]="'section-' + si"
-              draggable="true"
-              (dragstart)="onSectionDragStart($event, si)"
-              (dragover)="onSectionDragOver($event, si)"
-              (dragend)="onSectionDragEnd()"
-              (drop)="onSectionDrop($event, si)"
-              [class.drag-over]="dragOverSectionIdx === si"
-              [style.border-left-color]="sectionColors[si % sectionColors.length]">
-              <div class="section-header">
-                <div class="section-handle" (mousedown)="$event.stopPropagation()">
-                  <span class="material-symbols-outlined">drag_indicator</span>
-                </div>
-                <div class="section-title-group">
-                  <span class="section-badge" [style.background]="sectionColors[si % sectionColors.length]">{{ sec.name }}</span>
-                  <input class="section-name-input" [(ngModel)]="sec.name" (blur)="updateSectionName(sec)" placeholder="Nombre de la sección"/>
-                </div>
-                <div class="section-header-actions">
-                  <span class="duration-pill">{{ getSectionDuration(sec.id) }} min</span>
-                  <button class="btn-icon" (click)="moveSection(sec, -1)" *ngIf="si > 0" title="Mover arriba">
-                    <span class="material-symbols-outlined">keyboard_arrow_up</span>
-                  </button>
-                  <button class="btn-icon" (click)="moveSection(sec, 1)" *ngIf="si < sections.length - 1" title="Mover abajo">
-                    <span class="material-symbols-outlined">keyboard_arrow_down</span>
-                  </button>
-                  <button class="btn-icon btn-icon-danger" (click)="promptRemoveSection(sec)" *ngIf="sections.length > 1" title="Eliminar sección">
-                    <span class="material-symbols-outlined">delete</span>
-                  </button>
-                </div>
+        <div class="detail-body">
+          <aside class="sections-nav">
+            <h3 class="nav-title">Secciones</h3>
+            <div class="nav-list">
+              <button class="nav-item" *ngFor="let sec of vm.sections; let si = index"
+                (click)="scrollToSection(si)">
+                <span class="nav-badge" [style.background]="sectionColors[si % sectionColors.length]">{{ sec.name }}</span>
+                <span class="nav-duration">{{ getSectionDuration(sec.id) }} min</span>
+              </button>
+            </div>
+            <div class="nav-summary">
+              <div class="nav-summary-row">
+                <span>Ejercicios</span>
+                <strong>{{ vm.totalExercises }}</strong>
               </div>
+              <div class="nav-summary-row">
+                <span>Duración</span>
+                <strong>{{ vm.totalDuration }} min</strong>
+              </div>
+            </div>
+          </aside>
 
-              <div class="section-exercises"
-                (dragover)="onExDragOver($event, sec.id)"
-                (drop)="onExDrop($event, sec.id)"
-                [class.ex-drop-target]="dragExTargetSection === sec.id">
-                <div class="ex-item" *ngFor="let se of getSectionExercises(sec.id); let ei = index"
-                  draggable="true"
-                  (dragstart)="onExDragStart($event, se, sec.id)"
-                  (dragover)="onExDragOverItem($event, ei)"
-                  (drop)="onExDropOnItem($event, sec.id, ei)"
-                  [class.drag-over-top]="dragOverExIdx === ei && dragExTargetSection === sec.id && dragExPosition === 'before'"
-                  [class.drag-over-bottom]="dragOverExIdx === ei && dragExTargetSection === sec.id && dragExPosition === 'after'">
-                  <div class="ex-drag-handle" (mousedown)="$event.stopPropagation()">
+          <main class="detail-main">
+            <div class="sections-list">
+              <div class="section-card" *ngFor="let sec of vm.sections; let si = index"
+                [id]="'section-' + si"
+                draggable="true"
+                (dragstart)="onSectionDragStart($event, si)"
+                (dragover)="onSectionDragOver($event, si)"
+                (dragend)="onSectionDragEnd()"
+                (drop)="onSectionDrop($event, si)"
+                [class.drag-over]="dragOverSectionIdx === si"
+                [style.border-left-color]="sectionColors[si % sectionColors.length]">
+                <div class="section-header">
+                  <div class="section-handle" (mousedown)="$event.stopPropagation()">
                     <span class="material-symbols-outlined">drag_indicator</span>
                   </div>
-                  <div class="ex-order">{{ ei + 1 }}</div>
-                  <div class="ex-info">
-                    <div class="ex-name-row">
-                      <span class="ex-name">{{ exerciseNames[se.exercise_id] || 'Ejercicio' }}</span>
-                      <span class="ex-duration">{{ se.duration_minutes }} min</span>
-                    </div>
-                    <div class="ex-tags-row" *ngIf="getExerciseTags(se.exercise_id).length">
-                      <span class="mini-tag" *ngFor="let t of getExerciseTags(se.exercise_id)">{{ t }}</span>
-                    </div>
-                    <input class="ex-notes field-input" [(ngModel)]="se.notes" (blur)="updateExNotes(se)" placeholder="Notas opcionales..."/>
+                  <div class="section-title-group">
+                    <span class="section-badge" [style.background]="sectionColors[si % sectionColors.length]">{{ sec.name }}</span>
+                    <input class="section-name-input" [(ngModel)]="sec.name" (blur)="updateSectionName(sec)" placeholder="Nombre de la sección"/>
                   </div>
-                  <button class="btn-icon btn-icon-danger" (click)="promptRemoveEx(se)">
-                    <span class="material-symbols-outlined">remove_circle</span>
+                  <div class="section-header-actions">
+                    <span class="duration-pill">{{ getSectionDuration(sec.id) }} min</span>
+                    <button class="btn-icon" (click)="moveSection(sec, -1)" *ngIf="si > 0" title="Mover arriba">
+                      <span class="material-symbols-outlined">keyboard_arrow_up</span>
+                    </button>
+                    <button class="btn-icon" (click)="moveSection(sec, 1)" *ngIf="si < sections.length - 1" title="Mover abajo">
+                      <span class="material-symbols-outlined">keyboard_arrow_down</span>
+                    </button>
+                    <button class="btn-icon btn-icon-danger" (click)="promptRemoveSection(sec)" *ngIf="sections.length > 1" title="Eliminar sección">
+                      <span class="material-symbols-outlined">delete</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="section-exercises"
+                  (dragover)="onExDragOver($event, sec.id)"
+                  (drop)="onExDrop($event, sec.id)"
+                  [class.ex-drop-target]="dragExTargetSection === sec.id">
+                  <div class="ex-item" *ngFor="let se of getSectionExercises(sec.id); let ei = index"
+                    draggable="true"
+                    (dragstart)="onExDragStart($event, se, sec.id)"
+                    (dragover)="onExDragOverItem($event, ei)"
+                    (drop)="onExDropOnItem($event, sec.id, ei)"
+                    [class.drag-over-top]="dragOverExIdx === ei && dragExTargetSection === sec.id && dragExPosition === 'before'"
+                    [class.drag-over-bottom]="dragOverExIdx === ei && dragExTargetSection === sec.id && dragExPosition === 'after'">
+                    <div class="ex-drag-handle" (mousedown)="$event.stopPropagation()">
+                      <span class="material-symbols-outlined">drag_indicator</span>
+                    </div>
+                    <div class="ex-order">{{ ei + 1 }}</div>
+                    <div class="ex-info">
+                      <div class="ex-name-row">
+                        <span class="ex-name">{{ vm.exerciseNames[se.exercise_id] || 'Ejercicio' }}</span>
+                        <span class="ex-duration">{{ se.duration_minutes }} min</span>
+                      </div>
+                      <div class="ex-tags-row" *ngIf="getExerciseTags(se.exercise_id).length">
+                        <span class="mini-tag" *ngFor="let t of getExerciseTags(se.exercise_id)">{{ t }}</span>
+                      </div>
+                      <input class="ex-notes field-input" [(ngModel)]="se.notes" (blur)="updateExNotes(se)" placeholder="Notas opcionales..."/>
+                    </div>
+                    <button class="btn-icon btn-icon-danger" (click)="promptRemoveEx(se)">
+                      <span class="material-symbols-outlined">remove_circle</span>
+                    </button>
+                  </div>
+                  <div class="ex-empty" *ngIf="getSectionExercises(sec.id).length === 0">
+                    <span class="material-symbols-outlined">fitness_center</span>
+                    <span>Sin ejercicios — añade desde abajo</span>
+                  </div>
+                </div>
+
+                <div class="section-add-ex">
+                  <button class="btn-select-ex" (click)="openExercisePicker(sec)">
+                    <span class="material-symbols-outlined">search</span>
+                    {{ addExExerciseId && getExercise(addExExerciseId) ? getExercise(addExExerciseId)!.name : 'Seleccionar ejercicio...' }}
+                  </button>
+                  <input class="field-input add-ex-dur" type="number" [(ngModel)]="addExDuration" min="1" max="120" placeholder="min"/>
+                  <input class="field-input add-ex-notes" [(ngModel)]="addExNotes" placeholder="Notas..."/>
+                  <button class="btn-add-ex" (click)="addExerciseToSection(sec)" [disabled]="!addExExerciseId || addingExercise">
+                    <span class="material-symbols-outlined" *ngIf="!addingExercise">add</span>
+                    <span class="material-symbols-outlined loading-icon-sm" *ngIf="addingExercise">sync</span>
+                    Añadir
                   </button>
                 </div>
-                <div class="ex-empty" *ngIf="getSectionExercises(sec.id).length === 0">
-                  <span class="material-symbols-outlined">fitness_center</span>
-                  <span>Sin ejercicios — añade desde abajo</span>
-                </div>
               </div>
 
-              <div class="section-add-ex">
-                <button class="btn-select-ex" (click)="openExercisePicker(sec)">
-                  <span class="material-symbols-outlined">search</span>
-                  {{ addExExerciseId && getExercise(addExExerciseId) ? getExercise(addExExerciseId)!.name : 'Seleccionar ejercicio...' }}
-                </button>
-                <input class="field-input add-ex-dur" type="number" [(ngModel)]="addExDuration" min="1" max="120" placeholder="min"/>
-                <input class="field-input add-ex-notes" [(ngModel)]="addExNotes" placeholder="Notas..."/>
-                <button class="btn-add-ex" (click)="addExerciseToSection(sec)" [disabled]="!addExExerciseId || addingExercise">
-                  <span class="material-symbols-outlined" *ngIf="!addingExercise">add</span>
-                  <span class="material-symbols-outlined loading-icon-sm" *ngIf="addingExercise">sync</span>
-                  Añadir
-                </button>
-              </div>
+              <button class="add-section-btn" (click)="addSection()" [disabled]="savingSection">
+                <span class="material-symbols-outlined loading-icon-sm" *ngIf="savingSection">sync</span>
+                <span class="material-symbols-outlined" *ngIf="!savingSection">add</span>
+                {{ savingSection ? 'Añadiendo...' : 'Añadir Sección' }}
+              </button>
             </div>
+          </main>
+        </div>
+      </div>
 
-            <button class="add-section-btn" (click)="addSection()" [disabled]="savingSection">
-              <span class="material-symbols-outlined loading-icon-sm" *ngIf="savingSection">sync</span>
-              <span class="material-symbols-outlined" *ngIf="!savingSection">add</span>
-              {{ savingSection ? 'Añadiendo...' : 'Añadir Sección' }}
+      <!-- Confirm modal -->
+      <div class="modal-overlay" *ngIf="showConfirm" (click)="cancelConfirm()">
+        <div class="modal-card confirm-card" (click)="$event.stopPropagation()">
+          <div class="confirm-icon">
+            <span class="material-symbols-outlined">help</span>
+          </div>
+          <h3 class="confirm-title">{{ confirmTitle }}</h3>
+          <p class="confirm-message">{{ confirmMessage }}</p>
+          <div class="confirm-actions">
+            <button class="btn-cancel" (click)="cancelConfirm()">Cancelar</button>
+            <button class="btn-danger" (click)="executeConfirm()">Eliminar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit modal -->
+      <div class="modal-overlay" *ngIf="showEditForm" (click)="showEditForm = false">
+        <div class="modal-card" (click)="$event.stopPropagation()">
+          <h3 class="modal-title">Editar Sesión</h3>
+          <div class="modal-body">
+            <label class="field"><span>Título</span><input class="field-input" [(ngModel)]="formTitle" placeholder="Shooting Drills"/></label>
+            <label class="field"><span>Equipo</span>
+              <select class="field-input" [(ngModel)]="formTeam">
+                <option *ngFor="let t of vm.teams" [value]="t.id">{{ t.name }}</option>
+              </select>
+            </label>
+            <label class="field"><span>Fecha</span><input class="field-input" type="date" [(ngModel)]="formDate"/></label>
+            <div class="field-row">
+              <label class="field flex-1"><span>Hora inicio</span><input class="field-input" type="time" [(ngModel)]="formStart"/></label>
+              <label class="field flex-1"><span>Hora fin</span><input class="field-input" type="time" [(ngModel)]="formEnd"/></label>
+            </div>
+            <label class="field"><span>Ubicación</span><input class="field-input" [(ngModel)]="formLocation" placeholder="Gimnasio Principal"/></label>
+            <label class="field"><span>Objetivos</span><textarea class="field-input field-textarea" [(ngModel)]="formObjectives" rows="2" placeholder="Mejorar transición ofensiva..."></textarea></label>
+          </div>
+          <div class="modal-actions">
+            <button class="btn-cancel" (click)="showEditForm = false">Cancelar</button>
+            <button class="btn-save" (click)="saveEdit()">Guardar Cambios</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Exercise picker modal -->
+      <div class="modal-overlay" *ngIf="showExercisePicker" (click)="showExercisePicker = false">
+        <div class="modal-card picker-card" (click)="$event.stopPropagation()">
+          <div class="picker-header">
+            <h3 class="modal-title">Seleccionar Ejercicio</h3>
+            <button class="btn-close-modal" (click)="showExercisePicker = false">
+              <span class="material-symbols-outlined">close</span>
             </button>
           </div>
-        </main>
-      </div>
-    </div>
-
-    <div class="page" *ngIf="!session && !loading">
-      <p class="empty-state">Sesión no encontrada.</p>
-    </div>
-
-    <div class="page" *ngIf="loading">
-      <div class="loading-state"><span class="material-symbols-outlined loading-icon">sync</span><p>Cargando sesión...</p></div>
-    </div>
-
-    <!-- Confirm modal -->
-    <div class="modal-overlay" *ngIf="showConfirm" (click)="cancelConfirm()">
-      <div class="modal-card confirm-card" (click)="$event.stopPropagation()">
-        <div class="confirm-icon">
-          <span class="material-symbols-outlined">help</span>
-        </div>
-        <h3 class="confirm-title">{{ confirmTitle }}</h3>
-        <p class="confirm-message">{{ confirmMessage }}</p>
-        <div class="confirm-actions">
-          <button class="btn-cancel" (click)="cancelConfirm()">Cancelar</button>
-          <button class="btn-danger" (click)="executeConfirm()">Eliminar</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Edit modal -->
-    <div class="modal-overlay" *ngIf="showEditForm" (click)="showEditForm = false">
-      <div class="modal-card" (click)="$event.stopPropagation()">
-        <h3 class="modal-title">Editar Sesión</h3>
-        <div class="modal-body">
-          <label class="field"><span>Título</span><input class="field-input" [(ngModel)]="formTitle" placeholder="Shooting Drills"/></label>
-          <label class="field"><span>Equipo</span>
-            <select class="field-input" [(ngModel)]="formTeam">
-              <option *ngFor="let t of teams" [value]="t.id">{{ t.name }}</option>
-            </select>
-          </label>
-          <label class="field"><span>Fecha</span><input class="field-input" type="date" [(ngModel)]="formDate"/></label>
-          <div class="field-row">
-            <label class="field flex-1"><span>Hora inicio</span><input class="field-input" type="time" [(ngModel)]="formStart"/></label>
-            <label class="field flex-1"><span>Hora fin</span><input class="field-input" type="time" [(ngModel)]="formEnd"/></label>
+          <div class="picker-filters">
+            <div class="picker-search-wrap">
+              <span class="material-symbols-outlined search-icon">search</span>
+              <input class="field-input picker-search" [(ngModel)]="pickerSearch" placeholder="Buscar por nombre o tag..."/>
+            </div>
+            <div class="picker-tags">
+              <button class="tag-filter-btn" [class.active]="!pickerTag" (click)="pickerTag = ''">Todos</button>
+              <button class="tag-filter-btn" *ngFor="let t of collectAllTags()" [class.active]="pickerTag === t" (click)="pickerTag = pickerTag === t ? '' : t">{{ t }}</button>
+            </div>
           </div>
-          <label class="field"><span>Ubicación</span><input class="field-input" [(ngModel)]="formLocation" placeholder="Gimnasio Principal"/></label>
-          <label class="field"><span>Objetivos</span><textarea class="field-input field-textarea" [(ngModel)]="formObjectives" rows="2" placeholder="Mejorar transición ofensiva..."></textarea></label>
-        </div>
-        <div class="modal-actions">
-          <button class="btn-cancel" (click)="showEditForm = false">Cancelar</button>
-          <button class="btn-save" (click)="saveEdit()">Guardar Cambios</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Exercise picker modal -->
-    <div class="modal-overlay" *ngIf="showExercisePicker" (click)="showExercisePicker = false">
-      <div class="modal-card picker-card" (click)="$event.stopPropagation()">
-        <div class="picker-header">
-          <h3 class="modal-title">Seleccionar Ejercicio</h3>
-          <button class="btn-close-modal" (click)="showExercisePicker = false">
-            <span class="material-symbols-outlined">close</span>
-          </button>
-        </div>
-        <div class="picker-filters">
-          <div class="picker-search-wrap">
-            <span class="material-symbols-outlined search-icon">search</span>
-            <input class="field-input picker-search" [(ngModel)]="pickerSearch" placeholder="Buscar por nombre o tag..."/>
-          </div>
-          <div class="picker-tags">
-            <button class="tag-filter-btn" [class.active]="!pickerTag" (click)="pickerTag = ''">Todos</button>
-            <button class="tag-filter-btn" *ngFor="let t of collectAllTags()" [class.active]="pickerTag === t" (click)="pickerTag = pickerTag === t ? '' : t">{{ t }}</button>
-          </div>
-        </div>
-        <div class="picker-list">
-          <div class="picker-item" *ngFor="let ex of filteredPickerExercises" (click)="selectPickerExercise(ex)">
-            <div class="picker-item-info">
-              <span class="picker-item-name">{{ ex.name }}</span>
-              <div class="picker-item-tags" *ngIf="(ex.tags || []).length">
-                <span class="mini-tag" *ngFor="let t of ex.tags">{{ t }}</span>
+          <div class="picker-list">
+            <div class="picker-item" *ngFor="let ex of filteredPickerExercises" (click)="selectPickerExercise(ex)">
+              <div class="picker-item-info">
+                <span class="picker-item-name">{{ ex.name }}</span>
+                <div class="picker-item-tags" *ngIf="(ex.tags || []).length">
+                  <span class="mini-tag" *ngFor="let t of ex.tags">{{ t.name }}</span>
+                </div>
+              </div>
+              <div class="picker-item-meta">
+                <span class="picker-dur">{{ ex.duration_minutes || '?' }} min</span>
               </div>
             </div>
-            <div class="picker-item-meta">
-              <span class="picker-dur">{{ ex.duration_minutes || '?' }} min</span>
+            <div class="picker-empty" *ngIf="filteredPickerExercises.length === 0">
+              <span class="material-symbols-outlined">search_off</span>
+              <span>No se encontraron ejercicios</span>
             </div>
-          </div>
-          <div class="picker-empty" *ngIf="filteredPickerExercises.length === 0">
-            <span class="material-symbols-outlined">search_off</span>
-            <span>No se encontraron ejercicios</span>
           </div>
         </div>
       </div>
-    </div>
+    </ng-container>
 
+    <ng-template #loadingTpl>
+      <div class="page"><div class="loading-state"><span class="material-symbols-outlined loading-icon">sync</span><p>Cargando sesión...</p></div></div>
+    </ng-template>
 
+    <ng-template #notFoundTpl>
+      <div class="page"><p class="empty-state">Sesión no encontrada.</p></div>
+    </ng-template>
   `,
   styles: [`
     .page { padding: 40px; max-width: 1440px; margin: 0 auto; }
@@ -599,12 +608,14 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team }
     }
   `]
 })
-export class SessionDetailComponent implements OnInit {
+export class SessionDetailComponent {
   private data = inject(DataService);
+  private exerciseRepo = inject(ExerciseRepository);
+  private sessionRepo = inject(SessionRepository);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private cdr = inject(ChangeDetectorRef);
   private notification = inject(NotificationService);
+  private reload = new Subject<void>();
 
   session: TrainingSession | null = null;
   sections: SessionSection[] = [];
@@ -612,7 +623,6 @@ export class SessionDetailComponent implements OnInit {
   exercises: Exercise[] = [];
   teams: Team[] = [];
   exerciseNames: Record<string, string> = {};
-  loading = true;
 
   showEditForm = false;
   formTitle = '';
@@ -635,8 +645,6 @@ export class SessionDetailComponent implements OnInit {
   pickerTag = '';
   pickerTargetSection: SessionSection | null = null;
 
-
-
   // Confirm modal state
   showConfirm = false;
   confirmTitle = '';
@@ -652,19 +660,74 @@ export class SessionDetailComponent implements OnInit {
 
   sectionColors = ['#0068ed', '#00c853', '#ff9100', '#e040fb', '#00bcd4', '#ff6d00'];
 
-  get teamName(): string {
-    if (!this.session) return '';
-    const team = this.teams.find(t => t.id === this.session!.team_id);
-    return team?.name || '';
-  }
-
-  get totalExercises(): number {
-    return Object.values(this.sectionExercises).reduce((a, b) => a + b.length, 0);
-  }
-
-  get totalDuration(): number {
-    return this.sections.reduce((a, sec) => a + this.getSectionDuration(sec.id), 0);
-  }
+  readonly vm$ = toObservable(this.data.currentClub).pipe(
+    filter(Boolean),
+    switchMap(club => {
+      const id = this.route.snapshot.paramMap.get('id');
+      if (!id) return of(null);
+      return this.reload.pipe(
+        startWith(undefined),
+        switchMap(() => forkJoin({
+          teams: from(this.data.getTeams()),
+          exercises: from(this.exerciseRepo.findAll(club.id)),
+          sessions: from(this.sessionRepo.findAll(club.id)),
+        }).pipe(
+          switchMap(({ teams, exercises, sessions }) => {
+            const session = sessions.find(s => s.id === id) || null;
+            if (!session) {
+              return of({
+                teams, exercises, session: null as TrainingSession | null, sections: [] as SessionSection[],
+                sectionExercises: {} as Record<string, SessionExercise[]>,
+                exerciseNames: {} as Record<string, string>,
+                teamName: '', totalExercises: 0, totalDuration: 0,
+              });
+            }
+            return from(this.data.getSections(id)).pipe(
+              switchMap(sections => from(this.data.getSessionExercises(id)).pipe(
+                map(allEx => {
+                  const sectionExercises: Record<string, SessionExercise[]> = {};
+                  for (const sec of sections) {
+                    sectionExercises[sec.id] = allEx.filter(e => e.section_id === sec.id);
+                  }
+                  const exerciseNames: Record<string, string> = {};
+                  exercises.forEach(e => exerciseNames[e.id] = e.name);
+                  return {
+                    teams,
+                    exercises,
+                    session,
+                    sections,
+                    sectionExercises,
+                    exerciseNames,
+                    teamName: teams.find(t => t.id === session.team_id)?.name || '',
+                    totalExercises: Object.values(sectionExercises).reduce((a, b) => a + b.length, 0),
+                    totalDuration: sections.reduce((a, sec) => a + (sectionExercises[sec.id] || []).reduce((s, e) => s + e.duration_minutes, 0), 0),
+                  };
+                })
+              ))
+            );
+          }),
+          tap(vmData => {
+            if (vmData) {
+              this.session = vmData.session;
+              this.sections = vmData.sections;
+              this.sectionExercises = vmData.sectionExercises;
+              this.exercises = vmData.exercises;
+              this.teams = vmData.teams;
+              this.exerciseNames = vmData.exerciseNames;
+            }
+          }),
+          catchError(err => {
+            this.notification.show(err instanceof Error ? err.message : String(err));
+            return of({
+              teams: [] as Team[], exercises: [] as Exercise[], session: null as TrainingSession | null,
+              sections: [] as SessionSection[], sectionExercises: {} as Record<string, SessionExercise[]>,
+              exerciseNames: {} as Record<string, string>, teamName: '', totalExercises: 0, totalDuration: 0,
+            });
+          })
+        ))
+      );
+    })
+  );
 
   statusLabel(s: string): string {
     switch (s) {
@@ -675,50 +738,12 @@ export class SessionDetailComponent implements OnInit {
     }
   }
 
-  async ngOnInit() {
-    while (!this.data.currentClub()) {
-      await new Promise(r => setTimeout(r, 50));
-    }
-    const id = this.route.snapshot.paramMap.get('id');
-    if (!id) {
-      this.loading = false;
-      this.cdr.detectChanges();
-      return;
-    }
-    await this.load(id);
-    this.cdr.detectChanges();
-  }
-
-  async load(sessionId: string) {
-    this.loading = true;
-    try {
-      this.teams = await this.data.getTeams();
-      this.exercises = await this.data.getExercises();
-      this.exercises.forEach(e => this.exerciseNames[e.id] = e.name);
-
-      const sessions = await this.data.getSessions();
-      this.session = sessions.find(s => s.id === sessionId) || null;
-
-      if (this.session) {
-        this.sections = await this.data.getSections(sessionId);
-        const allEx = await this.data.getSessionExercises(sessionId);
-        this.sectionExercises = {};
-        for (const sec of this.sections) {
-          this.sectionExercises[sec.id] = allEx.filter(e => e.section_id === sec.id);
-        }
-      }
-    } catch (e) {
-      this.notification.show(e instanceof Error ? e.message : String(e));
-    }
-    this.loading = false;
-  }
-
   protected getExercise(id: string): Exercise | undefined {
     return this.exercises.find(e => e.id === id);
   }
 
   protected getExerciseTags(id: string): string[] {
-    return this.getExercise(id)?.tags || [];
+    return (this.getExercise(id)?.tags || []).map(t => t.name);
   }
 
   protected escHtml(s: string): string {
@@ -744,7 +769,7 @@ export class SessionDetailComponent implements OnInit {
   protected collectAllTags(): string[] {
     const set = new Set<string>();
     for (const ex of this.exercises) {
-      for (const tag of ex.tags || []) set.add(tag);
+      for (const tag of ex.tags || []) set.add(tag.name);
     }
     return Array.from(set).sort();
   }
@@ -753,10 +778,10 @@ export class SessionDetailComponent implements OnInit {
     let list = this.exercises;
     const q = this.pickerSearch.toLowerCase().trim();
     if (q) {
-      list = list.filter(e => e.name.toLowerCase().includes(q) || (e.tags || []).some(t => t.toLowerCase().includes(q)));
+      list = list.filter(e => e.name.toLowerCase().includes(q) || (e.tags || []).some(t => t.name.toLowerCase().includes(q)));
     }
     if (this.pickerTag) {
-      list = list.filter(e => (e.tags || []).includes(this.pickerTag));
+      list = list.filter(e => (e.tags || []).some(t => t.name === this.pickerTag));
     }
     return list;
   }
@@ -945,8 +970,9 @@ export class SessionDetailComponent implements OnInit {
     this.addExDuration = ex.duration_minutes || 10;
     this.addExNotes = '';
     this.showExercisePicker = false;
-    this.cdr.detectChanges();
-  }  goBack() {
+  }
+
+  goBack() {
     this.router.navigate(['/sessions']);
   }
 
@@ -967,9 +993,13 @@ export class SessionDetailComponent implements OnInit {
     this.showEditForm = true;
   }
 
+  goAnalysis() {
+    if (this.session) this.router.navigate(['/sessions', this.session.id, 'analysis']);
+  }
+
   async saveEdit() {
     if (!this.session || !this.formTitle.trim() || !this.formDate) return;
-    await this.data.updateSession(this.session.id, {
+    await this.sessionRepo.update(this.session.id, {
       title: this.formTitle.trim(),
       team_id: this.formTeam,
       date: this.formDate,
@@ -978,11 +1008,8 @@ export class SessionDetailComponent implements OnInit {
       location: this.formLocation.trim() || null,
       objectives: this.formObjectives.trim() || null,
     });
-    this.session.title = this.formTitle.trim();
-    this.session.objectives = this.formObjectives.trim() || null;
     this.showEditForm = false;
-    await this.load(this.session.id);
-    this.cdr.detectChanges();
+    this.reload.next();
   }
 
   getSectionExercises(sectionId: string): SessionExercise[] {
@@ -1000,13 +1027,10 @@ export class SessionDetailComponent implements OnInit {
       const order = this.sections.length + 1;
       const sec = await this.data.createSection({ session_id: this.session.id, name: 'Nueva Sección', sort_order: order });
       if (sec) {
-        this.sections.push(sec);
-        this.sectionExercises[sec.id] = [];
-        this.cdr.detectChanges();
+        this.reload.next();
       }
     } finally {
       this.savingSection = false;
-      this.cdr.detectChanges();
     }
   }
 
@@ -1015,10 +1039,7 @@ export class SessionDetailComponent implements OnInit {
     this.confirmMessage = `¿Estás seguro de eliminar la sección "${sec.name}"? Los ejercicios que contiene también se eliminarán.`;
     this.confirmAction = async () => {
       await this.data.deleteSection(sec.id);
-      this.sections = this.sections.filter(s => s.id !== sec.id);
-      delete this.sectionExercises[sec.id];
-      await this.updateSectionOrders();
-      this.cdr.detectChanges();
+      this.reload.next();
     };
     this.showConfirm = true;
   }
@@ -1042,11 +1063,7 @@ export class SessionDetailComponent implements OnInit {
     this.confirmMessage = `¿Estás seguro de quitar "${exName}" de la sesión?`;
     this.confirmAction = async () => {
       await this.data.removeSessionExercise(se.id);
-      for (const key of Object.keys(this.sectionExercises)) {
-        this.sectionExercises[key] = this.sectionExercises[key].filter(x => x.id !== se.id);
-      }
-      await this.persistExerciseOrders(se.section_id!);
-      this.cdr.detectChanges();
+      this.reload.next();
     };
     this.showConfirm = true;
   }
@@ -1078,15 +1095,13 @@ export class SessionDetailComponent implements OnInit {
         notes: this.addExNotes || null,
       });
       if (newSe) {
-        this.sectionExercises[sec.id] = [...exs, newSe];
+        this.reload.next();
         this.addExExerciseId = '';
         this.addExNotes = '';
         this.addExDuration = 10;
-        this.cdr.detectChanges();
       }
     } finally {
       this.addingExercise = false;
-      this.cdr.detectChanges();
     }
   }
 
@@ -1127,7 +1142,7 @@ export class SessionDetailComponent implements OnInit {
       await this.data.updateSection(this.sections[i].id, { sort_order: i + 1 });
       this.sections[i].sort_order = i + 1;
     }
-    this.cdr.detectChanges();
+    this.reload.next();
   }
 
   // Exercise drag & drop
@@ -1213,6 +1228,6 @@ export class SessionDetailComponent implements OnInit {
       await this.data.updateSessionExercise(exs[i].id, { order: i + 1 });
       exs[i].order = i + 1;
     }
-    this.cdr.detectChanges();
+    this.reload.next();
   }
 }

@@ -1,13 +1,19 @@
-import { Component, OnInit, inject, ChangeDetectorRef } from '@angular/core';
-import { NgIf, NgFor } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { NgIf, NgFor, AsyncPipe } from '@angular/common';
 import { AuthService } from '../../core/auth/auth.service';
 import { DataService } from '../../core/services/data.service';
+import { PlayerRepository } from '../../core/repositories/player.repository';
+import { ExerciseRepository } from '../../core/repositories/exercise.repository';
+import { SessionRepository } from '../../core/repositories/session.repository';
 import { RouterLink } from '@angular/router';
+import { forkJoin, from, of } from 'rxjs';
+import { switchMap, filter, map, catchError } from 'rxjs/operators';
+import { toObservable } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [NgIf, NgFor, RouterLink],
+  imports: [NgIf, NgFor, RouterLink, AsyncPipe],
   template: `
     <div class="dashboard">
       <header class="topbar">
@@ -24,7 +30,7 @@ import { RouterLink } from '@angular/router';
       </header>
 
       <section class="content">
-        <div class="content-inner">
+        <div class="content-inner" *ngIf="vm$ | async as vm; else loadingTpl">
           <div class="greeting">
             <h2 class="greeting-title">Coach Insights</h2>
             <p class="greeting-sub" *ngIf="auth.profile() as profile">Bienvenido de nuevo, {{ profile.full_name }}. Aquí está el resumen de hoy.</p>
@@ -37,14 +43,14 @@ import { RouterLink } from '@angular/router';
                 <a class="card-link" routerLink="/teams">Ver todos <span class="material-symbols-outlined">open_in_new</span></a>
               </div>
               <div class="card-body">
-                <div class="team-item" *ngFor="let t of teamSummaries">
+                <div class="team-item" *ngFor="let t of vm.teamSummaries">
                   <div class="team-info">
                     <h4 class="team-name">{{ t.name }}</h4>
                     <p class="team-meta">{{ t.count }} Jugadores</p>
                   </div>
                   <span class="material-symbols-outlined team-arrow">chevron_right</span>
                 </div>
-                <div class="empty-state-sml" *ngIf="teamSummaries.length === 0">
+                <div class="empty-state-sml" *ngIf="vm.teamSummaries.length === 0">
                   <p>No hay equipos todavía. <a routerLink="/teams">Crea uno.</a></p>
                 </div>
               </div>
@@ -57,15 +63,15 @@ import { RouterLink } from '@angular/router';
               </div>
               <div class="card-body">
                 <div class="timeline">
-                  <div class="timeline-item" *ngFor="let s of upcomingSessions">
+                  <div class="timeline-item" *ngFor="let s of vm.upcomingSessions">
                     <div class="timeline-dot" [class.muted-dot]="isTomorrow(s.date)"></div>
                     <div class="timeline-content">
                       <span class="timeline-time">{{ formatDate(s.date) }}, {{ s.start_time.slice(0,5) }}</span>
                       <h4 class="timeline-title">{{ s.title }}</h4>
-                      <p class="timeline-meta">{{ teamNames[s.team_id] || '—' }}{{ s.location ? ' • ' + s.location : '' }}</p>
+                      <p class="timeline-meta">{{ vm.teamNames[s.team_id] || '—' }}{{ s.location ? ' • ' + s.location : '' }}</p>
                     </div>
                   </div>
-                  <div class="empty-state-sml" *ngIf="upcomingSessions.length === 0">
+                  <div class="empty-state-sml" *ngIf="vm.upcomingSessions.length === 0">
                     <p>No hay sesiones próximas. <a routerLink="/sessions">Planifica una.</a></p>
                   </div>
                 </div>
@@ -82,28 +88,28 @@ import { RouterLink } from '@angular/router';
                     <div class="stat-icon"><span class="material-symbols-outlined">groups</span></div>
                     <div>
                       <p class="stat-label">Equipos</p>
-                      <p class="stat-value">{{ teamSummaries.length }}</p>
+                      <p class="stat-value">{{ vm.teamSummaries.length }}</p>
                     </div>
                   </div>
                   <div class="stat-card">
                     <div class="stat-icon"><span class="material-symbols-outlined">face</span></div>
                     <div>
                       <p class="stat-label">Jugadores</p>
-                      <p class="stat-value">{{ totalPlayers }}</p>
+                      <p class="stat-value">{{ vm.totalPlayers }}</p>
                     </div>
                   </div>
                   <div class="stat-card">
                     <div class="stat-icon"><span class="material-symbols-outlined">fitness_center</span></div>
                     <div>
                       <p class="stat-label">Ejercicios</p>
-                      <p class="stat-value">{{ totalExercises }}</p>
+                      <p class="stat-value">{{ vm.totalExercises }}</p>
                     </div>
                   </div>
                   <div class="stat-card">
                     <div class="stat-icon"><span class="material-symbols-outlined">calendar_month</span></div>
                     <div>
                       <p class="stat-label">Sesiones</p>
-                      <p class="stat-value">{{ totalSessions }}</p>
+                      <p class="stat-value">{{ vm.totalSessions }}</p>
                     </div>
                   </div>
                 </div>
@@ -114,16 +120,27 @@ import { RouterLink } from '@angular/router';
           <div class="chart-card">
             <div class="chart-header">
               <h3 class="card-title">Actividad Reciente</h3>
-              <p class="chart-sub">{{ recentSessions.length }} sesiones en los últimos 30 días.</p>
+              <p class="chart-sub">{{ vm.recentSessions.length }} sesiones en los últimos 30 días.</p>
             </div>
             <div class="chart-bars">
-              <div class="bar" *ngFor="let b of chartBars" [style.height]="b + '%'"></div>
+              <div class="bar" *ngFor="let b of vm.chartBars" [style.height]="b + '%'"></div>
             </div>
             <div class="chart-axis"></div>
           </div>
         </div>
       </section>
     </div>
+
+    <ng-template #loadingTpl>
+      <div class="content" style="padding: 40px;">
+        <div class="content-inner">
+          <div class="loading-state" style="display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 80px 20px; color: #908f9d;">
+            <span class="material-symbols-outlined" style="font-size: 48px; animation: spin 1s linear infinite;">sync</span>
+            <p style="margin: 0; font-size: 16px;">Cargando dashboard...</p>
+          </div>
+        </div>
+      </div>
+    </ng-template>
   `,
   styles: [`
     .dashboard { display: flex; flex-direction: column; min-height: 100%; background: #080d3c; }
@@ -191,6 +208,7 @@ import { RouterLink } from '@angular/router';
     .chart-axis { position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; background: #454652; }
     .empty-state-sml p { color: #908f9d; font-size: 13px; text-align: center; margin: 0; }
     .empty-state-sml a { color: #bdc2ff; }
+    @keyframes spin { to { transform: rotate(360deg); } }
     @media (max-width: 768px) {
       .content { padding: 20px !important; }
       .greeting-title { font-size: 32px !important; line-height: 40px !important; }
@@ -210,55 +228,72 @@ import { RouterLink } from '@angular/router';
     }
   `]
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent {
   auth = inject(AuthService);
   private data = inject(DataService);
-  private cdr = inject(ChangeDetectorRef);
+  private playerRepo = inject(PlayerRepository);
+  private exerciseRepo = inject(ExerciseRepository);
+  private sessionRepo = inject(SessionRepository);
 
-  teamSummaries: { name: string; count: number }[] = [];
-  teamNames: Record<string, string> = {};
-  upcomingSessions: any[] = [];
-  recentSessions: any[] = [];
-  totalPlayers = 0;
-  totalExercises = 0;
-  totalSessions = 0;
-  chartBars: number[] = [];
-
-  async ngOnInit() {
-    while (!this.data.currentClub()) {
-      await new Promise(r => setTimeout(r, 50));
-    }
-    const teams = await this.data.getTeams();
-    const sessions = await this.data.getSessions();
-    const exercises = await this.data.getExercises();
-
-    this.totalSessions = sessions.length;
-    this.totalExercises = exercises.length;
-
-    this.teamSummaries = await Promise.all(
-      teams.map(async (t) => {
-        const players = await this.data.getPlayers(t.id);
-        return { name: t.name, count: players.length };
-      })
-    );
-
-    this.totalPlayers = this.teamSummaries.reduce((a, b) => a + b.count, 0);
-    teams.forEach(t => this.teamNames[t.id] = t.name);
-
-    const today = new Date();
-    this.upcomingSessions = sessions
-      .filter(s => new Date(s.date) >= today)
-      .slice(0, 5);
-
-    this.recentSessions = sessions
-      .filter(s => {
-        const d = new Date(s.date);
-        return d >= new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-      });
-
-    this.chartBars = Array.from({ length: 7 }, () => Math.floor(Math.random() * 60) + 20);
-    this.cdr.detectChanges();
-  }
+  readonly vm$ = toObservable(this.data.currentClub).pipe(
+    filter(Boolean),
+    switchMap(club => forkJoin({
+      teams: from(this.data.getTeams()),
+      sessions: from(this.sessionRepo.findAll(club.id)),
+      exercises: from(this.exerciseRepo.findAll(club.id)),
+    }).pipe(
+      switchMap(({ teams, sessions, exercises }) => {
+        if (teams.length === 0) {
+          const today = new Date();
+          return of({
+            teamSummaries: [] as { name: string; count: number }[],
+            teamNames: {} as Record<string, string>,
+            upcomingSessions: [] as any[],
+            recentSessions: [] as any[],
+            totalPlayers: 0,
+            totalExercises: exercises.length,
+            totalSessions: sessions.length,
+            chartBars: Array.from({ length: 7 }, () => Math.floor(Math.random() * 60) + 20),
+          });
+        }
+        return forkJoin(teams.map(t => from(this.playerRepo.findAll(t.id)))).pipe(
+          map(results => {
+            const teamSummaries = teams.map((t, i) => ({ name: t.name, count: results[i].length }));
+            const teamNames: Record<string, string> = Object.fromEntries(teams.map(t => [t.id, t.name]));
+            const today = new Date();
+            const upcomingSessions = sessions
+              .filter(s => new Date(s.date) >= today)
+              .slice(0, 5);
+            const recentSessions = sessions
+              .filter(s => {
+                const d = new Date(s.date);
+                return d >= new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+              });
+            return {
+              teamSummaries,
+              teamNames,
+              upcomingSessions,
+              recentSessions,
+              totalPlayers: teamSummaries.reduce((a, b) => a + b.count, 0),
+              totalExercises: exercises.length,
+              totalSessions: sessions.length,
+              chartBars: Array.from({ length: 7 }, () => Math.floor(Math.random() * 60) + 20),
+            };
+          })
+        );
+      }),
+      catchError(() => of({
+        teamSummaries: [],
+        teamNames: {} as Record<string, string>,
+        upcomingSessions: [],
+        recentSessions: [],
+        totalPlayers: 0,
+        totalExercises: 0,
+        totalSessions: 0,
+        chartBars: [],
+      }))
+    ))
+  );
 
   formatDate(dateStr: string): string {
     const d = new Date(dateStr);
