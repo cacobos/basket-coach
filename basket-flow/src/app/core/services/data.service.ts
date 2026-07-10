@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AuthService } from '../auth/auth.service';
 import { NotificationService } from './notification.service';
+import { SeasonService } from './season.service';
 import type {
   Club, ClubMember, Team, Player, Exercise, ExerciseCategory, ExerciseVariant,
   TrainingSession, SessionSection, SessionExercise, Attendance,
@@ -27,7 +28,8 @@ export class DataService {
 
   constructor(
     private supabase: SupabaseService,
-    private auth: AuthService
+    private auth: AuthService,
+    private seasonService: SeasonService
   ) {
     this._init();
   }
@@ -80,14 +82,21 @@ export class DataService {
 
   // ── Teams ──
   /** @deprecated Use TeamRepository (to be created) */
-  async getTeams(clubId?: string): Promise<Team[]> {
+  async getTeams(clubId?: string, options?: { includeArchived?: boolean }): Promise<Team[]> {
     const cid = clubId || this._currentClub()?.id;
     if (!cid) return [];
-    const { data } = await this.supabase.client
+    const season = this.seasonService.selectedSeason();
+    let query = this.supabase.client
       .from('teams')
       .select('*')
       .eq('club_id', cid)
-      .order('name');
+      .eq('season', season);
+
+    if (!options?.includeArchived) {
+      query = query.is('archived_at', null);
+    }
+
+    const { data } = await query.order('name');
     return (data as Team[]) || [];
   }
 
@@ -97,7 +106,7 @@ export class DataService {
     if (!clubId) return null;
     const { data } = await this.supabase.client
       .from('teams')
-      .insert({ club_id: clubId, name, category, season: season || new Date().getFullYear().toString() })
+      .insert({ club_id: clubId, name, category, season: season || SeasonService.getCurrentSeason() })
       .select()
       .single();
     return data as Team | null;
@@ -113,11 +122,13 @@ export class DataService {
 
   // ── Players ──
   async getPlayers(teamId?: string): Promise<Player[]> {
+    const season = this.seasonService.selectedSeason();
     if (teamId) {
       const { data } = await this.supabase.client
         .from('players')
         .select('*')
         .eq('team_id', teamId)
+        .eq('season', season)
         .is('deleted_at', null)
         .order('last_name');
       return (data as Player[]) || [];
@@ -126,8 +137,9 @@ export class DataService {
     if (!clubId) return [];
     const { data } = await this.supabase.client
       .from('players')
-      .select('*, teams(name)')
+      .select('*, teams!inner(name)')
       .eq('club_id', clubId)
+      .eq('season', season)
       .is('deleted_at', null)
       .order('last_name');
     return (data as any[])?.map(p => ({ ...p, team_id: p.team_id })) as Player[] || [];
@@ -136,7 +148,7 @@ export class DataService {
   async createPlayer(player: Omit<Player, 'id' | 'created_at' | 'is_active' | 'deleted_at'> & { is_active?: boolean }): Promise<Player | null> {
     const { data } = await this.supabase.client
       .from('players')
-      .insert({ ...player, is_active: player.is_active ?? true })
+      .insert({ ...player, is_active: player.is_active ?? true, season: player.season || SeasonService.getCurrentSeason() })
       .select()
       .single();
     return data as Player | null;
@@ -344,10 +356,20 @@ export class DataService {
   async getSessionsByDateRange(from: string, to: string): Promise<TrainingSession[]> {
     const clubId = this._currentClub()?.id;
     if (!clubId) return [];
+    const season = this.seasonService.selectedSeason();
+    const { data: teamData } = await this.supabase.client
+      .from('teams')
+      .select('id')
+      .eq('club_id', clubId)
+      .eq('season', season)
+      .is('archived_at', null);
+    const teamIds = (teamData || []).map(t => t.id);
+    if (teamIds.length === 0) return [];
     const { data } = await this.supabase.client
       .from('training_sessions')
       .select('*, teams(name)')
       .eq('club_id', clubId)
+      .in('team_id', teamIds)
       .gte('date', from)
       .lte('date', to)
       .order('date');

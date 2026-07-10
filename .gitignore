@@ -26,6 +26,9 @@ yarn-error.log*
 .branches
 .temp
 
+# Netlify local state
+.netlify/
+
 # Node / dependencies
 **/node_modules/
 

@@ -1,19 +1,28 @@
 import { Injectable, inject } from '@angular/core';
 import { SupabaseService } from '../supabase/supabase.service';
+import { SeasonService } from '../services/season.service';
 import type { Team } from '../models/models';
 import type { BaseRepository } from './base.repository';
 
 @Injectable({ providedIn: 'root' })
 export class TeamRepository implements BaseRepository<Team, { name: string; category: string; season?: string; club_id: string }, Partial<Team>> {
   private supabase = inject(SupabaseService);
+  private seasonService = inject(SeasonService);
 
-  async findAll(clubId?: string): Promise<Team[]> {
+  async findAll(clubId?: string, options?: { season?: string; includeArchived?: boolean }): Promise<Team[]> {
     if (!clubId) return [];
-    const { data, error } = await this.supabase.client
+    const season = options?.season || this.seasonService.selectedSeason();
+    let query = this.supabase.client
       .from('teams')
       .select('*')
       .eq('club_id', clubId)
-      .order('name');
+      .eq('season', season);
+
+    if (!options?.includeArchived) {
+      query = query.is('archived_at', null);
+    }
+
+    const { data, error } = await query.order('name');
     if (error) throw error;
     return (data as Team[]) || [];
   }
@@ -28,7 +37,7 @@ export class TeamRepository implements BaseRepository<Team, { name: string; cate
   async create(dto: { name: string; category: string; season?: string; club_id: string }): Promise<Team> {
     const { data, error } = await this.supabase.client
       .from('teams')
-      .insert({ club_id: dto.club_id, name: dto.name, category: dto.category, season: dto.season || new Date().getFullYear().toString() })
+      .insert({ club_id: dto.club_id, name: dto.name, category: dto.category, season: dto.season || SeasonService.getCurrentSeason() })
       .select()
       .single();
     if (error) throw error;

@@ -6,7 +6,7 @@ import { RouterLink } from '@angular/router';
 import { ExerciseRepository } from '../../core/repositories/exercise.repository';
 import { DataService } from '../../core/services/data.service';
 import { NotificationService } from '../../core/services/notification.service';
-import type { Exercise, ExerciseVariant } from '../../core/models/models';
+import type { Exercise } from '../../core/models/models';
 import { from, forkJoin, of } from 'rxjs';
 import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
 
@@ -65,9 +65,9 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
             </div>
           </div>
           <div class="ex-actions">
-            <button class="ex-btn" (click)="$event.stopPropagation(); openVariants(ex)" title="Variantes">
+            <a class="ex-btn" [routerLink]="['/exercises', ex.id, 'variants']" title="Variantes">
               <span class="material-symbols-outlined">call_split</span>
-            </button>
+            </a>
             <a class="ex-btn" [routerLink]="['/exercises', ex.id, 'edit']" title="Editar">
               <span class="material-symbols-outlined">edit</span>
             </a>
@@ -86,35 +86,7 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
         <div class="loading-state"><span class="material-symbols-outlined loading-icon">sync</span><p>Cargando ejercicios...</p></div>
       </ng-template>
 
-      <div class="modal-overlay" *ngIf="showVariants" (click)="closeVariants()">
-        <div class="modal-card modal-lg" (click)="$event.stopPropagation()">
-          <h3 class="modal-title">Variantes: {{ selectedEx?.name }}</h3>
-          <div class="variants-list" *ngIf="variants.length > 0">
-            <div class="variant-card" *ngFor="let v of variants; let i = index">
-              <div class="variant-header">
-                <strong>{{ v.name }}</strong>
-              </div>
-              <p class="variant-desc" *ngIf="v.description">{{ v.description }}</p>
-              <div class="variant-meta">
-                <span *ngIf="v.duration_minutes">{{ v.duration_minutes }} min</span>
-                <span *ngIf="v.players_min">{{ v.players_min }}-{{ v.players_max }} jug.</span>
-              </div>
-              <div class="variant-tags">
-                <span class="ex-tag" *ngFor="let t of (v.tags || [])">{{ t }}</span>
-              </div>
-              <button class="btn-icon variant-delete" (click)="deleteVariant(v)"><span class="material-symbols-outlined">delete</span></button>
-            </div>
-          </div>
-          <p class="empty-variants" *ngIf="variants.length === 0">Sin variantes a&uacute;n.</p>
-          <button class="btn-primary btn-full" (click)="generateVariant()">
-            <span class="material-symbols-outlined">call_split</span>
-            Generar Variante
-          </button>
-          <div class="modal-actions" style="margin-top: 16px;">
-            <button class="btn-cancel" (click)="closeVariants()">Cerrar</button>
-          </div>
-        </div>
-      </div>
+
     </div>
   `,
   styles: [`
@@ -143,7 +115,9 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
       font-family: 'Hanken Grotesk', sans-serif; font-size: 14px; outline: none;
     }
     .search-input:focus { border-color: #bdc2ff; box-shadow: 0 0 0 1px #bdc2ff; }
-    .filter-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .filter-tags { display: flex; gap: 6px; flex-wrap: wrap; max-height: 80px; overflow-y: auto; }
+    .filter-tags::-webkit-scrollbar { width: 4px; }
+    .filter-tags::-webkit-scrollbar-thumb { background: rgba(189,194,255,0.2); border-radius: 2px; }
     .tag-chip {
       font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
       padding: 6px 14px; border-radius: 9999px; border: 1px solid rgba(69,70,82,0.3);
@@ -201,42 +175,12 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
       font-family: 'Hanken Grotesk', sans-serif; white-space: nowrap;
     }
     .btn-secondary:hover { background: rgba(0,104,237,0.18); color: #dfe0ff; }
-    .modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.6);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 1000; padding: 20px;
-    }
-    .modal-card {
-      background: #161b48; border-radius: 16px; padding: 32px;
-      width: 100%; max-width: 520px; border: 1px solid rgba(69,70,82,0.3);
-      max-height: 90vh; overflow-y: auto;
-    }
-    .modal-lg { max-width: 640px; }
-    .modal-title { font-size: 24px; font-weight: 700; color: #dfe0ff; margin: 0 0 24px; }
-    .modal-actions { display: flex; gap: 12px; justify-content: flex-end; }
-    .btn-cancel {
-      padding: 10px 20px; border-radius: 8px; border: none;
-      font-family: 'Hanken Grotesk', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;
-      background: #212653; color: #c6c5d4;
-    }
     .btn-icon {
       background: rgba(255,138,128,0.15); border: none; color: #ff8a80;
       cursor: pointer; padding: 4px; border-radius: 6px;
       display: flex; align-items: center;
     }
     .btn-icon .material-symbols-outlined { font-size: 16px; }
-    .variants-list { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
-    .variant-card {
-      background: #111644; border: 1px solid rgba(69,70,82,0.2);
-      border-radius: 8px; padding: 12px; position: relative;
-    }
-    .variant-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-    .variant-header strong { color: #dfe0ff; font-size: 14px; }
-    .variant-desc { font-size: 12px; color: #c6c5d4; margin: 0 0 6px; }
-    .variant-meta { font-size: 11px; color: #908f9d; display: flex; gap: 12px; margin-bottom: 6px; }
-    .variant-tags { display: flex; gap: 4px; flex-wrap: wrap; }
-    .variant-delete { position: absolute; top: 8px; right: 8px; }
-    .empty-variants { text-align: center; color: #908f9d; padding: 20px; }
     @media (max-width: 768px) {
       .page { padding: 20px; }
       .page-header { flex-direction: column; align-items: stretch; gap: 16px; }
@@ -265,10 +209,6 @@ export class ExercisesComponent {
   search = '';
   selectedTags: string[] = [];
   allTags: string[] = [];
-
-  showVariants = false;
-  selectedEx: Exercise | null = null;
-  variants: ExerciseVariant[] = [];
 
   private club$ = toObservable(this.data.currentClub).pipe(filter(Boolean));
 
@@ -318,43 +258,6 @@ export class ExercisesComponent {
     if (!confirm(`¿Eliminar "${ex.name}"?`)) return;
     await this.exerciseRepo.remove(ex.id);
     await this.load();
-  }
-
-  async openVariants(ex: Exercise) {
-    this.selectedEx = ex;
-    this.variants = await this.exerciseRepo.getVariants(ex.id);
-    this.showVariants = true;
-  }
-
-  closeVariants() {
-    this.showVariants = false;
-    this.selectedEx = null;
-    this.variants = [];
-  }
-
-  async generateVariant() {
-    const ex = this.selectedEx;
-    if (!ex) return;
-    const count = this.variants.length + 1;
-    await this.exerciseRepo.createVariant({
-      exercise_id: ex.id,
-      name: `${ex.name} - Variante ${count}`,
-      description: ex.description,
-      difficulty: null,
-      duration_minutes: ex.duration_minutes ? ex.duration_minutes + 5 : null,
-      players_min: ex.players_min,
-      players_max: ex.players_max,
-      tags: [...(ex.tags || []).map(t => t.name)],
-      diagrams: [...(ex.diagrams || [])],
-      notes: null,
-    });
-    this.variants = await this.exerciseRepo.getVariants(ex.id);
-  }
-
-  async deleteVariant(v: ExerciseVariant) {
-    if (!confirm(`¿Eliminar variante "${v.name}"?`)) return;
-    await this.exerciseRepo.deleteVariant(v.id);
-    this.variants = this.variants.filter(x => x.id !== v.id);
   }
 
   private async load() {

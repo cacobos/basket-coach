@@ -1,10 +1,13 @@
 import { Component, inject, computed, signal, HostListener, OnDestroy } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { NgIf } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Subscription, from, of, timer, switchMap, takeWhile, filter, map } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { PermissionService, type Permission } from '../../core/services/permission.service';
 import { DataService } from '../../core/services/data.service';
+import { SeasonService } from '../../core/services/season.service';
+import { SupabaseService } from '../../core/supabase/supabase.service';
 
 interface NavItem {
   path: string;
@@ -13,12 +16,13 @@ interface NavItem {
   exact?: boolean;
   permission?: Permission;
   adminOnly?: boolean;
+  familyOnly?: boolean;
 }
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, NgIf],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, NgIf, FormsModule],
   template: `
     <div class="app-shell">
       <div class="mobile-header">
@@ -44,6 +48,15 @@ interface NavItem {
           <button class="toggle-btn" (click)="mobileMenuOpen = false">
             <span class="material-symbols-outlined">close</span>
           </button>
+        </div>
+
+        <div class="season-selector">
+          <span class="material-symbols-outlined season-icon">calendar_month</span>
+          <select [ngModel]="seasonService.selectedSeason()" (ngModelChange)="onSeasonChange($event)" class="season-select">
+            @for (opt of seasonService.allSeasons; track opt.value) {
+              <option [value]="opt.value">{{ opt.label }}</option>
+            }
+          </select>
         </div>
 
         <nav class="nav">
@@ -137,6 +150,28 @@ interface NavItem {
       padding: 4px;
     }
     .toggle-btn .material-symbols-outlined { font-size: 20px; }
+    .season-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .season-icon { font-size: 16px; color: #908f9d; }
+    .season-select {
+      flex: 1;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      color: #dfe0ff;
+      padding: 4px 8px;
+      font-size: 13px;
+      font-family: 'Hanken Grotesk', sans-serif;
+      cursor: pointer;
+      outline: none;
+    }
+    .season-select:hover { border-color: rgba(255,255,255,0.2); }
+    .season-select option { background: #030737; color: #dfe0ff; }
     .nav {
       flex: 1;
       padding: 8px;
@@ -222,14 +257,16 @@ interface NavItem {
 export class MainLayoutComponent implements OnDestroy {
   auth = inject(AuthService);
   perms = inject(PermissionService);
+  seasonService = inject(SeasonService);
   private data = inject(DataService);
+  private supabase = inject(SupabaseService);
   mobileMenuOpen = false;
   private pollSub?: Subscription;
 
-  private allNavItems: NavItem[] = [
+  private staffNavItems: NavItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: 'dashboard', exact: true },
-    { path: '/teams', label: 'Equipos', icon: 'groups' },
-    { path: '/players', label: 'Jugadores', icon: 'face' },
+    { path: '/teams', label: 'Equipos', icon: 'groups', permission: 'team.manage' },
+    { path: '/players', label: 'Jugadores', icon: 'face', permission: 'player.manage' },
     { path: '/matches', label: 'Partidos', icon: 'sports_basketball', permission: 'match.manage' },
     { path: '/exercises', label: 'Ejercicios', icon: 'fitness_center', permission: 'exercise.manage' },
     { path: '/sessions', label: 'Sesiones', icon: 'calendar_month', permission: 'session.manage' },
@@ -237,17 +274,28 @@ export class MainLayoutComponent implements OnDestroy {
     { path: '/planning', label: 'Planificación', icon: 'timeline', permission: 'planning.manage' },
     { path: '/calendar', label: 'Calendario', icon: 'calendar_view_month' },
     { path: '/tactics', label: 'Pizarra', icon: 'draw', permission: 'tactics.manage' },
-    { path: '/whiteboard', label: 'Pizarra Libre', icon: 'edit' },
     { path: '/evaluations', label: 'Evaluar', icon: 'fact_check', permission: 'evaluation.manage' },
+    { path: '/documents', label: 'Documentos', icon: 'description', permission: 'documents.manage' },
+    { path: '/announcements', label: 'Comunicación', icon: 'campaign', permission: 'announcements.manage' },
+    { path: '/finance', label: 'Finanzas', icon: 'payments', permission: 'finance.manage' },
+    { path: '/configuration', label: 'Configuración', icon: 'settings', permission: 'configuration.manage' },
     { path: '/superadmin', label: 'Admin', icon: 'admin_panel_settings', adminOnly: true },
   ];
 
+  private familyNavItems: NavItem[] = [
+    { path: '/portal', label: 'Mi Portal', icon: 'home', exact: true, familyOnly: true },
+    { path: '/calendar', label: 'Calendario', icon: 'calendar_view_month', familyOnly: true },
+    { path: '/announcements', label: 'Comunicación', icon: 'campaign', familyOnly: true },
+  ];
+
   private clubRole = signal<string | null>(null);
+  private isFamily = signal(false);
 
   visibleItems = computed(() => {
+    if (this.isFamily()) return this.familyNavItems;
     const role = this.clubRole();
     const isSuperadmin = this.auth.profile()?.is_superadmin;
-    return this.allNavItems.filter(item => {
+    return this.staffNavItems.filter(item => {
       if (item.adminOnly && !isSuperadmin) return false;
       if (item.permission) return this.perms.hasPermission(role as any, item.permission);
       return true;
@@ -259,18 +307,39 @@ export class MainLayoutComponent implements OnDestroy {
       switchMap(() => {
         const profile = this.auth.profile();
         if (!profile) return of(null);
-        return timer(0, 50).pipe(
-          map(() => this.data.currentClub()?.id),
-          takeWhile(id => !id, true),
-          filter(Boolean)
+        const userId = this.auth.user()?.id;
+        if (!userId) return of(null);
+        return from(
+          this.supabase.client
+            .from('player_guardians')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId)
+        ).pipe(
+          switchMap(({ count }) => {
+            if (count && count > 0) {
+              this.isFamily.set(true);
+              return of(null);
+            }
+            return timer(0, 50).pipe(
+              map(() => this.data.currentClub()?.id),
+              takeWhile(id => !id, true),
+              filter(Boolean),
+              switchMap(clubId => this.perms.getRoleInClub(clubId!))
+            );
+          })
         );
-      }),
-      switchMap(clubId => this.perms.getRoleInClub(clubId!))
-    ).subscribe(role => this.clubRole.set(role));
+      })
+    ).subscribe(role => {
+      if (role) this.clubRole.set(role);
+    });
   }
 
   ngOnDestroy() {
     this.pollSub?.unsubscribe();
+  }
+
+  onSeasonChange(season: string) {
+    this.seasonService.selectSeason(season);
   }
 
   @HostListener('window:resize')

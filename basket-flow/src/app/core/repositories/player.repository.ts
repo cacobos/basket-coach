@@ -1,18 +1,22 @@
 import { Injectable, inject } from '@angular/core';
 import { SupabaseService } from '../supabase/supabase.service';
+import { SeasonService } from '../services/season.service';
 import type { Player } from '../models/models';
 import type { BaseRepository } from './base.repository';
 
 @Injectable({ providedIn: 'root' })
 export class PlayerRepository implements BaseRepository<Player, Omit<Player, 'id' | 'created_at' | 'is_active' | 'deleted_at'> & { is_active?: boolean }, Partial<Player>> {
   private supabase = inject(SupabaseService);
+  private seasonService = inject(SeasonService);
 
-  async findAll(teamId?: string): Promise<Player[]> {
+  async findAll(teamId?: string, options?: { season?: string }): Promise<Player[]> {
     if (teamId) {
+      const season = options?.season || this.seasonService.selectedSeason();
       const { data, error } = await this.supabase.client
         .from('players')
         .select('*')
         .eq('team_id', teamId)
+        .eq('season', season)
         .is('deleted_at', null)
         .order('last_name');
       if (error) throw error;
@@ -21,11 +25,13 @@ export class PlayerRepository implements BaseRepository<Player, Omit<Player, 'id
     return [];
   }
 
-  async findByClub(clubId: string): Promise<Player[]> {
+  async findByClub(clubId: string, options?: { season?: string }): Promise<Player[]> {
+    const season = options?.season || this.seasonService.selectedSeason();
     const { data, error } = await this.supabase.client
       .from('players')
-      .select('*, teams(name)')
+      .select('*, teams!inner(name)')
       .eq('club_id', clubId)
+      .eq('season', season)
       .is('deleted_at', null)
       .order('last_name');
     if (error) throw error;
@@ -42,7 +48,7 @@ export class PlayerRepository implements BaseRepository<Player, Omit<Player, 'id
   async create(dto: Omit<Player, 'id' | 'created_at' | 'is_active' | 'deleted_at'> & { is_active?: boolean }): Promise<Player> {
     const { data, error } = await this.supabase.client
       .from('players')
-      .insert({ ...dto, is_active: dto.is_active ?? true })
+      .insert({ ...dto, is_active: dto.is_active ?? true, season: dto.season || SeasonService.getCurrentSeason() })
       .select()
       .single();
     if (error) throw error;

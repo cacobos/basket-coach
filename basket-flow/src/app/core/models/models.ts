@@ -15,13 +15,14 @@ export interface Club {
   description: string | null;
   created_at: string;
   created_by: string;
+  family_can_upload_documents?: boolean;
 }
 
 export interface ClubMember {
   id: string;
   club_id: string;
   user_id: string;
-  role: 'admin' | 'coach' | 'assistant';
+  role: 'club_admin' | 'team_admin' | 'coach';
   created_at: string;
 }
 
@@ -32,6 +33,12 @@ export interface Team {
   category: string;
   season: string;
   created_at: string;
+  archived_at?: string | null;
+}
+
+export interface SeasonOption {
+  value: string;
+  label: string;
 }
 
 export interface Player {
@@ -48,6 +55,8 @@ export interface Player {
   photo_url: string | null;
   is_active: boolean;
   deleted_at: string | null;
+  archived_at?: string | null;
+  season?: string;
   created_at: string;
 }
 
@@ -338,4 +347,121 @@ export interface Evaluation {
   attitude: number | null;
   notes: string | null;
   created_at: string;
+}
+
+// ── Player Guardians / Family ──
+export interface PlayerGuardian {
+  id: string;
+  player_id: string;
+  user_id: string | null;
+  email: string | null;
+  relationship: string | null;
+  can_view_payments: boolean;
+  can_view_documents: boolean;
+}
+
+// ── Documents ──
+export interface Document {
+  id: string;
+  club_id: string;
+  player_id: string | null;
+  type: 'licencia' | 'autorizacion' | 'medico' | 'otro';
+  file_url: string;
+  issued_at: string | null;
+  expires_at: string | null;
+  status: 'pending' | 'valid' | 'expired';
+}
+
+export interface PlayerLicense {
+  id: string;
+  player_id: string;
+  federation: string;
+  license_number: string | null;
+  season: string;
+  status: 'pending' | 'valid' | 'expired';
+  expires_at: string | null;
+}
+
+export interface PlayerDocumentsStatus {
+  player_id: string;
+  club_id: string;
+  first_name: string;
+  last_name: string;
+  valid_docs: number;
+  expired_docs: number;
+  pending_docs: number;
+  total_docs: number;
+  license_status: string | null;
+  license_expires_at: string | null;
+}
+
+// ── Announcements ──
+export interface Announcement {
+  id: string;
+  club_id: string;
+  team_id: string | null;
+  title: string;
+  body: string;
+  created_by: string;
+  sent_at: string;
+}
+
+export interface AnnouncementRead {
+  announcement_id: string;
+  user_id: string;
+  read_at: string;
+}
+
+// ── Consents ──
+export interface Consent {
+  id: string;
+  player_id: string;
+  guardian_id: string | null;
+  consent_type: 'imagen' | 'datos_medicos' | 'tratamiento_datos';
+  granted_at: string;
+  revoked_at: string | null;
+}
+
+// ── Finance ──
+export interface FeePlan {
+  id: string;
+  club_id: string;
+  team_id: string | null;
+  name: string;
+  amount: number;
+  frequency: 'monthly' | 'seasonal' | 'one_time';
+  is_active: boolean;
+}
+
+export interface PlayerFee {
+  id: string;
+  player_id: string;
+  fee_plan_id: string;
+  due_date: string;
+  amount: number;
+  status: 'pending' | 'paid' | 'overdue' | 'cancelled';
+}
+
+export interface Payment {
+  id: string;
+  player_fee_id: string;
+  amount: number;
+  method: 'transfer' | 'cash' | 'bizum' | 'other';
+  registered_by: string;
+  paid_at: string;
+  receipt_url: string | null;
+  notes: string | null;
+}
+
+export interface OverdueFee {
+  player_fee_id: string;
+  player_id: string;
+  amount: number;
+  due_date: string;
+  first_name: string;
+  last_name: string;
+  team_name: string;
+  club_name: string;
+  club_id: string;
+  plan_name: string;
 }

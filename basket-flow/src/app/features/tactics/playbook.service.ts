@@ -91,6 +91,7 @@ export class PlaybookService {
       cones: s.cones || [],
       curves: s.curves || [],
       shapes: s.shapes || [],
+      paths: s.paths || [],
       description: s.description || '',
       screenshotUrl: s.screenshotUrl,
     }));
@@ -138,7 +139,7 @@ export class PlaybookService {
   private createDefaultPlaybook(): Playbook {
     const step: Step = {
       id: 1, name: 'Paso 1',
-      players: [], balls: [], cones: [], curves: [], shapes: [], description: ''
+      players: [], balls: [], cones: [], curves: [], shapes: [], paths: [], description: ''
     };
     return {
       id: Date.now(), name: 'Mi Pizarra',
@@ -151,6 +152,22 @@ export class PlaybookService {
 
   private backupToLocal() {
     localStorage.setItem(this.backupKey, JSON.stringify(this.playbookSubject.value));
+  }
+
+  resetToSingleStep(name: string = 'Diagrama'): void {
+    const step: Step = {
+      id: 1, name: 'Paso 1',
+      players: [], balls: [], cones: [], curves: [], shapes: [], paths: [], description: ''
+    };
+    const pb: Playbook = {
+      id: Date.now(), name,
+      courtType: 'fiba', courtOrientation: 'full', fullCourt: true,
+      numberAttackers: 5, numberDefenders: 5, numberCoaches: 0,
+      numberBalls: 1, numberCones: 0,
+      steps: [step], currentStepIndex: 0
+    };
+    this.playbookSubject.next(pb);
+    this.saveToServer();
   }
 
   save(): void {
@@ -198,7 +215,7 @@ export class PlaybookService {
       players: lastStep.players.map(p => ({ ...p })),
       balls: lastStep.balls.map(b => ({ ...b })),
       cones: lastStep.cones.map(c => ({ ...c })),
-      curves: [], shapes: [], description: ''
+      curves: [], shapes: [], paths: [], description: ''
     };
     pb.steps.push(newStep);
     pb.currentStepIndex = pb.steps.length - 1;

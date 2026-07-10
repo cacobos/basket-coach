@@ -9,6 +9,7 @@ import { SupabaseService } from '../../core/supabase/supabase.service';
 import { DataService } from '../../core/services/data.service';
 import { PlayerRepository } from '../../core/repositories/player.repository';
 import type { Player, Team, PlayerTeam, Evaluation } from '../../core/models/models';
+import { NotificationService } from '../../core/services/notification.service';
 
 interface PlayerTeamWithTeam extends PlayerTeam {
   teams: Team;
@@ -81,6 +82,35 @@ interface PlayerTeamWithTeam extends PlayerTeam {
                 </div>
               </div>
               <p class="empty-state" *ngIf="evaluations().length === 0">Sin evaluaciones registradas.</p>
+            </section>
+
+            <section class="card">
+              <h3 class="card-title">Tutores</h3>
+              <div class="guardian-list" *ngIf="guardians().length > 0">
+                <div class="guardian-item" *ngFor="let g of guardians()">
+                  <div class="guardian-info">
+                    <span class="guardian-email">{{ g.email }}</span>
+                    <span class="guardian-rel">{{ relationLabel(g.relationship) }}</span>
+                    <span class="guardian-status" *ngIf="g.user_id">Vinculado</span>
+                    <span class="guardian-status pending" *ngIf="!g.user_id">Pendiente</span>
+                  </div>
+                  <button class="btn-icon" (click)="removeGuardian(g.id)" title="Eliminar">
+                    <span class="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+              </div>
+              <p class="empty-state" *ngIf="guardians().length === 0">Sin tutores vinculados.</p>
+              <div class="add-guardian-row">
+                <input class="field-input" [(ngModel)]="newGuardianEmail" placeholder="Email del tutor" type="email" />
+                <select class="field-input" [(ngModel)]="newGuardianRelation">
+                  <option value="">Parentesco...</option>
+                  <option value="father">Padre</option>
+                  <option value="mother">Madre</option>
+                  <option value="guardian">Tutor legal</option>
+                  <option value="other">Otro</option>
+                </select>
+                <button class="btn-add" (click)="addGuardian()" [disabled]="addingGuardian || !newGuardianEmail() || !newGuardianRelation()">Añadir</button>
+              </div>
             </section>
           </div>
         </ng-container>
@@ -170,6 +200,27 @@ interface PlayerTeamWithTeam extends PlayerTeam {
       padding: 2px 8px; border-radius: 9999px;
       background: rgba(0,104,237,0.12); color: #bdc2ff;
     }
+    .guardian-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+    .guardian-item {
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(0,0,0,0.15); border-radius: 10px; padding: 10px 12px;
+    }
+    .guardian-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .guardian-email { font-size: 14px; font-weight: 600; color: #dfe0ff; }
+    .guardian-rel { font-size: 12px; color: #908f9d; }
+    .guardian-status {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 9999px;
+      background: rgba(16,185,129,0.15); color: #10b981;
+    }
+    .guardian-status.pending { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .add-guardian-row { display: flex; gap: 8px; }
+    .add-guardian-row .field-input {
+      flex: 1; background: #111644; border: 1px solid rgba(69,70,82,0.3);
+      color: #dfe0ff; border-radius: 8px; padding: 8px 12px;
+      font-family: 'Hanken Grotesk', sans-serif; font-size: 13px; outline: none;
+    }
+    .add-guardian-row .field-input:focus { border-color: #bdc2ff; }
     .eval-scores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .eval-score {
       display: flex; flex-direction: column; align-items: center;
@@ -196,13 +247,18 @@ export class PlayerDashboardComponent {
   private data = inject(DataService);
   private playerRepo = inject(PlayerRepository);
   private supabase = inject(SupabaseService);
+  private notification = inject(NotificationService);
 
   player = signal<Player | null>(null);
   teams = signal<PlayerTeamWithTeam[]>([]);
   allClubTeams = signal<Team[]>([]);
   evaluations = signal<Evaluation[]>([]);
+  guardians = signal<any[]>([]);
   loading = signal(true);
   selectedTeamId = signal('');
+  newGuardianEmail = signal('');
+  newGuardianRelation = signal('');
+  addingGuardian = signal(false);
 
   ratingKeys: (keyof Evaluation)[] = ['shooting', 'dribbling', 'passing', 'defense', 'rebounding', 'iq', 'athleticism', 'teamwork', 'attitude'];
   ratingLabels: Record<string, string> = {
@@ -246,8 +302,12 @@ export class PlayerDashboardComponent {
           .select('*')
           .eq('player_id', id)
           .order('created_at', { ascending: false }),
+        guardians: this.supabase.client
+          .from('player_guardians')
+          .select('*')
+          .eq('player_id', id),
       }).pipe(
-        tap(({ allPlayers, teams, playerTeams, evaluations }) => {
+        tap(({ allPlayers, teams, playerTeams, evaluations, guardians }) => {
           const foundPlayer = allPlayers.find(p => p.id === id);
           if (!foundPlayer) {
             this.loading.set(false);
@@ -260,6 +320,9 @@ export class PlayerDashboardComponent {
           }
           if (evaluations.data) {
             this.evaluations.set(evaluations.data as Evaluation[]);
+          }
+          if (guardians.data) {
+            this.guardians.set(guardians.data);
           }
           this.loading.set(false);
         }),
@@ -295,5 +358,67 @@ export class PlayerDashboardComponent {
 
   goBack() {
     this.router.navigate(['/players']);
+  }
+
+  relationLabel(r: string): string {
+    const map: Record<string, string> = {
+      father: 'Padre', mother: 'Madre', guardian: 'Tutor legal', other: 'Otro'
+    };
+    return map[r] || r;
+  }
+
+  async addGuardian() {
+    const playerId = this.player()?.id;
+    const email = this.newGuardianEmail().trim();
+    const relation = this.newGuardianRelation();
+    if (!playerId || !email || !relation) return;
+
+    this.addingGuardian.set(true);
+    try {
+      const { data: existing } = await this.supabase.client
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      const payload: any = {
+        player_id: playerId,
+        email,
+        relationship: relation,
+        can_view_payments: true,
+        can_view_documents: true,
+      };
+      if (existing) payload.user_id = existing.id;
+
+      const { data, error } = await this.supabase.client
+        .from('player_guardians')
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        this.guardians.set([...this.guardians(), data]);
+        this.newGuardianEmail.set('');
+        this.newGuardianRelation.set('');
+        this.notification.show(`Tutor añadido${existing ? ' y vinculado' : ' (pendiente de registro)'}`);
+      }
+    } catch (e) {
+      this.notification.show(e instanceof Error ? e.message : String(e));
+    } finally {
+      this.addingGuardian.set(false);
+    }
+  }
+
+  async removeGuardian(guardianId: string) {
+    const { error } = await this.supabase.client
+      .from('player_guardians')
+      .delete()
+      .eq('id', guardianId);
+    if (error) {
+      this.notification.show(error.message);
+      return;
+    }
+    this.guardians.set(this.guardians().filter(g => g.id !== guardianId));
   }
 }

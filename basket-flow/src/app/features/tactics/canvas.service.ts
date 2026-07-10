@@ -2,7 +2,7 @@ import { Injectable, NgZone, OnDestroy } from '@angular/core';
 import { fabric } from 'fabric';
 import { BehaviorSubject } from 'rxjs';
 import { PlaybookService } from './playbook.service';
-import { ActionType, CourtType, CanvasPlayer, PlayerType, ActionCurve, DrawingShape, CanvasBall, CanvasCone } from './canvas.models';
+import { ActionType, CourtType, CanvasPlayer, PlayerType, ActionCurve, DrawingShape, CanvasBall, CanvasCone, FreePathData } from './canvas.models';
 
 export interface EditorState {
   selectedTool: 'select' | 'move' | 'dribble' | 'block' | 'pass' | 'hand_pass' | 'shoot' | 'draw' | 'draw_circle' | 'draw_rect' | 'eraser' | null;
@@ -27,13 +27,13 @@ const ACTION_COLORS: Record<ActionType, string> = {
   SHOOT: '#DD0000'
 };
 
-const ACTION_DASHED: Record<ActionType, boolean> = {
-  MOVE: false,
-  DRIBBLE: false,
-  BLOCK: false,
-  PASS: true,
-  HAND_PASS: true,
-  SHOOT: false
+const ACTION_DASHED: Record<ActionType, number[] | null> = {
+  MOVE: null,
+  DRIBBLE: null,
+  BLOCK: null,
+  PASS: [6, 4],
+  HAND_PASS: [3, 4],
+  SHOOT: null
 };
 
 const marginTop = 40;
@@ -46,6 +46,7 @@ export class CanvasService implements OnDestroy {
   private coneObjects: Map<string, fabric.Object> = new Map();
   private curveObjects: Map<string, fabric.Group> = new Map();
   private shapeObjects: Map<string, fabric.Object> = new Map();
+  private pathObjects: Map<string, fabric.Path> = new Map();
 
   editorState = new BehaviorSubject<EditorState>({
     selectedTool: 'select',
@@ -99,6 +100,7 @@ export class CanvasService implements OnDestroy {
     this.canvas.on('selection:created', (opt) => this.handleSelection(opt));
     this.canvas.on('selection:cleared', () => this.handleDeselection());
     this.canvas.on('object:modified', () => this.savePlayerPositions());
+    this.canvas.on('path:created', (opt) => this.handlePathCreated(opt));
   }
 
   private drawCourt(): void {
@@ -140,6 +142,7 @@ export class CanvasService implements OnDestroy {
     step.cones.forEach(c => this.drawCone(c));
     step.shapes.forEach(s => this.drawShape(s));
     step.curves.forEach(c => this.drawCurve(c));
+    (step.paths || []).forEach(p => this.drawPath(p));
 
     this.canvas.renderAll();
   }
@@ -155,6 +158,8 @@ export class CanvasService implements OnDestroy {
     this.curveObjects.clear();
     this.shapeObjects.forEach(obj => this.canvas.remove(obj));
     this.shapeObjects.clear();
+    this.pathObjects.forEach(obj => this.canvas.remove(obj));
+    this.pathObjects.clear();
   }
 
   private drawPlayer(player: CanvasPlayer): void {
@@ -276,58 +281,82 @@ export class CanvasService implements OnDestroy {
   private drawCurve(curve: ActionCurve): void {
     if (curve.points.length < 2) return;
     const pts = curve.points.map(p => ({ x: p.x, y: p.y }));
-
-    const isDashed = ACTION_DASHED[curve.type];
-    const strokeWidth = curve.type === 'SHOOT' ? 3 : 2.5;
-    const strokeColor = curve.color || ACTION_COLORS[curve.type] || '#666666';
-
-    const isZigzag = curve.type === 'DRIBBLE';
-    const path = this.createCurvePath(pts, isZigzag);
-    const line = new fabric.Path(path, {
-      stroke: strokeColor,
-      strokeWidth,
-      fill: 'transparent',
-      strokeDashArray: isDashed ? [6, 4] : undefined,
-      selectable: true,
-      hasControls: false,
-      evented: true
-    });
-
     const last = pts[pts.length - 1];
     const prev = pts.length > 1 ? pts[pts.length - 2] : pts[0];
     const angle = Math.atan2(last.y - prev.y, last.x - prev.x) * 180 / Math.PI;
+    const rad = angle * Math.PI / 180;
+    const strokeColor = curve.color || ACTION_COLORS[curve.type] || '#666666';
 
-    const children: fabric.Object[] = [line];
+    let children: fabric.Object[] = [];
 
-    const nonDirectional: ActionType[] = ['BLOCK', 'SHOOT'];
-    if (nonDirectional.includes(curve.type)) {
-      const actionLabels: Record<ActionType, string> = {
-        MOVE: '→', DRIBBLE: '↯', BLOCK: '⊞', PASS: '⇢', HAND_PASS: '⇢', SHOOT: '◎'
-      };
-      const labelText = new fabric.Text(actionLabels[curve.type] || '→', {
-        fontSize: 18,
-        fill: strokeColor,
-        originX: 'center',
-        originY: 'center',
-        left: last.x,
-        top: last.y - 10
+    if (curve.type === 'HAND_PASS') {
+      const offset = 4;
+      const perpX = offset * Math.cos(rad + Math.PI / 2);
+      const perpY = offset * Math.sin(rad + Math.PI / 2);
+      const off = (p: { x: number; y: number }) => ({
+        x: p.x + perpX, y: p.y + perpY
       });
-      children.push(labelText);
+      const path1 = this.createCurvePath(pts.map(off), false);
+      const path2 = this.createCurvePath(pts.map(p => ({
+        x: p.x - perpX, y: p.y - perpY
+      })), false);
+      const line1 = new fabric.Path(path1, {
+        stroke: strokeColor, strokeWidth: 2, fill: 'transparent',
+        strokeDashArray: [3, 4], selectable: true, hasControls: false, evented: true
+      });
+      const line2 = new fabric.Path(path2, {
+        stroke: strokeColor, strokeWidth: 2, fill: 'transparent',
+        strokeDashArray: [3, 4], selectable: true, hasControls: false, evented: true
+      });
+      children = [line1, line2];
     } else {
-      const arrowSize = 10;
-      const arrowHead = new fabric.Triangle({
-        width: arrowSize * 1.4,
-        height: arrowSize,
-        fill: strokeColor,
-        originX: 'center',
-        originY: 'center',
-        left: last.x,
-        top: last.y,
-        angle: angle + 90,
-        selectable: false,
-        evented: false
+      const dashPattern = curve.type === 'SHOOT' ? null : ACTION_DASHED[curve.type];
+      const strokeWidth = 2.5;
+      const isZigzag = curve.type === 'DRIBBLE';
+      const path = this.createCurvePath(pts, isZigzag);
+      const line = new fabric.Path(path, {
+        stroke: strokeColor, strokeWidth, fill: 'transparent',
+        strokeDashArray: dashPattern || undefined,
+        selectable: true, hasControls: false, evented: true
       });
-      children.push(arrowHead);
+      children = [line];
+
+      if (curve.type === 'SHOOT') {
+        const barLen = 8;
+        const gap = 3;
+        const perpX = barLen * Math.cos(rad + Math.PI / 2);
+        const perpY = barLen * Math.sin(rad + Math.PI / 2);
+        const alongX = gap * Math.cos(rad);
+        const alongY = gap * Math.sin(rad);
+
+        const bar1 = new fabric.Line(
+          [last.x - perpX - alongX, last.y - perpY - alongY, last.x + perpX - alongX, last.y + perpY - alongY],
+          { stroke: strokeColor, strokeWidth: 2.5, originX: 'center', originY: 'center', selectable: false, evented: false, strokeLineCap: 'round' }
+        );
+        const bar2 = new fabric.Line(
+          [last.x - perpX + alongX, last.y - perpY + alongY, last.x + perpX + alongX, last.y + perpY + alongY],
+          { stroke: strokeColor, strokeWidth: 2.5, originX: 'center', originY: 'center', selectable: false, evented: false, strokeLineCap: 'round' }
+        );
+        children.push(bar1, bar2);
+      } else if (curve.type === 'BLOCK') {
+        const barLen = 10;
+        const perpX = barLen * Math.cos(rad + Math.PI / 2);
+        const perpY = barLen * Math.sin(rad + Math.PI / 2);
+        const bar = new fabric.Line(
+          [last.x - perpX, last.y - perpY, last.x + perpX, last.y + perpY],
+          { stroke: strokeColor, strokeWidth: 3, originX: 'center', originY: 'center', selectable: false, evented: false, strokeLineCap: 'round' }
+        );
+        children.push(bar);
+      } else {
+        const arrowSize = 10;
+        const arrowHead = new fabric.Triangle({
+          width: arrowSize * 1.4, height: arrowSize,
+          fill: strokeColor, originX: 'center', originY: 'center',
+          left: last.x, top: last.y, angle: angle + 90,
+          selectable: false, evented: false
+        });
+        children.push(arrowHead);
+      }
     }
 
     const group = new fabric.Group(children, {
@@ -414,6 +443,40 @@ export class CanvasService implements OnDestroy {
     this.shapeObjects.set(shape.id, obj);
   }
 
+  private handlePathCreated(opt: any): void {
+    const path = opt.path as fabric.Path;
+    if (!path) return;
+
+    const pathId = `fp_${Date.now()}`;
+    const pathData: FreePathData = {
+      id: pathId,
+      path: JSON.parse(JSON.stringify(path.path)),
+      color: (path.stroke as string) || '#666666',
+      width: (path.strokeWidth as number) || 3,
+    };
+
+    path.data = { type: 'free_path', pathId };
+    this.pathObjects.set(pathId, path);
+
+    const step = this.playbookService.getCurrentStep();
+    step.paths = step.paths || [];
+    step.paths.push(pathData);
+    this.playbookService.save();
+  }
+
+  private drawPath(pd: FreePathData): void {
+    const path = new fabric.Path(pd.path as any, {
+      stroke: pd.color,
+      strokeWidth: pd.width,
+      fill: 'transparent',
+      selectable: false,
+      evented: false,
+    });
+    path.data = { type: 'free_path', pathId: pd.id };
+    this.canvas.add(path);
+    this.pathObjects.set(pd.id, path);
+  }
+
   setTool(tool: EditorState['selectedTool']): void {
     this.editorState.next({ ...this.editorState.value, selectedTool: tool, selectedPlayerId: null, selectedCurveId: null, selectedShapeId: null });
     this.canvas.selection = tool === 'select' || tool === 'move';
@@ -435,8 +498,18 @@ export class CanvasService implements OnDestroy {
   }
 
   clearDrawings(): void {
-    const toRemove = this.canvas.getObjects().filter(o => o.type === 'path');
-    toRemove.forEach(o => this.canvas.remove(o));
+    const step = this.playbookService.getCurrentStep();
+    this.canvas.getObjects().forEach(o => {
+      const d = o.data;
+      if (d?.type === 'free_path' || d?.type === 'shape') {
+        this.canvas.remove(o);
+      }
+    });
+    step.paths = [];
+    step.shapes = [];
+    this.pathObjects.clear();
+    this.shapeObjects.clear();
+    this.playbookService.save();
     this.canvas.requestRenderAll();
   }
 
@@ -798,34 +871,32 @@ export class CanvasService implements OnDestroy {
     this.playbookService.save();
   }
 
-  removeSelectedItem(): void {
-    const id = this.editorState.value.selectedPlayerId;
-    if (!id) return;
-    const step = this.playbookService.getCurrentStep();
-    step.players = step.players.filter(p => p.id !== id);
-    step.balls = step.balls.filter(b => b.id !== id);
-    step.cones = step.cones.filter(c => c.id !== id);
-    step.curves = step.curves.filter(c => c.playerId !== id);
-    this.playbookService.save();
-    this.renderCurrentStep();
-  }
-
-  removeSelectedCurve(): void {
-    const curveId = this.editorState.value.selectedCurveId;
-    if (!curveId) return;
-    const step = this.playbookService.getCurrentStep();
-    step.curves = step.curves.filter(c => c.id !== curveId);
-    this.playbookService.save();
-    this.renderCurrentStep();
-  }
-
-  removeSelectedShape(): void {
-    const shapeId = this.editorState.value.selectedShapeId;
-    if (!shapeId) return;
-    const step = this.playbookService.getCurrentStep();
-    step.shapes = step.shapes.filter(s => s.id !== shapeId);
-    this.playbookService.save();
-    this.renderCurrentStep();
+  deleteSelected(): void {
+    const state = this.editorState.value;
+    if (state.selectedCurveId) {
+      const step = this.playbookService.getCurrentStep();
+      step.curves = step.curves.filter(c => c.id !== state.selectedCurveId);
+      this.playbookService.save();
+      this.renderCurrentStep();
+      return;
+    }
+    if (state.selectedShapeId) {
+      const step = this.playbookService.getCurrentStep();
+      step.shapes = step.shapes.filter(s => s.id !== state.selectedShapeId);
+      this.playbookService.save();
+      this.renderCurrentStep();
+      return;
+    }
+    if (state.selectedPlayerId) {
+      const id = state.selectedPlayerId;
+      const step = this.playbookService.getCurrentStep();
+      step.players = step.players.filter(p => p.id !== id);
+      step.balls = step.balls.filter(b => b.id !== id);
+      step.cones = step.cones.filter(c => c.id !== id);
+      step.curves = step.curves.filter(c => c.playerId !== id);
+      this.playbookService.save();
+      this.renderCurrentStep();
+    }
   }
 
   getCanvasDataUrl(): string {

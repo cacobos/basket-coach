@@ -92,7 +92,7 @@ Desplegada en **Netlify** (`planbasket.netlify.app`) y **Vercel**.
   /finance/fee-plans/new            → FeePlanFormComponent (clubAdminGuard)
   /finance/payments                 → PaymentsListComponent (clubAdminGuard)
   /finance/players/:id              → PlayerFinanceDetailComponent (clubAdminGuard o family propietario)
-  /onboarding/import-players        → ImportPlayersWizard (adminGuard, primera configuración del club)
+  /onboarding                       → OnboardingWizard (adminGuard, 5 pasos: equipos → jugadores → staff → cuotas → catálogos)
   /portal                           → FamilyPortalComponent (familyGuard) — resumen del/los jugador/es vinculados
   /portal/players/:id               → FamilyPlayerDetailComponent (familyGuard)
   /upgrade                          → UpgradeComponent (sin authGuard)
@@ -843,4 +843,23 @@ Se documenta (sin implementar aún) el nuevo módulo derivado del análisis de t
 5. **Onboarding**: wizard de alta de club (equipos → import de jugadores → staff → cuotas opcional → catálogos).
 6. Roles y permisos (`role_permissions`, tablas de Documento 04) actualizados para incluir `family` y los nuevos permisos `document.manage`, `document.view_own`, `announcement.manage`, `finance.manage`, `finance.view_own`.
 
-Pendiente de implementación en código; este apartado registra la especificación aceptada para desarrollo futuro.
+Implementado en 2026-07-05 (ver sesión siguiente).
+
+### 2026-07-05 — Implementación completa Documento 05 y mejoras
+
+Se implementaron todas las features del Documento 05 en una sesión continua:
+
+1. **Rutas Documento 05**: `/documents`, `/documents/:playerId`, `/announcements`, `/announcements/new`, `/finance/*`, `/portal/*`, `/onboarding`
+2. **Sidebar dinámico familiar**: Modo simplificado para rol `family` (solo Portal, Calendario, Comunicación)
+3. **Announcements**: `announcement.repository.ts`, `announcement.service.ts`, listado y formulario, tracking de lectura
+4. **Finance**: `fee-plan.repository.ts`, `player-fee.repository.ts`, `payment.repository.ts`, `finance.store.ts`, 5 páginas (overview, fee-plans, fee-plan-form, payments-list, player-finance-detail), `finance.service.ts` (generateRecurringFees)
+5. **PDF Recibos**: `receipt.service.ts` con jsPDF, botones de descarga en player-finance-detail y family-player-detail
+6. **Family Portal**: `family-portal.component.ts`, `family-player-detail.component.ts`, guard `family.guard.ts`
+7. **Consents UI**: `consent.repository.ts`, integración en player-documents.page.ts (grant/revoke)
+8. **DocumentService**: `services/document.service.ts` con alertas de vencimiento y status agregado
+9. **Onboarding Wizard**: `OnboardingWizardComponent` 5 pasos (equipos → jugadores → staff → cuotas → catálogos)
+10. **Planning components**: 3 componentes nuevos (`objective-editor`, `achievement-card`, `sessions-panel`)
+11. **Whiteboard redirect**: `/whiteboard` → `/tactics?mode=freehand`
+12. **SQL**: Migración `022_microcycle_sessions_view.sql`, vista `v_microcycle_sessions` aplicada
+
+Build verificado: `ng build` exitoso sin errores (warnings pre-existentes de html2canvas/canvg/fabric).

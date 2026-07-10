@@ -10,6 +10,9 @@ import { DataService } from '../../core/services/data.service';
 import { NotificationService } from '../../core/services/notification.service';
 import type { Club, Tag } from '../../core/models/models';
 
+const FORM_STORAGE_KEY = 'exercise-form-state';
+const DIAGRAM_STORAGE_KEY = 'tactics-diagram-export';
+
 @Component({
   selector: 'app-exercise-form',
   standalone: true,
@@ -29,8 +32,8 @@ import type { Club, Tag } from '../../core/models/models';
       <div class="card" *ngIf="vm$ | async; else loadingTpl">
         <div class="form-body">
           <label class="field"><span>Nombre</span><input class="field-input" [(ngModel)]="formName" placeholder="Triángulo Ofensivo"/></label>
-          <label class="field"><span>Descripción</span><textarea class="field-input field-textarea" [(ngModel)]="formDescription" rows="2" placeholder="Descripción del ejercicio..."></textarea></label>
-          <label class="field"><span>Objetivos</span><textarea class="field-input field-textarea" [(ngModel)]="formObjectives" rows="2" placeholder="Mejorar pases, crear espacios..."></textarea></label>
+          <label class="field"><span>Descripción</span><textarea class="field-input field-textarea" [(ngModel)]="formDescription" rows="4" placeholder="Descripción del ejercicio..."></textarea></label>
+          <label class="field"><span>Objetivos</span><textarea class="field-input field-textarea" [(ngModel)]="formObjectives" rows="4" placeholder="Mejorar pases, crear espacios..."></textarea></label>
           <div class="field-row">
             <label class="field flex-1"><span>Duración (min)</span><input class="field-input" type="number" [(ngModel)]="formDuration"/></label>
             <label class="field flex-1"><span>Jugadores min</span><input class="field-input" type="number" [(ngModel)]="formPlayersMin"/></label>
@@ -52,11 +55,19 @@ import type { Club, Tag } from '../../core/models/models';
           <fieldset class="diagrams-section">
             <legend>Diagramas</legend>
             <div class="diagram-item" *ngFor="let d of formDiagrams; let i = index">
-              <input class="field-input flex-1" [(ngModel)]="formDiagrams[i].url" placeholder="URL de la imagen"/>
-              <input class="field-input flex-1" [(ngModel)]="formDiagrams[i].caption" placeholder="Leyenda (opcional)"/>
+              <div class="diagram-preview">
+                <img [src]="d.url" alt="Diagrama" class="diagram-img" />
+                <input class="field-input" [(ngModel)]="formDiagrams[i].caption" placeholder="Leyenda (opcional)"/>
+              </div>
               <button class="btn-icon" (click)="removeDiagram(i)"><span class="material-symbols-outlined">close</span></button>
             </div>
-            <button class="btn-add-diagram" (click)="addDiagram()"><span class="material-symbols-outlined">add</span> Añadir diagrama</button>
+            <div class="diagram-actions">
+              <button class="btn-create-diagram" (click)="openTacticsCanvas()">
+                <span class="material-symbols-outlined">sports_basketball</span>
+                {{ editing ? 'Editar con pizarra táctica' : 'Crear diagrama con pizarra' }}
+              </button>
+              <button class="btn-add-diagram" (click)="addDiagram()"><span class="material-symbols-outlined">add</span> Añadir URL manual</button>
+            </div>
           </fieldset>
         </div>
         <div class="form-actions">
@@ -71,7 +82,7 @@ import type { Club, Tag } from '../../core/models/models';
     </div>
   `,
   styles: [`
-    .page { padding: 40px; max-width: 720px; margin: 0 auto; }
+    .page { padding: 40px; max-width: 960px; margin: 0 auto; }
     .page-header { margin-bottom: 32px; }
     .back-link { display: inline-flex; align-items: center; gap: 4px; color: #bdc2ff; text-decoration: none; font-size: 14px; margin-bottom: 16px; }
     .back-link:hover { color: #dfe0ff; }
@@ -89,7 +100,7 @@ import type { Club, Tag } from '../../core/models/models';
     }
     .field-input:focus { border-color: #bdc2ff; }
     .field-textarea { resize: vertical; }
-    .tag-selector { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 0; }
+    .tag-selector { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 0; max-height: 116px; overflow-y: auto; }
     .tag-chip {
       font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
       padding: 6px 14px; border-radius: 9999px; border: 1px solid rgba(69,70,82,0.3);
@@ -98,23 +109,37 @@ import type { Club, Tag } from '../../core/models/models';
     }
     .tag-chip:hover { border-color: var(--tag-color, #bdc2ff); color: var(--tag-color, #bdc2ff); }
     .tag-chip.active { background: color-mix(in srgb, var(--tag-color, #4f6ef7) 20%, transparent); color: var(--tag-color, #bdc2ff); border-color: var(--tag-color, #4f6ef7); }
+    .tag-selector::-webkit-scrollbar { width: 4px; }
+    .tag-selector::-webkit-scrollbar-thumb { background: rgba(189,194,255,0.2); border-radius: 2px; }
     .no-tags { font-size: 13px; color: #908f9d; }
     .no-tags a { color: #bdc2ff; }
     .diagrams-section { border: 1px solid rgba(69,70,82,0.3); border-radius: 8px; padding: 12px; }
     .diagrams-section legend { font-size: 12px; font-weight: 600; color: #c6c5d4; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 6px; }
-    .diagram-item { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-    .diagram-item .field-input { font-size: 12px; }
+    .diagram-item { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.15); border-radius: 8px; }
+    .diagram-preview { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+    .diagram-img { max-width: 200px; max-height: 120px; border-radius: 6px; object-fit: contain; background: #0a0f3a; border: 1px solid rgba(69,70,82,0.3); }
+    .diagram-preview .field-input { font-size: 12px; }
     .btn-icon {
       background: rgba(255,138,128,0.15); border: none; color: #ff8a80;
-      cursor: pointer; padding: 4px; border-radius: 6px;
+      cursor: pointer; padding: 4px; border-radius: 6px; margin-top: 4px;
       display: flex; align-items: center;
     }
     .btn-icon .material-symbols-outlined { font-size: 16px; }
+    .diagram-actions { display: flex; gap: 8px; }
+    .btn-create-diagram {
+      display: flex; align-items: center; gap: 6px; flex: 1;
+      background: #0068ed; color: white; border: none;
+      padding: 10px 16px; border-radius: 8px; cursor: pointer;
+      font-family: 'Hanken Grotesk', sans-serif; font-size: 13px; font-weight: 600;
+      justify-content: center;
+    }
+    .btn-create-diagram:hover { opacity: 0.9; }
+    .btn-create-diagram .material-symbols-outlined { font-size: 18px; }
     .btn-add-diagram {
       background: none; border: 1px dashed rgba(69,70,82,0.3);
-      color: #908f9d; cursor: pointer; padding: 8px; border-radius: 8px;
-      width: 100%; display: flex; align-items: center; gap: 6px; justify-content: center;
-      font-family: 'Hanken Grotesk', sans-serif; font-size: 13px;
+      color: #908f9d; cursor: pointer; padding: 10px 16px; border-radius: 8px;
+      display: flex; align-items: center; gap: 6px; justify-content: center;
+      font-family: 'Hanken Grotesk', sans-serif; font-size: 13px; white-space: nowrap;
     }
     .btn-add-diagram:hover { border-color: #bdc2ff; color: #bdc2ff; }
     .form-actions { display: flex; gap: 12px; justify-content: flex-end; }
@@ -154,9 +179,9 @@ export class ExerciseFormComponent {
   private router = inject(Router);
   private notification = inject(NotificationService);
 
-  editing = false;
+  editing = !!this.route.snapshot.paramMap.get('id');
   saving = false;
-  exerciseId: string | null = null;
+  exerciseId = this.route.snapshot.paramMap.get('id');
 
   formName = '';
   formDescription = '';
@@ -176,36 +201,27 @@ export class ExerciseFormComponent {
   vm$ = this.club$.pipe(
     take(1),
     switchMap(club => {
-      const id = this.route.snapshot.paramMap.get('id');
-      this.editing = !!id;
-      this.exerciseId = id;
-
       const tags$ = from(this.exerciseRepo.getTags(club.id));
-      const exercise$ = id ? from(this.exerciseRepo.findById(id)) : of(null);
+      const exercise$ = this.exerciseId ? from(this.exerciseRepo.findById(this.exerciseId)) : of(null);
       return forkJoin([tags$, exercise$]);
     }),
     tap(([tags, exercise]) => {
       this.availableTags = tags;
-      if (exercise) {
-        this.formName = exercise.name;
-        this.formDescription = exercise.description || '';
-        this.formObjectives = exercise.objectives || '';
-        this.formDuration = exercise.duration_minutes;
-        this.formPlayersMin = exercise.players_min;
-        this.formPlayersMax = exercise.players_max;
-        this.selectedTagIds = new Set((exercise.tags || []).map((t: any) => t.id));
-        this.formDiagrams = (exercise.diagrams || []).length > 0 ? [...exercise.diagrams] : [];
-      }
-      const importedDiagrams = sessionStorage.getItem('tactics-diagram-export');
+
+      this.restoreFormState(exercise);
+
+      const importedDiagrams = sessionStorage.getItem(DIAGRAM_STORAGE_KEY);
       if (importedDiagrams) {
-        sessionStorage.removeItem('tactics-diagram-export');
+        sessionStorage.removeItem(DIAGRAM_STORAGE_KEY);
         try {
           const diagrams = JSON.parse(importedDiagrams) as { url: string; caption?: string }[];
           if (diagrams.length > 0) {
-            this.formDiagrams = diagrams;
+            this.formDiagrams = this.formDiagrams.concat(diagrams);
           }
         } catch {}
       }
+
+      sessionStorage.removeItem(FORM_STORAGE_KEY);
     }),
     map(() => true),
     catchError(err => {
@@ -214,6 +230,35 @@ export class ExerciseFormComponent {
     }),
     shareReplay(1)
   );
+
+  private restoreFormState(exercise: any) {
+    const saved = sessionStorage.getItem(FORM_STORAGE_KEY);
+    if (saved) {
+      try {
+        const state = JSON.parse(saved);
+        this.formName = state.name || '';
+        this.formDescription = state.description || '';
+        this.formObjectives = state.objectives || '';
+        this.formDuration = state.duration;
+        this.formPlayersMin = state.playersMin;
+        this.formPlayersMax = state.playersMax;
+        this.selectedTagIds = new Set<string>(state.tagIds || []);
+        this.formDiagrams = (state.diagrams || []).length > 0 ? [...state.diagrams] : [];
+        return;
+      } catch {}
+    }
+
+    if (exercise) {
+      this.formName = exercise.name;
+      this.formDescription = exercise.description || '';
+      this.formObjectives = exercise.objectives || '';
+      this.formDuration = exercise.duration_minutes;
+      this.formPlayersMin = exercise.players_min;
+      this.formPlayersMax = exercise.players_max;
+      this.selectedTagIds = new Set((exercise.tags || []).map((t: any) => t.id));
+      this.formDiagrams = (exercise.diagrams || []).length > 0 ? [...exercise.diagrams] : [];
+    }
+  }
 
   toggleTag(tagId: string) {
     if (this.selectedTagIds.has(tagId)) {
@@ -229,6 +274,26 @@ export class ExerciseFormComponent {
 
   removeDiagram(i: number) {
     this.formDiagrams.splice(i, 1);
+  }
+
+  openTacticsCanvas() {
+    const returnUrl = this.exerciseId
+      ? `/exercises/${this.exerciseId}/edit`
+      : '/exercises/new';
+    sessionStorage.setItem(FORM_STORAGE_KEY, JSON.stringify({
+      name: this.formName,
+      description: this.formDescription,
+      objectives: this.formObjectives,
+      duration: this.formDuration,
+      playersMin: this.formPlayersMin,
+      playersMax: this.formPlayersMax,
+      tagIds: Array.from(this.selectedTagIds),
+      diagrams: this.formDiagrams,
+      returnUrl,
+    }));
+    this.router.navigate(['/tactics'], {
+      queryParams: { mode: 'exercise-diagram', returnUrl }
+    });
   }
 
   async save() {
@@ -262,7 +327,7 @@ export class ExerciseFormComponent {
       this.router.navigate(['/exercises']);
     } catch (e) {
       this.notification.show(e instanceof Error ? e.message : String(e));
-      this.saving = false;
+      setTimeout(() => this.saving = false);
     }
   }
 }

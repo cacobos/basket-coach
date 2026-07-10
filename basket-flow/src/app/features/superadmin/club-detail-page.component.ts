@@ -23,6 +23,13 @@ const ROLES = ['club_admin', 'team_admin', 'coach'] as const;
           <p>Slug: {{ vm.club?.slug }}</p>
           <p>Descripción: {{ vm.club?.description || '—' }}</p>
           <p>Creado: {{ vm.club?.created_at?.slice(0,10) }}</p>
+          <div class="toggle-row">
+            <label class="toggle-label">
+              <input type="checkbox" [checked]="vm.club?.family_can_upload_documents" (change)="toggleFamilyUpload(vm.club?.id, $event)" />
+              <span class="toggle-slider"></span>
+              Familias pueden subir documentos
+            </label>
+          </div>
         </section>
         <section class="card">
           <h3>Suscripción</h3>
@@ -83,6 +90,20 @@ const ROLES = ['club_admin', 'team_admin', 'coach'] as const;
     .btn-add { background: #0068ed; color: white; border: none; border-radius: 8px; padding: 10px 16px; font-family: 'Hanken Grotesk', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
     .btn-add:hover { opacity: 0.9; }
     .empty-msg { font-size: 13px; color: #908f9d; margin: 12px 0 0; }
+    .toggle-row { margin-top: 12px; }
+    .toggle-label { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #c6c5d4; cursor: pointer; }
+    .toggle-label input { display: none; }
+    .toggle-slider {
+      width: 36px; height: 20px; background: rgba(255,255,255,0.15); border-radius: 10px;
+      position: relative; transition: background 0.2s; flex-shrink: 0;
+    }
+    .toggle-slider::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 16px; height: 16px; background: #dfe0ff; border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle-label input:checked + .toggle-slider { background: #0068ed; }
+    .toggle-label input:checked + .toggle-slider::after { transform: translateX(16px); }
   `]
 })
 export class SuperadminClubDetailPage {
@@ -168,6 +189,12 @@ export class SuperadminClubDetailPage {
       .from('club_members')
       .delete()
       .eq('id', member.id);
+    this.refresh$.next();
+  }
+
+  async toggleFamilyUpload(clubId: string, event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
+    await this.supabase.client.from('clubs').update({ family_can_upload_documents: checked }).eq('id', clubId);
     this.refresh$.next();
   }
 

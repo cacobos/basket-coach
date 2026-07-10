@@ -4,6 +4,7 @@ import { featureGuard } from './core/guards/feature.guard';
 import { superadminGuard } from './core/guards/superadmin.guard';
 import { adminGuard } from './core/guards/admin.guard';
 import { clubAdminGuard } from './core/guards/club-admin.guard';
+import { familyGuard } from './core/guards/family.guard';
 
 export const routes: Routes = [
   {
@@ -23,11 +24,12 @@ export const routes: Routes = [
       { path: 'players/:id', loadComponent: () => import('./features/players/player-dashboard.component').then(m => m.PlayerDashboardComponent) },
       { path: 'attendance', redirectTo: 'evaluations', pathMatch: 'full' },
       { path: 'tactics', canActivate: [featureGuard('tactics')], loadComponent: () => import('./features/tactics/tactics.component').then(m => m.TacticsComponent) },
-      { path: 'whiteboard', loadComponent: () => import('./features/whiteboard/whiteboard.component').then(m => m.WhiteboardComponent) },
+      { path: 'whiteboard', redirectTo: 'tactics?mode=freehand', pathMatch: 'full' },
       { path: 'stats', redirectTo: 'matches', pathMatch: 'full' },
       { path: 'exercises', loadComponent: () => import('./features/exercises/exercises.component').then(m => m.ExercisesComponent) },
       { path: 'exercises/new', loadComponent: () => import('./features/exercises/exercise-form.component').then(m => m.ExerciseFormComponent) },
       { path: 'exercises/:id/edit', loadComponent: () => import('./features/exercises/exercise-form.component').then(m => m.ExerciseFormComponent) },
+      { path: 'exercises/:id/variants', loadComponent: () => import('./features/exercises/exercise-variants.component').then(m => m.ExerciseVariantsComponent) },
       { path: 'exercises/tags', loadComponent: () => import('./features/exercises/tags.component').then(m => m.TagsComponent) },
       { path: 'sessions', loadComponent: () => import('./features/sessions/sessions.component').then(m => m.SessionsComponent) },
       { path: 'sessions/new', loadComponent: () => import('./features/sessions/session-new.component').then(m => m.SessionNewComponent) },
@@ -48,7 +50,19 @@ export const routes: Routes = [
       { path: 'planning/:macrocycleId/mesocycles/new', canActivate: [featureGuard('planning')], loadComponent: () => import('./features/planning/pages/mesocycle-form.component').then(m => m.MesocycleFormComponent) },
       { path: 'planning/:macrocycleId/mesocycles/:mesocycleId', canActivate: [featureGuard('planning')], loadComponent: () => import('./features/planning/pages/mesocycle-detail.component').then(m => m.MesocycleDetailComponent) },
       { path: 'planning/:macrocycleId/mesocycles/:mesocycleId/microcycles/:microcycleId', canActivate: [featureGuard('planning')], loadComponent: () => import('./features/planning/pages/microcycle-detail.component').then(m => m.MicrocycleDetailComponent) },
-      { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+      { path: 'documents', canActivate: [featureGuard('documents')], loadComponent: () => import('./features/documents/pages/documents-list.page').then(m => m.DocumentsListPage) },
+      { path: 'documents/:playerId', canActivate: [featureGuard('documents')], loadComponent: () => import('./features/documents/pages/player-documents.page').then(m => m.PlayerDocumentsPage) },
+      { path: 'announcements', loadComponent: () => import('./features/announcements/pages/announcements-list.page').then(m => m.AnnouncementsListPage) },
+      { path: 'announcements/new', canActivate: [adminGuard, featureGuard('announcements')], loadComponent: () => import('./features/announcements/pages/announcement-form.component').then(m => m.AnnouncementFormComponent) },
+      { path: 'finance', canActivate: [clubAdminGuard, featureGuard('finance')], loadComponent: () => import('./features/finance/pages/finance-overview.page').then(m => m.FinanceOverviewComponent) },
+      { path: 'finance/fee-plans', canActivate: [clubAdminGuard, featureGuard('finance')], loadComponent: () => import('./features/finance/pages/fee-plans.page').then(m => m.FeePlansComponent) },
+      { path: 'finance/fee-plans/new', canActivate: [clubAdminGuard, featureGuard('finance')], loadComponent: () => import('./features/finance/pages/fee-plan-form.component').then(m => m.FeePlanFormComponent) },
+      { path: 'finance/payments', canActivate: [clubAdminGuard, featureGuard('finance')], loadComponent: () => import('./features/finance/pages/payments-list.page').then(m => m.PaymentsListComponent) },
+      { path: 'finance/players/:id', canActivate: [clubAdminGuard, featureGuard('finance')], loadComponent: () => import('./features/finance/pages/player-finance-detail.page').then(m => m.PlayerFinanceDetailComponent) },
+      { path: 'portal', canActivate: [familyGuard], loadComponent: () => import('./features/portal/family-portal.component').then(m => m.FamilyPortalComponent) },
+      { path: 'portal/players/:id', canActivate: [familyGuard], loadComponent: () => import('./features/portal/family-player-detail.component').then(m => m.FamilyPlayerDetailComponent) },
+      { path: 'onboarding', canActivate: [adminGuard], loadComponent: () => import('./features/onboarding/onboarding-wizard.component').then(m => m.OnboardingWizardComponent) },
+      { path: '', redirectTo: 'portal', pathMatch: 'full' },
     ],
   },
   {

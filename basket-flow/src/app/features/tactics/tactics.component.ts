@@ -1,7 +1,7 @@
-import { Component, inject, AfterViewInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, inject, AfterViewInit, OnDestroy, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { PlaybookService } from './playbook.service';
 import { CanvasService, EditorState } from './canvas.service';
 import { Playbook, CanvasPlayer, PlayerType } from './canvas.models';
@@ -20,6 +20,7 @@ export class TacticsComponent implements AfterViewInit, OnDestroy {
   pbService = inject(PlaybookService);
   canvasService = inject(CanvasService);
   router = inject(Router);
+  route = inject(ActivatedRoute);
 
   playbook: Playbook = this.pbService.getPlaybook();
   editorState: EditorState = this.canvasService.editorState.value;
@@ -30,9 +31,22 @@ export class TacticsComponent implements AfterViewInit, OnDestroy {
   showShapeEditor = false;
   passSourcePlayerId = '';
 
+  isExerciseDiagramMode: boolean;
+  diagramReturnUrl: string | null;
+
   private subs: Subscription[] = [];
 
+  constructor() {
+    const mode = this.route.snapshot.queryParamMap.get('mode');
+    this.isExerciseDiagramMode = mode === 'exercise-diagram';
+    this.diagramReturnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+  }
+
   ngAfterViewInit(): void {
+    if (this.isExerciseDiagramMode) {
+      this.pbService.resetToSingleStep('Diagrama de ejercicio');
+    }
+
     this.subs.push(
       this.pbService.playbook$.subscribe(pb => {
         this.playbook = pb;
@@ -90,6 +104,10 @@ export class TacticsComponent implements AfterViewInit, OnDestroy {
     this.canvasService.setColor(color);
   }
 
+  setOrientation(orientation: 'full' | 'offensive_half' | 'defensive_half'): void {
+    this.pbService.setCourtOrientation(orientation);
+  }
+
   clearDrawings(): void {
     this.canvasService.clearDrawings();
   }
@@ -119,16 +137,25 @@ export class TacticsComponent implements AfterViewInit, OnDestroy {
     this.canvasService.clearAll();
   }
 
+  @HostListener('document:keydown', ['$event'])
+  handleKeyboard(event: KeyboardEvent): void {
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+      event.preventDefault();
+      this.canvasService.deleteSelected();
+    }
+  }
+
   removeSelected(): void {
-    this.canvasService.removeSelectedItem();
+    this.canvasService.deleteSelected();
   }
 
   removeCurve(): void {
-    this.canvasService.removeSelectedCurve();
+    this.canvasService.deleteSelected();
   }
 
   removeShape(): void {
-    this.canvasService.removeSelectedShape();
+    this.canvasService.deleteSelected();
   }
 
   saveDescription(): void {
@@ -151,6 +178,17 @@ export class TacticsComponent implements AfterViewInit, OnDestroy {
     const caption = `${this.playbook.name || 'Pizarra'} — Paso ${this.currentStepNum}`;
     sessionStorage.setItem('tactics-diagram-export', JSON.stringify([{ url: dataUrl, caption }]));
     this.router.navigate(['/exercises/new']);
+  }
+
+  async saveAsExerciseDiagram(): Promise<void> {
+    const dataUrl = this.canvasService.getCanvasDataUrl();
+    const caption = this.playbook.name || 'Diagrama de ejercicio';
+    sessionStorage.setItem('tactics-diagram-export', JSON.stringify([{ url: dataUrl, caption }]));
+    this.router.navigateByUrl(this.diagramReturnUrl || '/exercises');
+  }
+
+  cancelExerciseDiagram(): void {
+    this.router.navigateByUrl(this.diagramReturnUrl || '/exercises');
   }
 
   async exportAllPDF(): Promise<void> {
@@ -235,10 +273,16 @@ export class TacticsComponent implements AfterViewInit, OnDestroy {
   }
 
   getPlayerNumbers(type: PlayerType): number[] {
-    const count = type === 'ATTACKER' ? this.playbook.numberAttackers
-      : type === 'DEFENDER' ? this.playbook.numberDefenders
-      : this.playbook.numberCoaches;
-    return Array.from({ length: count }, (_, i) => i + 1);
+    const step = this.pbService.getCurrentStep();
+    if (!step) return [1];
+    const used = new Set(
+      step.players.filter(p => p.type === type).map(p => p.number)
+    );
+    const max = type === 'COACH' ? 5 : 12;
+    for (let i = 1; i <= max; i++) {
+      if (!used.has(i)) return [i];
+    }
+    return [];
   }
 
   trackById(index: number, item: any): any {

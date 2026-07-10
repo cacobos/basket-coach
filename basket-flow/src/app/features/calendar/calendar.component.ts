@@ -3,10 +3,12 @@ import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { toObservable } from '@angular/core/rxjs-interop';
-import { forkJoin, Subject } from 'rxjs';
-import { filter, map, startWith, switchMap, tap } from 'rxjs/operators';
+import { forkJoin, Subject, of } from 'rxjs';
+import { map, startWith, switchMap, tap } from 'rxjs/operators';
 import { DataService } from '../../core/services/data.service';
 import { SessionRepository } from '../../core/repositories/session.repository';
+import { SupabaseService } from '../../core/supabase/supabase.service';
+import { AuthService } from '../../core/auth/auth.service';
 import type { TrainingSession, Team } from '../../core/models/models';
 
 @Component({
@@ -47,7 +49,7 @@ import type { TrainingSession, Team } from '../../core/models/models';
                 <span class="session-title">{{ s.title }}</span>
               </div>
             </div>
-            <button class="add-session-btn" (click)="$event.stopPropagation(); openCreateOnDay(day)" *ngIf="!day.otherMonth">
+            <button class="add-session-btn" (click)="$event.stopPropagation(); openCreateOnDay(day)" *ngIf="!day.otherMonth && !isFamilyUser">
               <span class="material-symbols-outlined">add</span>
             </button>
           </div>
@@ -215,6 +217,8 @@ import type { TrainingSession, Team } from '../../core/models/models';
 })
 export class CalendarComponent {
   private data = inject(DataService);
+  private supabase = inject(SupabaseService);
+  private auth = inject(AuthService);
   private sessionRepo = inject(SessionRepository);
   private router = inject(Router);
 
@@ -228,6 +232,7 @@ export class CalendarComponent {
   sessions: TrainingSession[] = [];
   teams: Team[] = [];
   teamNames: Record<string, string> = {};
+  isFamilyUser = false;
 
   showForm = false;
   formTitle = '';
@@ -240,43 +245,119 @@ export class CalendarComponent {
 
   selectedSession: TrainingSession | null = null;
 
-  private club$ = toObservable(this.data.currentClub).pipe(filter(Boolean));
+  private club$ = toObservable(this.data.currentClub);
   private refresh$ = new Subject<void>();
+  private familyLoad$ = new Subject<void>();
+  private initDone = false;
 
   vm$ = this.club$.pipe(
-    switchMap(() => this.refresh$.pipe(startWith(undefined))),
-    switchMap(() => forkJoin({
-      teams: this.data.getTeams(),
-      sessions: this.fetchSessions(),
-    })),
-    tap(({ teams, sessions }) => {
-      this.teams = teams;
-      this.sessions = sessions;
-      this.teamNames = {};
-      teams.forEach(t => this.teamNames[t.id] = t.name);
-      this.buildDays();
+    switchMap(club => {
+      if (club) return this.refresh$.pipe(startWith(undefined), map(() => club));
+      return this.familyLoad$.pipe(startWith(undefined), map(() => null));
     }),
-    map(() => ({})),
+    switchMap(club => {
+      if (!club && !this.initDone) {
+        if (this.auth.user()) this.checkFamilyUser();
+        return of({ _family: true });
+      }
+      if (!club) return of({ _family: true });
+      return forkJoin({
+        teams: this.data.getTeams(),
+        sessions: this.fetchSessions(),
+      }).pipe(
+        tap(({ teams, sessions }) => {
+          this.teams = teams;
+          this.sessions = sessions;
+          this.teamNames = {};
+          teams.forEach(t => this.teamNames[t.id] = t.name);
+          this.buildDays();
+        }),
+        map(() => ({})),
+      );
+    }),
     startWith({}),
   );
+
+  private async checkFamilyUser() {
+    this.initDone = true;
+    const userId = this.auth.user()?.id;
+    if (!userId) return;
+
+    const { data: guardians } = await this.supabase.client
+      .from('player_guardians')
+      .select('player_id')
+      .eq('user_id', userId);
+
+    if (!guardians?.length) return;
+    this.isFamilyUser = true;
+    await this.loadFamilySessions();
+  }
+
+  private async loadFamilySessions() {
+    const userId = this.auth.user()?.id;
+    if (!userId) return;
+
+    const { data: guardians } = await this.supabase.client
+      .from('player_guardians')
+      .select('player_id')
+      .eq('user_id', userId);
+
+    if (!guardians?.length) return;
+    const playerIds = guardians.map(g => g.player_id);
+    const { data: players } = await this.supabase.client
+      .from('players')
+      .select('team_id, teams!inner(name)')
+      .in('id', playerIds)
+      .is('deleted_at', null);
+    if (!players?.length) return;
+    const teamIds = [...new Set(players.map((p: any) => p.team_id).filter(Boolean))];
+    this.teams = [];
+    players.forEach((p: any) => {
+      const t = this.teams.find(x => x.id === p.team_id);
+      if (!t && p.teams) {
+        this.teams.push({ id: p.team_id, name: p.teams.name, club_id: '' } as Team);
+      }
+    });
+    this.teams.forEach(t => this.teamNames[t.id] = t.name);
+
+    const lastDay = new Date(this.year, this.month + 1, 0);
+    const from = new Date(this.year, this.month, 1);
+    from.setDate(from.getDate() - ((from.getDay() + 6) % 7));
+    const to = new Date(lastDay);
+    to.setDate(to.getDate() + (7 - ((to.getDay() + 6) % 7) - 1));
+
+    const { data: sessions } = await this.supabase.client
+      .from('training_sessions')
+      .select('*')
+      .in('team_id', teamIds)
+      .is('deleted_at', null)
+      .gte('date', from.toISOString().slice(0, 10))
+      .lte('date', to.toISOString().slice(0, 10));
+
+    this.sessions = (sessions ?? []) as TrainingSession[];
+    this.buildDays();
+    this.familyLoad$.next();
+  }
 
   prevMonth() {
     if (this.month === 0) { this.month = 11; this.year--; }
     else this.month--;
-    this.refresh$.next();
+    if (this.isFamilyUser) this.loadFamilySessions();
+    else this.refresh$.next();
   }
 
   nextMonth() {
     if (this.month === 11) { this.month = 0; this.year++; }
     else this.month++;
-    this.refresh$.next();
+    if (this.isFamilyUser) this.loadFamilySessions();
+    else this.refresh$.next();
   }
 
   selectDay(day: CalendarDay) {
     if (day.otherMonth) return;
     if (day.sessions.length > 0) {
       this.selectedSession = day.sessions[0];
-    } else {
+    } else if (!this.isFamilyUser) {
       this.openCreateOnDay(day);
     }
   }

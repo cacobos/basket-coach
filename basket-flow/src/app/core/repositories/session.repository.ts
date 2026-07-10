@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AuthService } from '../auth/auth.service';
+import { SeasonService } from '../services/season.service';
 import type { TrainingSession, SessionSection, SessionExercise, Attendance, SessionPlayerReview } from '../models/models';
 import type { BaseRepository } from './base.repository';
 
@@ -8,13 +9,18 @@ import type { BaseRepository } from './base.repository';
 export class SessionRepository implements BaseRepository<TrainingSession, Omit<TrainingSession, 'id' | 'created_at' | 'created_by' | 'deleted_at'>, Partial<TrainingSession>> {
   private supabase = inject(SupabaseService);
   private auth = inject(AuthService);
+  private seasonService = inject(SeasonService);
 
-  async findAll(clubId: string): Promise<TrainingSession[]> {
+  async findAll(clubId: string, options?: { season?: string }): Promise<TrainingSession[]> {
+    const season = options?.season || this.seasonService.selectedSeason();
+    const teamIds = await this.getSeasonTeamIds(clubId, season);
+    if (teamIds.length === 0) return [];
     const { data, error } = await this.supabase.client
       .from('training_sessions')
       .select('*')
       .eq('club_id', clubId)
       .is('deleted_at', null)
+      .in('team_id', teamIds)
       .order('date', { ascending: false });
     if (error) throw error;
     return (data as TrainingSession[]) || [];
@@ -31,17 +37,31 @@ export class SessionRepository implements BaseRepository<TrainingSession, Omit<T
     return (data as TrainingSession[]) || [];
   }
 
-  async findByDateRange(clubId: string, from: string, to: string): Promise<TrainingSession[]> {
+  async findByDateRange(clubId: string, from: string, to: string, options?: { season?: string }): Promise<TrainingSession[]> {
+    const season = options?.season || this.seasonService.selectedSeason();
+    const teamIds = await this.getSeasonTeamIds(clubId, season);
+    if (teamIds.length === 0) return [];
     const { data, error } = await this.supabase.client
       .from('training_sessions')
       .select('*, teams(name)')
       .eq('club_id', clubId)
       .is('deleted_at', null)
+      .in('team_id', teamIds)
       .gte('date', from)
       .lte('date', to)
       .order('date');
     if (error) throw error;
     return (data as any[]) || [];
+  }
+
+  private async getSeasonTeamIds(clubId: string, season: string): Promise<string[]> {
+    const { data } = await this.supabase.client
+      .from('teams')
+      .select('id')
+      .eq('club_id', clubId)
+      .eq('season', season)
+      .is('archived_at', null);
+    return (data || []).map(t => t.id);
   }
 
   async findById(id: string): Promise<TrainingSession | null> {

@@ -32,6 +32,13 @@ export interface ActionCurve {
   destinationPlayerId?: string;
 }
 
+export interface FreePathData {
+  id: string;
+  path: any[][];
+  color: string;
+  width: number;
+}
+
 export interface DrawingShape {
   id: string;
   type: 'circle' | 'rectangle';
@@ -51,6 +58,7 @@ export interface Step {
   cones: CanvasCone[];
   curves: ActionCurve[];
   shapes: DrawingShape[];
+  paths: FreePathData[];
   description: string;
   screenshotUrl?: string;
 }

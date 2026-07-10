@@ -54,6 +54,22 @@
       &:focus { outline: none; border-color: #0068ed; }
     }
   }
+
+  .diagram-mode-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,104,237,0.2);
+    color: #bdc2ff;
+    border: 1px solid rgba(0,104,237,0.3);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+
+    .material-symbols-outlined { font-size: 16px; }
+  }
 }
 
 .editor-layout {
@@ -102,6 +118,32 @@
   &:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .material-symbols-outlined { font-size: 14px; }
+}
+
+.btn-orientation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #9090a8;
+  background: rgba(255,255,255,0.03);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-bottom: 4px;
+  transition: all 0.15s;
+  font-family: 'Hanken Grotesk', sans-serif;
+
+  svg { flex-shrink: 0; }
+
+  &:hover { background: rgba(255,255,255,0.06); color: #dfe0ff; border-color: rgba(255,255,255,0.2); }
+  &.active {
+    background: rgba(0,104,237,0.15);
+    color: #bdc2ff;
+    border-color: rgba(0,104,237,0.3);
+  }
 }
 
 .step-nav {
@@ -417,6 +459,28 @@
   &:hover { background: #b02a37; }
 
   .material-symbols-outlined { font-size: 14px; }
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 10px 12px;
+  background: #0068ed;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 6px;
+  transition: background 0.15s;
+
+  &:hover { background: #0055cc; }
+
+  .material-symbols-outlined { font-size: 16px; }
 }
 
 .mt-2 { margin-top: 8px; }

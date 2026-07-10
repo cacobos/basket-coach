@@ -22,7 +22,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   'advanced_stats.manage': 'Estadísticas avanzadas',
 };
 
-export type Role = 'club_admin' | 'team_admin' | 'coach';
+export type Role = 'club_admin' | 'team_admin' | 'coach' | 'family';
 export type Permission = keyof typeof PERMISSION_LABELS;
 
 export const FEATURE_PERMISSION_MAP: Record<string, Permission> = {
@@ -31,6 +31,9 @@ export const FEATURE_PERMISSION_MAP: Record<string, Permission> = {
   tactics: 'tactics.manage',
   evaluations: 'evaluation.manage',
   advanced_stats: 'advanced_stats.manage',
+  documents: 'documents.manage',
+  announcements: 'announcements.manage',
+  finance: 'finance.manage',
 };
 
 @Injectable({ providedIn: 'root' })
@@ -67,7 +70,7 @@ export class PermissionService {
   }
 
   getRoles(): Role[] {
-    return ['club_admin', 'team_admin', 'coach'];
+    return ['club_admin', 'team_admin', 'coach', 'family'];
   }
 
   getAllPermissions(): Permission[] {
