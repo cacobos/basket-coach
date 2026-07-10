@@ -29,6 +29,12 @@ yarn-error.log*
 # Netlify local state
 .netlify/
 
+# Generated assets
+basket-flow/calendar-full.png
+basket-flow/manual-usuario-basketflow.docx
+basket-flow/screenshots/
+basket-flow/test-results/
+
 # Node / dependencies
 **/node_modules/
 
@@ -40,3 +46,5 @@ yarn-error.log*
 **/.angular/cache/
 **/coverage/
 **/connect.lock
+
+.vercel
