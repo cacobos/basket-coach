@@ -7,7 +7,7 @@ Monorepo de una plataforma de entrenamiento de baloncesto compuesta por **dos ap
 - **basket-flow** (`/basket-flow`): Aplicación principal full-stack con Supabase. Planificador de entrenamientos, gestión de equipos/jugadores, Biblioteca de ejercicios, análisis de partidos basado en posesiones, pizarra táctica, evaluaciones, planificación deportiva, gestión administrativa (documentos/licencias/comunicación), seguimiento financiero de cuotas y portal de familias.
 - **pizarra-tactica** (`/pizarra-tactica`): Aplicación standalone (solo cliente) para crear playbooks con canvas interactivo. Persiste en localStorage.
 
-Desplegada en **Netlify** (`planbasket.netlify.app`) y **Vercel**.
+Desplegada en **Netlify** (`planbasket.netlify.app`).
 
 ---
 
@@ -417,8 +417,8 @@ payments               → player_fee_id, amount, method (transfer/cash/bizum/ot
 
 | Plataforma | Config | URL |
 |---|---|---|
-| Netlify | `public/_redirects` (SPA: `/* /index.html 200`) | `planbasket.netlify.app` |
-| Vercel | `vercel.json` (build: `ng build`, output: `dist/basket-flow/browser`) | — |
+| Netlify | `public/_redirects` (SPA: `/* /index.html 200`) | `planbasket.netlify.app` (sin CI activo) |
+| Vercel | Eliminado | — |
 
 Variables de entorno en `.env.example`: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_PROJECT_REF`.
 

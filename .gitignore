@@ -29,6 +29,9 @@ yarn-error.log*
 # Netlify local state
 .netlify/
 
+# Vercel local state
+.vercel/
+
 # Generated assets
 basket-flow/calendar-full.png
 basket-flow/manual-usuario-basketflow.docx
