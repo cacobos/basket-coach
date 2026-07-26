@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { NgIf, NgFor, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { BehaviorSubject, forkJoin, from, of } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 import { SupabaseService } from '../../core/supabase/supabase.service';
@@ -12,11 +12,16 @@ const ROLES = ['club_admin', 'team_admin', 'coach'] as const;
 @Component({
   selector: 'app-club-members',
   standalone: true,
-  imports: [NgIf, NgFor, AsyncPipe, FormsModule],
+  imports: [NgIf, NgFor, AsyncPipe, FormsModule, RouterLink],
   template: `
     <div *ngIf="vm$ | async as vm">
       <button class="btn-back" (click)="router.navigate(['/clubs'])">← Volver a Clubs</button>
-      <h1 class="page-title">Miembros — {{ vm.club?.name }}</h1>
+      <h1 class="page-title">{{ vm.club?.name }}</h1>
+
+      <a class="settings-link" [routerLink]="['/clubs', vm.club?.id, 'settings']">
+        <span class="material-symbols-outlined">settings</span>
+        Configuración del club
+      </a>
 
       <section class="card">
         <h3>Miembros ({{ vm.members.length }})</h3>
@@ -65,6 +70,9 @@ const ROLES = ['club_admin', 'team_admin', 'coach'] as const;
     .btn-add { background: #0068ed; color: white; border: none; border-radius: 8px; padding: 10px 16px; font-family: 'Hanken Grotesk', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
     .btn-add:hover { opacity: 0.9; }
     .empty-msg { font-size: 13px; color: #908f9d; margin: 12px 0 0; }
+    .settings-link { display: inline-flex; align-items: center; gap: 8px; color: #bdc2ff; text-decoration: none; font-size: 14px; margin-bottom: 20px; padding: 8px 14px; border-radius: 8px; background: rgba(189,194,255,0.08); max-width: fit-content; }
+    .settings-link:hover { background: rgba(189,194,255,0.15); }
+    .settings-link .material-symbols-outlined { font-size: 18px; }
   `]
 })
 export class ClubMembersComponent {
@@ -138,4 +146,5 @@ export class ClubMembersComponent {
       .eq('id', member.id);
     this.refresh$.next();
   }
+
 }

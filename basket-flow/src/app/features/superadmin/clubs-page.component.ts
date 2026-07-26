@@ -1,8 +1,9 @@
 import { Component, inject } from '@angular/core';
 import { NgIf, NgFor, AsyncPipe } from '@angular/common';
 import { Router } from '@angular/router';
-import { from } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { from, of } from 'rxjs';
+import { map, switchMap } from 'rxjs/operators';
+import { AuthService } from '../../core/auth/auth.service';
 import { SupabaseService } from '../../core/supabase/supabase.service';
 
 @Component({
@@ -44,15 +45,23 @@ import { SupabaseService } from '../../core/supabase/supabase.service';
   `]
 })
 export class SuperadminClubsPage {
+  private auth = inject(AuthService);
   private supabase = inject(SupabaseService);
   private router = inject(Router);
 
-  clubs$ = from(
-    this.supabase.client
-      .from('clubs')
-      .select('*, club_members(count)')
-      .order('created_at', { ascending: false })
-  ).pipe(
+  clubs$ = from(this.auth.ready).pipe(
+    switchMap(() => {
+      const profile = this.auth.profile();
+      const isBasketflow = profile?.email?.endsWith('@basketflow.com') ?? false;
+      let query = this.supabase.client
+        .from('clubs')
+        .select('*, club_members(count)')
+        .order('created_at', { ascending: false });
+      if (!isBasketflow) {
+        query = query.neq('slug', 'basketflow-demo');
+      }
+      return from(query);
+    }),
     map(({ data }) =>
       ((data as any[]) || []).map(c => ({
         ...c,

@@ -8,7 +8,7 @@ import { toObservable } from '@angular/core/rxjs-interop';
 import { DataService } from '../../core/services/data.service';
 import { ExerciseRepository } from '../../core/repositories/exercise.repository';
 import { SessionRepository } from '../../core/repositories/session.repository';
-import type { TrainingSession, Exercise } from '../../core/models/models';
+import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/models/models';
 
 @Component({
   selector: 'app-session-builder',
@@ -36,11 +36,11 @@ import type { TrainingSession, Exercise } from '../../core/models/models';
             <h3 class="meta-title">Información General</h3>
             <div class="field">
               <label class="field-label">Título</label>
-              <input class="field-input" [(ngModel)]="formTitle" placeholder="Ej: Fundamentos de Tiro"/>
+              <input class="field-input" [(ngModel)]="formTitle" (input)="onTitleEdited()" placeholder="Ej: Fundamentos de Tiro"/>
             </div>
             <div class="field">
               <label class="field-label">Equipo</label>
-              <select class="field-input" [(ngModel)]="formTeam">
+              <select class="field-input" [(ngModel)]="formTeam" (ngModelChange)="onTeamOrDateChange()">
                 <option value="" disabled>Seleccionar equipo...</option>
                 <option *ngFor="let t of vm.teams" [value]="t.id">{{ t.name }}</option>
               </select>
@@ -48,7 +48,7 @@ import type { TrainingSession, Exercise } from '../../core/models/models';
             <div class="field-row">
               <div class="field flex-1">
                 <label class="field-label">Fecha</label>
-                <input class="field-input" type="date" [(ngModel)]="formDate"/>
+                <input class="field-input" type="date" [(ngModel)]="formDate" (ngModelChange)="onTeamOrDateChange()"/>
               </div>
             </div>
             <div class="field-row">
@@ -117,35 +117,59 @@ import type { TrainingSession, Exercise } from '../../core/models/models';
               </div>
 
               <div class="section-exercises">
-                <div class="ex-item" *ngFor="let se of getSectionExercises(sec.id); let ei = index">
-                  <div class="ex-order">{{ ei + 1 }}</div>
-                  <div class="ex-info">
-                    <span class="ex-name">{{ vm.exerciseNames[se.exercise_id] || 'Ejercicio' }}</span>
-                    <span class="ex-duration">{{ se.duration_minutes }} min</span>
+                  <div class="ex-item" *ngFor="let se of getSectionExercises(sec.id); let ei = index">
+                    <div class="ex-order">{{ ei + 1 }}</div>
+                    <div class="ex-info">
+                      <span class="ex-name">{{ getExerciseDisplayName(se) }}</span>
+                      <span class="ex-duration">{{ se.duration_minutes }} min</span>
+                    </div>
+                    <div class="ex-notes-group" *ngIf="!editingNotes.has(se.id)">
+                      <span class="ex-notes-text" (click)="editNotes(se)" [class.has-notes]="se.notes">
+                        {{ se.notes || 'Añadir nota...' }}
+                      </span>
+                      <button class="btn-icon btn-icon-small" (click)="editNotes(se)" title="Editar nota">
+                        <span class="material-symbols-outlined">edit</span>
+                      </button>
+                    </div>
+                    <div class="ex-notes-edit" *ngIf="editingNotes.has(se.id)">
+                      <input class="field-input ex-notes-input" [(ngModel)]="se.notes" (keyup.enter)="saveNotes(se)" placeholder="Observaciones..."/>
+                      <button class="btn-icon btn-icon-small btn-icon-save" (click)="saveNotes(se)" title="Guardar nota">
+                        <span class="material-symbols-outlined">check</span>
+                      </button>
+                    </div>
+                    <button class="btn-icon btn-icon-danger" (click)="removeExFromSection(se)">
+                      <span class="material-symbols-outlined">remove_circle</span>
+                    </button>
                   </div>
-                  <input class="ex-notes field-input" [(ngModel)]="se.notes" (blur)="updateExNotes(se)" placeholder="Notas opcionales..."/>
-                  <button class="btn-icon btn-icon-danger" (click)="removeExFromSection(se)">
-                    <span class="material-symbols-outlined">remove_circle</span>
-                  </button>
+                  <div class="ex-empty" *ngIf="getSectionExercises(sec.id).length === 0">
+                    <span class="material-symbols-outlined">drag_indicator</span>
+                    <span>Arrastra o añade ejercicios desde abajo</span>
+                  </div>
                 </div>
-                <div class="ex-empty" *ngIf="getSectionExercises(sec.id).length === 0">
-                  <span class="material-symbols-outlined">drag_indicator</span>
-                  <span>Arrastra o añade ejercicios desde abajo</span>
-                </div>
-              </div>
 
-              <div class="section-add-ex">
-                <select class="field-input add-ex-select" [(ngModel)]="addExExerciseId">
-                  <option value="">Seleccionar ejercicio...</option>
-                  <option *ngFor="let e of vm.exercises" [value]="e.id">{{ e.name }}</option>
-                </select>
-                <input class="field-input add-ex-dur" type="number" [(ngModel)]="addExDuration" min="1" max="120" placeholder="min"/>
-                <input class="field-input add-ex-notes" [(ngModel)]="addExNotes" placeholder="Notas..."/>
-                <button class="btn-add-ex" (click)="addExerciseToSection(sec)" [disabled]="!addExExerciseId">
-                  <span class="material-symbols-outlined">add</span>
-                  Añadir
-                </button>
-              </div>
+                <div class="section-add-ex" *ngIf="sectionAddForms[sec.id]?.show; else addExToggle">
+                  <select class="field-input add-ex-select" [(ngModel)]="sectionAddForms[sec.id].exerciseId" (ngModelChange)="onExerciseChange(sec)">
+                    <option value="">Seleccionar ejercicio...</option>
+                    <option *ngFor="let e of vm.exercises" [value]="e.id">{{ e.name }}</option>
+                  </select>
+                  <select class="field-input add-ex-variant" *ngIf="sectionAddForms[sec.id].variants.length > 0" [(ngModel)]="sectionAddForms[sec.id].variantId">
+                    <option *ngFor="let v of sectionAddForms[sec.id].variants" [value]="v.id">{{ v.name }}</option>
+                  </select>
+                  <input class="field-input add-ex-dur" type="number" [(ngModel)]="sectionAddForms[sec.id].duration" min="1" max="120" placeholder="min"/>
+                  <button class="btn-add-ex" (click)="addExerciseToSection(sec)" [disabled]="!sectionAddForms[sec.id].exerciseId">
+                    <span class="material-symbols-outlined">add</span>
+                    Añadir
+                  </button>
+                  <button class="btn-cancel-ex" (click)="closeAddForm(sec)">Cancelar</button>
+                </div>
+                <ng-template #addExToggle>
+                  <div class="section-add-toggle">
+                    <button class="btn-add-ex-toggle" (click)="openAddForm(sec)">
+                      <span class="material-symbols-outlined">add</span>
+                      Añadir ejercicio
+                    </button>
+                  </div>
+                </ng-template>
             </div>
 
             <button class="add-section-btn" (click)="addSection()">
@@ -323,10 +347,27 @@ import type { TrainingSession, Exercise } from '../../core/models/models';
     .ex-info { flex: 1; display: flex; align-items: center; gap: 10px; }
     .ex-name { color: #dfe0ff; font-size: 14px; font-weight: 600; }
     .ex-duration { font-size: 12px; color: #908f9d; white-space: nowrap; }
-    .ex-notes {
-      flex: 1; min-width: 120px; max-width: 250px;
+    .ex-notes-input {
+      min-width: 120px; max-width: 200px;
       padding: 6px 10px !important; font-size: 12px !important;
     }
+    .ex-notes-group {
+      display: flex; align-items: center; gap: 4px;
+      flex: 1; min-width: 0;
+    }
+    .ex-notes-text {
+      font-size: 12px; color: #3a3f6a; cursor: pointer;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      flex: 1; min-width: 0;
+    }
+    .ex-notes-text.has-notes { color: #908f9d; }
+    .ex-notes-edit {
+      display: flex; align-items: center; gap: 4px; flex: 1;
+    }
+    .btn-icon-small { padding: 2px !important; }
+    .btn-icon-small .material-symbols-outlined { font-size: 14px !important; }
+    .btn-icon-save { color: #4caf50 !important; }
+    .btn-icon-save:hover { background: rgba(76,175,80,0.1) !important; }
     .ex-empty {
       text-align: center; color: #3a3f6a; font-size: 13px;
       padding: 24px; display: flex; align-items: center;
@@ -341,6 +382,7 @@ import type { TrainingSession, Exercise } from '../../core/models/models';
       align-items: center;
       flex-wrap: wrap;
     }
+    .add-ex-variant { min-width: 140px; }
     .add-ex-select { flex: 1; min-width: 160px; }
     .add-ex-dur { width: 70px !important; }
     .add-ex-notes { flex: 1; min-width: 120px; }
@@ -357,6 +399,23 @@ import type { TrainingSession, Exercise } from '../../core/models/models';
     .btn-add-ex:hover:not(:disabled) { opacity: 0.9; }
     .btn-add-ex:disabled { opacity: 0.4; cursor: not-allowed; }
     .btn-add-ex .material-symbols-outlined { font-size: 16px; }
+    .btn-cancel-ex {
+      background: none; border: 1px solid rgba(69,70,82,0.3);
+      color: #908f9d; border-radius: 8px; padding: 8px 14px;
+      font-family: 'Hanken Grotesk', sans-serif; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .btn-cancel-ex:hover { border-color: #bdc2ff; color: #bdc2ff; }
+    .section-add-toggle { margin-top: 8px; }
+    .btn-add-ex-toggle {
+      display: flex; align-items: center; gap: 4px;
+      background: none; border: 1px dashed rgba(69,70,82,0.3);
+      color: #3a3f6a; cursor: pointer; padding: 8px 14px; border-radius: 8px;
+      font-family: 'Hanken Grotesk', sans-serif; font-size: 13px; font-weight: 600;
+      transition: all 0.2s;
+    }
+    .btn-add-ex-toggle:hover { border-color: #bdc2ff; color: #bdc2ff; }
+    .btn-add-ex-toggle .material-symbols-outlined { font-size: 16px; }
 
     /* Add section button */
     .add-section-btn {
@@ -424,6 +483,7 @@ export class SessionBuilderComponent {
   sections: SectionVM[] = [];
   sectionExercisesMap: Record<string, ExerciseVM[]> = {};
   exerciseNames: Record<string, string> = {};
+  variantNames: Record<string, string> = {};
 
   formTitle = '';
   formTeam = '';
@@ -433,9 +493,9 @@ export class SessionBuilderComponent {
   formLocation = '';
   formObjectives = '';
 
-  addExExerciseId = '';
-  addExDuration = 10;
-  addExNotes = '';
+  sectionAddForms: Record<string, SectionAddForm> = {};
+  editingNotes: Set<string> = new Set();
+  autoTitle = true;
 
   sectionColors = ['#0068ed', '#00c853', '#ff9100', '#e040fb', '#00bcd4', '#ff6d00'];
 
@@ -457,7 +517,7 @@ export class SessionBuilderComponent {
         this.exercises = exercises;
         exercises.forEach(e => this.exerciseNames[e.id] = e.name);
       }),
-      map(({ teams, exercises }) => {
+      switchMap(({ teams, exercises }) => {
         if (teams.length > 0 && !this.formTeam) this.formTeam = teams[0].id;
         if (!this.formDate) this.formDate = new Date().toISOString().slice(0, 10);
         if (this.sections.length === 0) this.initSections();
@@ -467,9 +527,20 @@ export class SessionBuilderComponent {
           this.loadEditingSession(sessionId);
         }
 
+        if (!this.editingSession && !this.formTitle) {
+          this.updateDefaultTitle();
+        }
+
         const exerciseNames: Record<string, string> = {};
         exercises.forEach(e => exerciseNames[e.id] = e.name);
-        return { teams, exercises, exerciseNames };
+        return from(this.exerciseRepo.getVariantsByExerciseIds(exercises.map(e => e.id))).pipe(
+          map(allVariants => {
+            const variantNames: Record<string, string> = {};
+            allVariants.forEach(v => { variantNames[v.id] = v.name; });
+            this.variantNames = variantNames;
+            return { teams, exercises, exerciseNames, variantNames };
+          })
+        );
       })
     ))
   );
@@ -511,10 +582,18 @@ export class SessionBuilderComponent {
         this.sections.push({ id: sec.id, name: sec.name, sort_order: sec.sort_order });
         this.sectionExercisesMap[sec.id] = allEx
           .filter(e => e.section_id === sec.id)
-          .map(e => ({ id: e.id, exercise_id: e.exercise_id, section_id: e.section_id!, duration_minutes: e.duration_minutes, notes: e.notes, order: e.order }));
+          .map(e => ({ id: e.id, exercise_id: e.exercise_id, variant_id: e.variant_id || null, section_id: e.section_id!, duration_minutes: e.duration_minutes, notes: e.notes, order: e.order }));
       }
       if (this.sections.length === 0) this.addDefaultSections();
     }
+  }
+
+  getExerciseDisplayName(se: ExerciseVM): string {
+    const exName = this.exerciseNames[se.exercise_id] || 'Ejercicio';
+    if (se.variant_id && this.variantNames[se.variant_id]) {
+      return `${exName} - ${this.variantNames[se.variant_id]}`;
+    }
+    return exName;
   }
 
   getSectionExercises(sectionId: string): ExerciseVM[] {
@@ -554,31 +633,57 @@ export class SessionBuilderComponent {
     this.sections.forEach((s, i) => s.sort_order = i + 1);
   }
 
+  updateDefaultTitle() {
+    if (!this.autoTitle) return;
+    const team = this.teams.find(t => t.id === this.formTeam);
+    const teamName = team?.name || '';
+    const d = this.formDate ? new Date(this.formDate + 'T12:00:00') : null;
+    const dateStr = d ? d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+    const parts = [teamName, dateStr].filter(Boolean);
+    this.formTitle = parts.join(' - ');
+  }
+
+  onTitleEdited() { this.autoTitle = false; }
+
+  onTeamOrDateChange() { this.updateDefaultTitle(); }
+
   updateSectionName(sec: SectionVM) {}
 
+  editNotes(se: ExerciseVM) { this.editingNotes.add(se.id); }
+
+  saveNotes(se: ExerciseVM) { this.editingNotes.delete(se.id); }
+
+  openAddForm(sec: SectionVM) {
+    this.sectionAddForms[sec.id] = {
+      show: true, exerciseId: '', variantId: '', variants: [], duration: 10, notes: '',
+    };
+  }
+
+  closeAddForm(sec: SectionVM) {
+    delete this.sectionAddForms[sec.id];
+  }
+
   addExerciseToSection(sec: SectionVM) {
-    if (!this.addExExerciseId) return;
+    const form = this.sectionAddForms[sec.id];
+    if (!form || !form.exerciseId) return;
     const id = 'new-' + crypto.randomUUID();
     const vm: ExerciseVM = {
       id,
-      exercise_id: this.addExExerciseId,
+      exercise_id: form.exerciseId,
+      variant_id: form.variantId || null,
       section_id: sec.id,
-      duration_minutes: this.addExDuration,
-      notes: this.addExNotes || null,
+      duration_minutes: form.duration,
+      notes: form.notes || null,
       order: (this.sectionExercisesMap[sec.id]?.length || 0) + 1,
     };
     this.sectionExercisesMap[sec.id] = [...(this.sectionExercisesMap[sec.id] || []), vm];
-    this.addExExerciseId = '';
-    this.addExNotes = '';
-    this.addExDuration = 10;
+    delete this.sectionAddForms[sec.id];
   }
 
   removeExFromSection(se: ExerciseVM) {
     const list = this.sectionExercisesMap[se.section_id] || [];
     this.sectionExercisesMap[se.section_id] = list.filter(x => x.id !== se.id);
   }
-
-  updateExNotes(se: ExerciseVM) {}
 
   async save() {
     if (!this.formTitle.trim() || !this.formDate) return;
@@ -633,6 +738,7 @@ export class SessionBuilderComponent {
             session_id: sessionId,
             section_id: sectionId,
             exercise_id: ex.exercise_id,
+            variant_id: (ex as any).variant_id || null,
             order: ex.order,
             duration_minutes: ex.duration_minutes,
             notes: ex.notes,
@@ -667,6 +773,20 @@ export class SessionBuilderComponent {
       this.router.navigate(['/sessions']);
     }
   }
+
+  onExerciseChange(sec: SectionVM) {
+    const form = this.sectionAddForms[sec.id];
+    if (!form) return;
+    form.variants = [];
+    form.variantId = '';
+    if (!form.exerciseId) return;
+    this.exerciseRepo.getVariants(form.exerciseId).then(variants => {
+      form.variants = variants;
+      if (variants.length > 0) {
+        form.variantId = variants[0].id;
+      }
+    });
+  }
 }
 
 interface SectionVM {
@@ -678,10 +798,20 @@ interface SectionVM {
 interface ExerciseVM {
   id: string;
   exercise_id: string;
+  variant_id: string | null;
   section_id: string;
   duration_minutes: number;
   notes: string | null;
   order: number;
+}
+
+interface SectionAddForm {
+  show: boolean;
+  exerciseId: string;
+  variantId: string;
+  variants: ExerciseVariant[];
+  duration: number;
+  notes: string;
 }
 
 interface Team { id: string; name: string; }

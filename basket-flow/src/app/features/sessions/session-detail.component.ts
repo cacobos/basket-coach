@@ -9,7 +9,7 @@ import { DataService } from '../../core/services/data.service';
 import { ExerciseRepository } from '../../core/repositories/exercise.repository';
 import { SessionRepository } from '../../core/repositories/session.repository';
 import { NotificationService } from '../../core/services/notification.service';
-import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team } from '../../core/models/models';
+import type { TrainingSession, SessionSection, SessionExercise, Exercise, ExerciseVariant, Team } from '../../core/models/models';
 
 @Component({
   selector: 'app-session-detail',
@@ -34,7 +34,7 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team }
             <p class="detail-objectives" *ngIf="vm.session.objectives">{{ vm.session.objectives }}</p>
           </div>
           <div class="detail-header-actions">
-            <button class="btn-secondary" (click)="exportPDF()">
+            <button class="btn-secondary" (click)="showPdfFormatPicker = true">
               <span class="material-symbols-outlined">picture_as_pdf</span>
               Exportar PDF
             </button>
@@ -121,7 +121,7 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team }
                     <div class="ex-order">{{ ei + 1 }}</div>
                     <div class="ex-info">
                       <div class="ex-name-row">
-                        <span class="ex-name">{{ vm.exerciseNames[se.exercise_id] || 'Ejercicio' }}</span>
+                        <span class="ex-name">{{ getExerciseDisplayName(se) }}</span>
                         <span class="ex-duration">{{ se.duration_minutes }} min</span>
                       </div>
                       <div class="ex-tags-row" *ngIf="getExerciseTags(se.exercise_id).length">
@@ -144,6 +144,9 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team }
                     <span class="material-symbols-outlined">search</span>
                     {{ addExExerciseId && getExercise(addExExerciseId) ? getExercise(addExExerciseId)!.name : 'Seleccionar ejercicio...' }}
                   </button>
+                  <select class="field-input add-ex-variant" *ngIf="addExVariants.length > 0" [(ngModel)]="addExVariantId">
+                    <option *ngFor="let v of addExVariants" [value]="v.id">{{ v.name }}</option>
+                  </select>
                   <input class="field-input add-ex-dur" type="number" [(ngModel)]="addExDuration" min="1" max="120" placeholder="min"/>
                   <input class="field-input add-ex-notes" [(ngModel)]="addExNotes" placeholder="Notas..."/>
                   <button class="btn-add-ex" (click)="addExerciseToSection(sec)" [disabled]="!addExExerciseId || addingExercise">
@@ -233,13 +236,41 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team }
                 </div>
               </div>
               <div class="picker-item-meta">
-                <span class="picker-dur">{{ ex.duration_minutes || '?' }} min</span>
+                <span class="picker-tag-count">{{ (ex.tags || []).length }} tags</span>
               </div>
             </div>
             <div class="picker-empty" *ngIf="filteredPickerExercises.length === 0">
               <span class="material-symbols-outlined">search_off</span>
               <span>No se encontraron ejercicios</span>
             </div>
+          </div>
+        </div>
+      </div>
+      <!-- PDF format picker -->
+      <div class="modal-overlay" *ngIf="showPdfFormatPicker" (click)="showPdfFormatPicker = false">
+        <div class="modal-card pdf-format-card" (click)="$event.stopPropagation()">
+          <h3 class="modal-title">Formato del PDF</h3>
+          <div class="pdf-format-options">
+            <label class="pdf-format-option" [class.selected]="pdfFormat === 'a4'">
+              <input type="radio" name="pdfFormat" value="a4" [(ngModel)]="pdfFormat" class="pdf-format-radio"/>
+              <div class="pdf-format-content">
+                <span class="pdf-format-name">A4</span>
+                <span class="pdf-format-desc">210 × 297 mm — tamaño carta estándar</span>
+              </div>
+              <span class="material-symbols-outlined pdf-format-check">check_circle</span>
+            </label>
+            <label class="pdf-format-option" [class.selected]="pdfFormat === 'a5'">
+              <input type="radio" name="pdfFormat" value="a5" [(ngModel)]="pdfFormat" class="pdf-format-radio"/>
+              <div class="pdf-format-content">
+                <span class="pdf-format-name">A5</span>
+                <span class="pdf-format-desc">148 × 210 mm — mitad de tamaño, TODO reducido proporcionalmente</span>
+              </div>
+              <span class="material-symbols-outlined pdf-format-check">check_circle</span>
+            </label>
+          </div>
+          <div class="pdf-format-actions">
+            <button class="btn-cancel" (click)="showPdfFormatPicker = false">Cancelar</button>
+            <button class="btn-save" (click)="confirmPdfFormat()">Exportar</button>
           </div>
         </div>
       </div>
@@ -522,6 +553,7 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team }
       padding: 2px 8px; border-radius: 9999px;
     }
 
+    .add-ex-variant { min-width: 140px; }
     .section-add-ex { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .btn-select-ex {
       flex: 1; min-width: 160px;
@@ -577,6 +609,24 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Team }
     .picker-empty .material-symbols-outlined { font-size: 32px; }
 
 
+    .pdf-format-card { max-width: 400px; }
+    .pdf-format-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+    .pdf-format-option {
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(0,0,0,0.15); border: 2px solid transparent;
+      border-radius: 12px; padding: 16px; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .pdf-format-option:hover { border-color: rgba(189,194,255,0.2); }
+    .pdf-format-option.selected { border-color: #0068ed; background: rgba(0,104,237,0.08); }
+    .pdf-format-radio { display: none; }
+    .pdf-format-content { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .pdf-format-name { font-size: 16px; font-weight: 700; color: #dfe0ff; }
+    .pdf-format-desc { font-size: 12px; color: #908f9d; line-height: 1.3; }
+    .pdf-format-check { font-size: 20px; color: transparent; transition: color 0.15s; }
+    .pdf-format-option.selected .pdf-format-check { color: #0068ed; }
+    .pdf-format-actions { display: flex; gap: 12px; justify-content: flex-end; }
+
     @media (max-width: 768px) {
       .detail-page { padding: 16px !important; }
       .detail-header { flex-direction: column !important; gap: 16px !important; }
@@ -623,6 +673,7 @@ export class SessionDetailComponent {
   exercises: Exercise[] = [];
   teams: Team[] = [];
   exerciseNames: Record<string, string> = {};
+  variantNames: Record<string, string> = {};
 
   showEditForm = false;
   formTitle = '';
@@ -636,6 +687,8 @@ export class SessionDetailComponent {
   addExExerciseId = '';
   addExDuration = 10;
   addExNotes = '';
+  addExVariants: ExerciseVariant[] = [];
+  addExVariantId = '';
 
   savingSection = false;
   addingExercise = false;
@@ -644,6 +697,9 @@ export class SessionDetailComponent {
   pickerSearch = '';
   pickerTag = '';
   pickerTargetSection: SessionSection | null = null;
+
+  showPdfFormatPicker = false;
+  pdfFormat: 'a4' | 'a5' = 'a4';
 
   // Confirm modal state
   showConfirm = false;
@@ -679,29 +735,38 @@ export class SessionDetailComponent {
                 teams, exercises, session: null as TrainingSession | null, sections: [] as SessionSection[],
                 sectionExercises: {} as Record<string, SessionExercise[]>,
                 exerciseNames: {} as Record<string, string>,
+                variantNames: {} as Record<string, string>,
                 teamName: '', totalExercises: 0, totalDuration: 0,
               });
             }
             return from(this.data.getSections(id)).pipe(
               switchMap(sections => from(this.data.getSessionExercises(id)).pipe(
-                map(allEx => {
+                switchMap(allEx => {
                   const sectionExercises: Record<string, SessionExercise[]> = {};
                   for (const sec of sections) {
                     sectionExercises[sec.id] = allEx.filter(e => e.section_id === sec.id);
                   }
                   const exerciseNames: Record<string, string> = {};
                   exercises.forEach(e => exerciseNames[e.id] = e.name);
-                  return {
-                    teams,
-                    exercises,
-                    session,
-                    sections,
-                    sectionExercises,
-                    exerciseNames,
-                    teamName: teams.find(t => t.id === session.team_id)?.name || '',
-                    totalExercises: Object.values(sectionExercises).reduce((a, b) => a + b.length, 0),
-                    totalDuration: sections.reduce((a, sec) => a + (sectionExercises[sec.id] || []).reduce((s, e) => s + e.duration_minutes, 0), 0),
-                  };
+                  const variantIds = allEx.map(e => e.variant_id).filter(Boolean) as string[];
+                  return from(this.exerciseRepo.getVariantsByExerciseIds(exercises.map(e => e.id))).pipe(
+                    map(allVariants => {
+                      const variantNames: Record<string, string> = {};
+                      allVariants.forEach(v => { variantNames[v.id] = v.name; });
+                      return {
+                        teams,
+                        exercises,
+                        session,
+                        sections,
+                        sectionExercises,
+                        exerciseNames,
+                        variantNames,
+                        teamName: teams.find(t => t.id === session.team_id)?.name || '',
+                        totalExercises: Object.values(sectionExercises).reduce((a, b) => a + b.length, 0),
+                        totalDuration: sections.reduce((a, sec) => a + (sectionExercises[sec.id] || []).reduce((s, e) => s + e.duration_minutes, 0), 0),
+                      };
+                    })
+                  );
                 })
               ))
             );
@@ -714,6 +779,7 @@ export class SessionDetailComponent {
               this.exercises = vmData.exercises;
               this.teams = vmData.teams;
               this.exerciseNames = vmData.exerciseNames;
+              this.variantNames = vmData.variantNames;
             }
           }),
           catchError(err => {
@@ -721,7 +787,8 @@ export class SessionDetailComponent {
             return of({
               teams: [] as Team[], exercises: [] as Exercise[], session: null as TrainingSession | null,
               sections: [] as SessionSection[], sectionExercises: {} as Record<string, SessionExercise[]>,
-              exerciseNames: {} as Record<string, string>, teamName: '', totalExercises: 0, totalDuration: 0,
+              exerciseNames: {} as Record<string, string>, variantNames: {} as Record<string, string>,
+              teamName: '', totalExercises: 0, totalDuration: 0,
             });
           })
         ))
@@ -786,20 +853,31 @@ export class SessionDetailComponent {
     return list;
   }
 
-  async exportPDF() {
+  async exportPDF(format: 'a4' | 'a5' = 'a4') {
     if (!this.session) return;
 
     const html2canvas = (await import('html2canvas')).default;
     const { default: jsPDF } = await import('jspdf');
-
-    const el = document.createElement('div');
-    el.style.cssText = 'position:fixed;left:0;top:0;width:800px;background:#fff;font-family:system-ui,sans-serif;z-index:-1;';
 
     const sectionColors = ['#0068ed', '#00c853', '#ff9100', '#e040fb', '#00bcd4', '#ff6d00'];
 
     const dateStr = this.formatDate(this.session.date);
     const timeStr = `${this.session.start_time.slice(0,5)} - ${this.session.end_time.slice(0,5)}`;
     const team = this.teams.find(t => t.id === this.session!.team_id)?.name || '';
+
+    const club = this.data.currentClub();
+    let clubLogoDataUrl = '';
+    if (club?.logo_url) {
+      try {
+        const resp = await fetch(club.logo_url);
+        const blob = await resp.blob();
+        clubLogoDataUrl = await new Promise<string>(resolve => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result as string);
+          r.readAsDataURL(blob);
+        });
+      } catch { /* ignore */ }
+    }
 
     const diagramCache = new Map<string, string>();
     for (const ex of this.exercises) {
@@ -819,141 +897,200 @@ export class SessionDetailComponent {
         : `<span style="font-size:11px;color:#999;">[Diagrama]</span>`;
     };
 
-    let html = '';
-    html += `<div style="padding:24px 28px;color:#1a1a2e;font-size:14px;line-height:1.5;">`;
-    html += `<div style="border-bottom:3px solid #0068ed;padding-bottom:18px;margin-bottom:24px;">`;
-    html += `<h1 style="font-size:28px;font-weight:800;color:#111;margin:0 0 10px;letter-spacing:-0.02em;">${E(this.session.title)}</h1>`;
-    html += `<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#666;">`;
-    html += `<span>${E(dateStr)}</span>`;
-    html += `<span>${E(timeStr)}</span>`;
-    if (team) html += `<span>${E(team)}</span>`;
-    if (this.session.location) html += `<span>${E(this.session.location)}</span>`;
-    html += `</div>`;
-    if (this.session.objectives) {
-      html += `<p style="font-size:13px;color:#444;margin:12px 0 0;line-height:1.5;"><strong>Objetivos:</strong> ${E(this.session.objectives)}</p>`;
-    }
-    html += `</div>`;
+    const isA5 = format === 'a5';
+    const doc = new jsPDF('p', 'mm', isA5 ? 'a5' : 'a4');
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = isA5 ? 6 : 10;
+    const usableW = pageW - margin * 2;
+    const usableH = pageH - margin * 2;
 
-    for (let si = 0; si < this.sections.length; si++) {
-      const sec = this.sections[si];
-      const color = sectionColors[si % sectionColors.length];
-      const dur = this.getSectionDuration(sec.id);
-      const exs = this.sectionExercises[sec.id] || [];
+    const renderBlock = async (blockHtml: string): Promise<{ dataUrl: string; heightMm: number } | null> => {
+      if (!blockHtml.trim()) return null;
+      const div = document.createElement('div');
+      div.style.cssText = 'position:fixed;left:0;top:0;width:800px;background:#fff;font-family:system-ui,sans-serif;z-index:-1;';
+      div.innerHTML = `<div style="padding:6px 10px;color:#1a1a2e;font-size:13px;line-height:1.3;">${blockHtml}</div>`;
+      document.body.appendChild(div);
+      await new Promise(r => setTimeout(r, 50));
+      const canvas = await html2canvas(div, { scale: 1, logging: false });
+      document.body.removeChild(div);
+      if (canvas.width === 0 || canvas.height === 0) return null;
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      const ratio = canvas.width / usableW;
+      return { dataUrl, heightMm: canvas.height / ratio };
+    };
 
-      html += `<div style="margin-bottom:22px;">`;
-      html += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">`;
-      html += `<span style="display:inline-block;background:${color};color:white;padding:4px 14px;border-radius:9999px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;">${E(sec.name)}</span>`;
-      html += `<span style="font-size:12px;color:#888;">${dur} min</span>`;
-      html += `</div>`;
+    try {
+      // ── Header block ──
+      let headerHtml = '';
+      headerHtml += `<div style="border-bottom:2px solid #0068ed;padding-bottom:6px;margin-bottom:0;display:flex;justify-content:space-between;align-items:flex-start;">`;
+      headerHtml += `<div style="flex:1;">`;
+      headerHtml += `<h1 style="font-size:18px;font-weight:800;color:#111;margin:0 0 4px;letter-spacing:-0.02em;">${E(this.session.title)}</h1>`;
+      headerHtml += `<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:10px;color:#666;">`;
+      headerHtml += `<span>${E(dateStr)}</span>`;
+      headerHtml += `<span>${E(timeStr)}</span>`;
+      if (team) headerHtml += `<span>${E(team)}</span>`;
+      if (this.session.location) headerHtml += `<span>${E(this.session.location)}</span>`;
+      headerHtml += `</div>`;
+      if (this.session.objectives) {
+        headerHtml += `<p style="font-size:11px;color:#444;margin:6px 0 0;line-height:1.3;"><strong>Objetivos:</strong> ${E(this.session.objectives)}</p>`;
+      }
+      headerHtml += `</div>`;
+      if (clubLogoDataUrl) {
+        headerHtml += `<img src="${clubLogoDataUrl}" alt="" style="width:36px;height:36px;object-fit:contain;flex-shrink:0;margin-left:8px;" />`;
+      }
+      headerHtml += `</div>`;
 
-      if (exs.length === 0) {
-        html += `<div style="border:1px dashed #ddd;border-radius:8px;padding:16px;text-align:center;color:#aaa;font-size:13px;">Sin ejercicios</div>`;
-      } else {
-        for (const se of exs) {
+      const headerBlock = await renderBlock(headerHtml);
+      let currentY = margin;
+      if (headerBlock) {
+        doc.addImage(headerBlock.dataUrl, 'JPEG', margin, currentY, usableW, headerBlock.heightMm);
+        currentY += headerBlock.heightMm;
+      }
+
+      const addMinutes = (t: string, m: number): string => {
+        const [h, mm] = t.split(':').map(Number);
+        const total = h * 60 + mm + m;
+        const hr = Math.floor(total / 60) % 24;
+        const mn = total % 60;
+        return `${String(hr).padStart(2, '0')}:${String(mn).padStart(2, '0')}`;
+      };
+
+      // ── Section blocks ──
+      let cumulativeMinutes = 0;
+      for (let si = 0; si < this.sections.length; si++) {
+        const sec = this.sections[si];
+        const color = sectionColors[si % sectionColors.length];
+        const dur = this.getSectionDuration(sec.id);
+        const exs = this.sectionExercises[sec.id] || [];
+
+        const buildExerciseHtml = (se: SessionExercise, startMin: number): string => {
           const ex = this.getExercise(se.exercise_id);
-          const exName = ex?.name || 'Ejercicio';
+          const vName = se.variant_id && this.variantNames[se.variant_id] ? ` - ${this.variantNames[se.variant_id]}` : '';
+          const exName = (ex?.name || 'Ejercicio') + vName;
           const exDesc = ex?.description || '';
           const exObjectives = ex?.objectives || '';
           const diagrams = ex?.diagrams || [];
           const diagramUrl = diagrams.length > 0 ? diagrams[0].url : (ex?.diagram_url || '');
           const notes = se.notes || '';
           const exDur = se.duration_minutes;
+          const st = addMinutes(this.session!.start_time, startMin);
+          const et = addMinutes(this.session!.start_time, startMin + exDur);
 
-          html += `<div style="border:1px solid #e8e8f0;border-radius:10px;margin-bottom:10px;overflow:hidden;background:#fafaff;">`;
-
+          let h = `<div style="border:1px solid #e8e8f0;border-radius:6px;margin-bottom:4px;overflow:hidden;background:#fafaff;">`;
           if (diagramUrl && diagramCache.get(diagramUrl)) {
-            html += `<div style="display:flex;min-height:100px;">`;
-            html += `<div style="width:33%;min-height:100px;background:#f0f0f8;display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;border-right:1px solid #e8e8f0;">`;
-            html += img(diagramUrl);
-            html += `</div>`;
-            html += `<div style="width:67%;padding:14px 16px;box-sizing:border-box;">`;
+            h += `<div style="display:flex;min-height:80px;">`;
+            h += `<div style="width:33%;min-height:80px;background:#f0f0f8;display:flex;align-items:center;justify-content:center;padding:6px;box-sizing:border-box;border-right:1px solid #e8e8f0;">`;
+            h += img(diagramUrl);
+            h += `</div>`;
+            h += `<div style="width:67%;padding:8px 10px;box-sizing:border-box;">`;
           } else {
-            html += `<div style="padding:14px 16px;">`;
+            h += `<div style="padding:8px 10px;">`;
+          }
+          h += `<h3 style="margin:0 0 2px;font-size:13px;font-weight:700;color:#1a1a2e;">${E(exName)}</h3>`;
+          h += `<div style="font-size:10px;color:#888;margin-bottom:2px;"><span>${exDur} min - ${st} a ${et}</span></div>`;
+          if (exDesc) h += `<p style="margin:0 0 2px;font-size:11px;color:#444;line-height:1.3;">${E(exDesc)}</p>`;
+          if (exObjectives) h += `<p style="margin:0 0 2px;font-size:10px;color:#666;line-height:1.2;"><strong>Objetivos:</strong> ${E(exObjectives)}</p>`;
+          if (notes) h += `<p style="margin:0;font-size:10px;color:#888;line-height:1.2;font-style:italic;">Notas: ${E(notes)}</p>`;
+          h += `</div>`;
+          if (diagramUrl && diagramCache.get(diagramUrl)) h += `</div>`;
+          h += `</div>`;
+          return h;
+        };
+
+        const buildSectionHtml = (startMin: number, exercises: SessionExercise[]): string => {
+          let h = `<div style="margin-bottom:2px;">`;
+          h += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">`;
+          h += `<span style="display:inline-block;background:${color};color:white;padding:2px 10px;border-radius:9999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;">${E(sec.name)}</span>`;
+          h += `<span style="font-size:10px;color:#888;">${dur} min</span>`;
+          h += `</div>`;
+          if (exercises.length === 0) {
+            h += `<div style="border:1px dashed #ddd;border-radius:6px;padding:10px;text-align:center;color:#aaa;font-size:11px;">Sin ejercicios</div>`;
+          } else {
+            let cum = startMin;
+            for (const se of exercises) { h += buildExerciseHtml(se, cum); cum += se.duration_minutes; }
+          }
+          h += `</div>`;
+          return h;
+        };
+
+        // Try rendering the full section (header + all exercises) as one block
+        const sectionHtml = buildSectionHtml(cumulativeMinutes, exs);
+        const sectionBlock = await renderBlock(sectionHtml);
+
+        if (sectionBlock && sectionBlock.heightMm <= usableH) {
+          currentY = this.addPdfBlock(doc, pageH, margin, usableW, currentY, sectionBlock);
+        } else if (sectionBlock) {
+          let firstBlockHtml = '';
+          firstBlockHtml += `<div style="margin-bottom:2px;">`;
+          firstBlockHtml += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">`;
+          firstBlockHtml += `<span style="display:inline-block;background:${color};color:white;padding:2px 10px;border-radius:9999px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;">${E(sec.name)}</span>`;
+          firstBlockHtml += `<span style="font-size:10px;color:#888;">${dur} min</span>`;
+          firstBlockHtml += `</div>`;
+          if (exs.length > 0) firstBlockHtml += buildExerciseHtml(exs[0], cumulativeMinutes);
+          firstBlockHtml += `</div>`;
+
+          const firstBlock = await renderBlock(firstBlockHtml);
+          if (firstBlock) {
+            currentY = this.addPdfBlock(doc, pageH, margin, usableW, currentY, firstBlock);
           }
 
-          html += `<h3 style="margin:0 0 4px;font-size:15px;font-weight:700;color:#1a1a2e;">${E(exName)}</h3>`;
-          html += `<div style="font-size:12px;color:#888;margin-bottom:6px;">`;
-          html += `<span>${exDur} min</span>`;
-          html += `</div>`;
-          if (exDesc) html += `<p style="margin:0 0 4px;font-size:12px;color:#444;line-height:1.5;">${E(exDesc)}</p>`;
-          if (exObjectives) html += `<p style="margin:0 0 4px;font-size:11px;color:#666;line-height:1.4;"><strong>Objetivos:</strong> ${E(exObjectives)}</p>`;
-          if (notes) html += `<p style="margin:0 0 2px;font-size:11px;color:#888;line-height:1.4;font-style:italic;">Notas: ${E(notes)}</p>`;
-
-          html += `</div>`;
-          if (diagramUrl && diagramCache.get(diagramUrl)) html += `</div>`;
-          html += `</div>`;
+          let cum = cumulativeMinutes + (exs.length > 0 ? exs[0].duration_minutes : 0);
+          for (let ei = 1; ei < exs.length; ei++) {
+            const exHtml = buildExerciseHtml(exs[ei], cum);
+            const exBlock = await renderBlock(exHtml);
+            if (exBlock) {
+              currentY = this.addPdfBlock(doc, pageH, margin, usableW, currentY, exBlock);
+            }
+            cum += exs[ei].duration_minutes;
+          }
+        } else {
+          let cum = cumulativeMinutes;
+          for (const se of exs) {
+            const exHtml = buildExerciseHtml(se, cum);
+            const exBlock = await renderBlock(exHtml);
+            if (exBlock) {
+              currentY = this.addPdfBlock(doc, pageH, margin, usableW, currentY, exBlock);
+            }
+            cum += se.duration_minutes;
+          }
         }
+
+        cumulativeMinutes += exs.reduce((s, e) => s + e.duration_minutes, 0);
       }
 
-      html += `</div>`;
-    }
-
-    const footerDate = new Date().toLocaleDateString('es-ES', { day:'numeric', month:'long', year:'numeric' });
-    html += `<div style="border-top:1px solid #e8e8f0;padding-top:12px;margin-top:8px;font-size:11px;color:#aaa;text-align:center;">Generado por Basket Coach - ${footerDate}</div>`;
-    html += `</div>`;
-
-    el.innerHTML = html;
-    document.body.appendChild(el);
-
-    try {
-      await new Promise(r => setTimeout(r, 300));
-
-      const canvas = await html2canvas(el, {
-        scale: 1,
-        logging: false,
-      });
-
-      if (canvas.width === 0 || canvas.height === 0) {
-        throw new Error('Canvas vacío — html2canvas no pudo renderizar');
-      }
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.92);
-      const doc = new jsPDF('p', 'mm', 'a4');
-      const pageW = doc.internal.pageSize.getWidth();
-      const pageH = doc.internal.pageSize.getHeight();
-      const margin = 10;
-      const usableW = pageW - margin * 2;
-      const usableH = pageH - margin * 2;
-      const imgAspect = canvas.width / canvas.height;
-      const pdfW = usableW;
-      const pdfH = pdfW / imgAspect;
-
-      const ratio = canvas.width / pdfW;
-      let srcY = 0;
-      let pageNum = 0;
-
-      while (srcY < canvas.height - 2) {
-        const remainingPx = canvas.height - srcY;
-        const slicePx = Math.min(remainingPx, Math.round(usableH * ratio));
-        if (slicePx < 20) break;
-
-        if (pageNum > 0) doc.addPage();
-
-        const pageCanvas = document.createElement('canvas');
-        pageCanvas.width = canvas.width;
-        pageCanvas.height = slicePx;
-        const ctx = pageCanvas.getContext('2d')!;
-        ctx.drawImage(canvas, 0, srcY, canvas.width, slicePx, 0, 0, canvas.width, slicePx);
-        const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.92);
-
-        doc.addImage(pageImgData, 'JPEG', margin, margin, pdfW, slicePx / ratio);
-
-        srcY += slicePx;
-        pageNum++;
+      // ── Footer block ──
+      const footerDate = new Date().toLocaleDateString('es-ES', { day:'numeric', month:'long', year:'numeric' });
+      const footerHtml = `<div style="border-top:1px solid #e8e8f0;padding-top:4px;font-size:9px;color:#aaa;text-align:center;">Generado por Basket Coach - ${footerDate}</div>`;
+      const footerBlock = await renderBlock(footerHtml);
+      if (footerBlock) {
+        currentY = this.addPdfBlock(doc, pageH, margin, usableW, currentY, footerBlock);
       }
 
       const safeName = this.session.title.replace(/[/\\:*?"<>|]/g, '_');
       doc.save(`${safeName}.pdf`);
     } catch (err) {
       this.notification.show(err instanceof Error ? err.message : String(err));
-    } finally {
-      document.body.removeChild(el);
     }
+  }
+
+  private addPdfBlock(doc: any, pageH: number, margin: number, usableW: number, currentY: number, block: { dataUrl: string; heightMm: number }): number {
+    if (currentY + block.heightMm > pageH - margin) {
+      doc.addPage();
+      currentY = margin;
+    }
+    doc.addImage(block.dataUrl, 'JPEG', margin, currentY, usableW, block.heightMm);
+    return currentY + block.heightMm;
   }
 
   protected formatDate(dateStr: string): string {
     const d = new Date(dateStr + 'T12:00:00');
     return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  confirmPdfFormat() {
+    this.showPdfFormatPicker = false;
+    this.exportPDF(this.pdfFormat);
   }
 
   // ── Exercise Picker Modal ──
@@ -962,14 +1099,20 @@ export class SessionDetailComponent {
     this.pickerTargetSection = sec;
     this.pickerSearch = '';
     this.pickerTag = '';
+    this.addExVariants = [];
+    this.addExVariantId = '';
     this.showExercisePicker = true;
   }
 
   selectPickerExercise(ex: Exercise) {
     this.addExExerciseId = ex.id;
-    this.addExDuration = ex.duration_minutes || 10;
+    this.addExDuration = 10;
     this.addExNotes = '';
     this.showExercisePicker = false;
+    this.exerciseRepo.getVariants(ex.id).then(variants => {
+      this.addExVariants = variants;
+      this.addExVariantId = variants.length > 0 ? variants[0].id : '';
+    });
   }
 
   goBack() {
@@ -1010,6 +1153,14 @@ export class SessionDetailComponent {
     });
     this.showEditForm = false;
     this.reload.next();
+  }
+
+  getExerciseDisplayName(se: SessionExercise): string {
+    const exName = this.exerciseNames[se.exercise_id] || 'Ejercicio';
+    if (se.variant_id && this.variantNames[se.variant_id]) {
+      return `${exName} - ${this.variantNames[se.variant_id]}`;
+    }
+    return exName;
   }
 
   getSectionExercises(sectionId: string): SessionExercise[] {
@@ -1058,7 +1209,7 @@ export class SessionDetailComponent {
   }
 
   promptRemoveEx(se: SessionExercise) {
-    const exName = this.exerciseNames[se.exercise_id] || 'este ejercicio';
+    const exName = this.getExerciseDisplayName(se);
     this.confirmTitle = 'Quitar ejercicio';
     this.confirmMessage = `¿Estás seguro de quitar "${exName}" de la sesión?`;
     this.confirmAction = async () => {
@@ -1090,6 +1241,7 @@ export class SessionDetailComponent {
         session_id: this.session.id,
         section_id: sec.id,
         exercise_id: this.addExExerciseId,
+        variant_id: this.addExVariantId || null,
         order: exs.length + 1,
         duration_minutes: this.addExDuration,
         notes: this.addExNotes || null,

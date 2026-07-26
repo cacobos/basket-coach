@@ -1,14 +1,15 @@
-import { Component, inject } from '@angular/core';
-import { NgFor, NgIf } from '@angular/common';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DataService } from '../../core/services/data.service';
 import { ClubRepository } from '../../core/repositories/club.repository';
+import { SupabaseService } from '../../core/supabase/supabase.service';
+import { NotificationService } from '../../core/services/notification.service';
 
 @Component({
   selector: 'app-clubs',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="page">
       <header class="page-header">
@@ -23,34 +24,56 @@ import { ClubRepository } from '../../core/repositories/club.repository';
       </header>
 
       <div class="club-grid">
-        <div class="club-card" *ngFor="let club of data.clubs()" (click)="data.setCurrentClub(club)">
-          <div class="club-avatar">{{ club.name.charAt(0) }}</div>
-          <div class="club-info">
-            <h3 class="club-name">{{ club.name }}</h3>
-            <p class="club-slug">{{ club.slug }}</p>
+        @for (club of data.clubs(); track club.id) {
+          <div class="club-card" (click)="data.setCurrentClub(club)">
+            <div class="club-avatar">
+              @if (club.logo_url) {
+                <img [src]="club.logo_url" alt="" class="logo-img" />
+              } @else {
+                <span class="logo-initial">{{ club.name.charAt(0) }}</span>
+              }
+            </div>
+            <div class="club-info">
+              <h3 class="club-name">{{ club.name }}</h3>
+              <p class="club-slug">{{ club.slug }}</p>
+            </div>
+            <span class="material-symbols-outlined club-check" [style.opacity]="(data.currentClub()?.id === club.id) ? 1 : 0">check_circle</span>
+            <button class="manage-btn" (click)="$event.stopPropagation(); router.navigate(['/clubs', club.id, 'settings'])">Configurar</button>
           </div>
-          <span class="material-symbols-outlined club-check" [style.opacity]="(data.currentClub()?.id === club.id) ? 1 : 0">check_circle</span>
-          <button class="manage-btn" (click)="$event.stopPropagation(); router.navigate(['/clubs', club.id, 'members'])">Gestionar miembros</button>
-        </div>
-        <div class="empty-state" *ngIf="data.clubs().length === 0">
-          <span class="material-symbols-outlined empty-icon">business</span>
-          <p>No hay clubs todavía. Crea el primero.</p>
-        </div>
+        } @empty {
+          <div class="empty-state">
+            <span class="material-symbols-outlined empty-icon">business</span>
+            <p>No hay clubs todavía. Crea el primero.</p>
+          </div>
+        }
       </div>
 
-      <div class="modal-overlay" *ngIf="showForm" (click)="showForm = false">
-        <div class="modal-card" (click)="$event.stopPropagation()">
-          <h3 class="modal-title">Nuevo Club</h3>
-          <div class="modal-body">
-            <label class="field"><span>Nombre del club</span><input class="field-input" [(ngModel)]="formName" placeholder="Mi Club"/></label>
-            <label class="field"><span>Descripción</span><textarea class="field-input field-textarea" rows="3" [(ngModel)]="formDescription" placeholder="Descripción opcional..."></textarea></label>
-          </div>
-          <div class="modal-actions">
-            <button class="btn-cancel" (click)="showForm = false">Cancelar</button>
-            <button class="btn-save" (click)="save()">Crear</button>
+      @if (showForm) {
+        <div class="modal-overlay" (click)="showForm = false">
+          <div class="modal-card" (click)="$event.stopPropagation()">
+            <h3 class="modal-title">Nuevo Club</h3>
+            <div class="modal-body">
+              <label class="field"><span>Nombre del club</span><input class="field-input" [(ngModel)]="formName" placeholder="Mi Club"/></label>
+              <label class="field"><span>Descripción</span><textarea class="field-input field-textarea" rows="3" [(ngModel)]="formDescription" placeholder="Descripción opcional..."></textarea></label>
+              <label class="field field-logo"><span>Escudo (opcional)</span>
+                <div class="logo-upload-area" (click)="createLogoInput.click()">
+                  @if (createLogoPreview) {
+                    <img [src]="createLogoPreview" alt="" class="logo-preview" />
+                  } @else {
+                    <span class="material-symbols-outlined">add_photo_alternate</span>
+                    <span>Seleccionar imagen</span>
+                  }
+                </div>
+                <input #createLogoInput type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" (change)="onCreateLogoPick($event)" hidden />
+              </label>
+            </div>
+            <div class="modal-actions">
+              <button class="btn-cancel" (click)="showForm = false">Cancelar</button>
+              <button class="btn-save" (click)="save()" [disabled]="uploadingCreate">Crear</button>
+            </div>
           </div>
         </div>
-      </div>
+      }
     </div>
   `,
   styles: [`
@@ -64,18 +87,21 @@ import { ClubRepository } from '../../core/repositories/club.repository';
     .club-grid { display: flex; flex-direction: column; gap: 8px; }
     .club-card { display: flex; align-items: center; gap: 16px; background: #161b48; border-radius: 12px; padding: 16px 20px; border: 1px solid rgba(69,70,82,0.2); cursor: pointer; transition: all 0.2s; }
     .club-card:hover { background: #212653; border-color: rgba(69,70,82,0.4); }
-    .club-avatar { width: 48px; height: 48px; border-radius: 12px; background: rgba(189,194,255,0.1); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; color: #bdc2ff; flex-shrink: 0; }
+    .club-avatar { position: relative; width: 48px; height: 48px; border-radius: 12px; background: rgba(189,194,255,0.1); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; color: #bdc2ff; flex-shrink: 0; overflow: hidden; cursor: pointer; }
+    .logo-img { width: 100%; height: 100%; object-fit: contain; }
+    .logo-initial { }
+    .avatar-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s; border-radius: 12px; }
+    .club-avatar:hover .avatar-overlay { opacity: 1; }
+    .avatar-overlay .material-symbols-outlined { font-size: 20px; color: white; }
     .club-info { flex: 1; }
     .club-name { font-size: 18px; font-weight: 700; color: #dfe0ff; margin: 0; }
     .club-slug { font-size: 12px; color: #908f9d; margin: 2px 0 0; }
     .club-check { color: #69f0ae; font-size: 20px; }
     .manage-btn { background: none; border: 1px solid rgba(69,70,82,0.3); color: #bdc2ff; border-radius: 6px; padding: 4px 12px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: 'Hanken Grotesk', sans-serif; white-space: nowrap; }
     .manage-btn:hover { border-color: #bdc2ff; }
-    .empty-state, .loading-state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 80px 20px; color: #908f9d; }
-    .empty-icon, .loading-icon { font-size: 48px; }
-    .loading-icon { animation: spin 1s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .empty-state p, .loading-state p { margin: 0; font-size: 16px; }
+    .empty-state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 80px 20px; color: #908f9d; }
+    .empty-icon { font-size: 48px; }
+    .empty-state p { margin: 0; font-size: 16px; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
     .modal-card { background: #161b48; border-radius: 16px; padding: 32px; width: 100%; max-width: 440px; border: 1px solid rgba(69,70,82,0.3); }
     .modal-title { font-size: 24px; font-weight: 700; color: #dfe0ff; margin: 0 0 24px; }
@@ -85,11 +111,17 @@ import { ClubRepository } from '../../core/repositories/club.repository';
     .field-input { background: #111644; border: 1px solid rgba(69,70,82,0.3); color: #dfe0ff; border-radius: 8px; padding: 10px 12px; font-family: 'Hanken Grotesk', sans-serif; font-size: 14px; outline: none; }
     .field-input:focus { border-color: #bdc2ff; }
     .field-textarea { resize: vertical; }
+    .field-logo span { margin-bottom: 4px; }
+    .logo-upload-area { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 20px; border: 2px dashed rgba(69,70,82,0.3); border-radius: 12px; cursor: pointer; color: #908f9d; font-size: 13px; transition: all 0.15s; }
+    .logo-upload-area:hover { border-color: #bdc2ff; color: #bdc2ff; background: rgba(189,194,255,0.04); }
+    .logo-upload-area .material-symbols-outlined { font-size: 32px; }
+    .logo-preview { max-width: 100%; max-height: 120px; object-fit: contain; }
     .modal-actions { display: flex; gap: 12px; justify-content: flex-end; }
     .btn-cancel, .btn-save { padding: 10px 20px; border-radius: 8px; border: none; font-family: 'Hanken Grotesk', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; }
     .btn-cancel { background: #212653; color: #c6c5d4; }
     .btn-save { background: #0068ed; color: white; }
     .btn-save:hover { opacity: 0.9; }
+    .btn-save:disabled { opacity: 0.4; cursor: not-allowed; }
     @media (max-width: 768px) {
       .page { padding: 20px !important; }
       .page-header { flex-direction: column !important; align-items: stretch !important; gap: 16px !important; }
@@ -106,21 +138,57 @@ import { ClubRepository } from '../../core/repositories/club.repository';
 export class ClubsComponent {
   data = inject(DataService);
   private clubRepo = inject(ClubRepository);
+  private supabase = inject(SupabaseService);
+  private notification = inject(NotificationService);
   protected router = inject(Router);
   showForm = false;
   formName = '';
   formDescription = '';
+  createLogoFile: File | null = null;
+  createLogoPreview = '';
+  uploadingCreate = false;
 
   openCreate() {
     this.showForm = true;
+    this.createLogoFile = null;
+    this.createLogoPreview = '';
+  }
+
+  onCreateLogoPick(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    this.createLogoFile = file;
+    const reader = new FileReader();
+    reader.onload = e => this.createLogoPreview = (e.target!.result as string);
+    reader.readAsDataURL(file);
   }
 
   async save() {
     if (!this.formName.trim()) return;
-    await this.clubRepo.create({ name: this.formName.trim(), description: this.formDescription.trim() || undefined });
-    await this.data.loadClubs();
-    this.showForm = false;
-    this.formName = '';
-    this.formDescription = '';
+    this.uploadingCreate = true;
+    try {
+      const club = await this.clubRepo.create({ name: this.formName.trim(), description: this.formDescription.trim() || undefined });
+
+      if (this.createLogoFile) {
+        const ext = this.createLogoFile.name.split('.').pop() || 'png';
+        const filePath = `${club.id}/logo.${ext}`;
+        await this.supabase.client.storage.from('logos').upload(filePath, this.createLogoFile, { upsert: true });
+        const { data: { publicUrl } } = this.supabase.client.storage.from('logos').getPublicUrl(filePath);
+        await this.clubRepo.update(club.id, { logo_url: publicUrl });
+      }
+
+      await this.data.loadClubs();
+      this.showForm = false;
+      this.formName = '';
+      this.formDescription = '';
+      this.createLogoFile = null;
+      this.createLogoPreview = '';
+    } catch {
+      this.notification.show('Error al crear club', 'error');
+    } finally {
+      this.uploadingCreate = false;
+    }
   }
+
 }

@@ -53,21 +53,8 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
             <h3 class="ex-title">{{ ex.name }}</h3>
             <p class="ex-desc">{{ ex.description }}</p>
             <p class="ex-objectives" *ngIf="ex.objectives"><span class="obj-label">Objetivos:</span> {{ ex.objectives }}</p>
-            <div class="ex-meta">
-              <span class="ex-meta-item">
-                <span class="material-symbols-outlined">schedule</span>
-                {{ ex.duration_minutes ? ex.duration_minutes + ' min' : '&mdash;' }}
-              </span>
-              <span class="ex-meta-item">
-                <span class="material-symbols-outlined">people</span>
-                {{ ex.players_min || '?' }}-{{ ex.players_max || '?' }}
-              </span>
-            </div>
           </div>
           <div class="ex-actions">
-            <a class="ex-btn" [routerLink]="['/exercises', ex.id, 'variants']" title="Variantes">
-              <span class="material-symbols-outlined">call_split</span>
-            </a>
             <a class="ex-btn" [routerLink]="['/exercises', ex.id, 'edit']" title="Editar">
               <span class="material-symbols-outlined">edit</span>
             </a>

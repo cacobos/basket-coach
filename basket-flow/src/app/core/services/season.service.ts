@@ -1,9 +1,11 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import type { SeasonOption } from '../models/models';
+import { SupabaseService } from '../supabase/supabase.service';
 
 @Injectable({ providedIn: 'root' })
 export class SeasonService {
   private readonly STORAGE_KEY = 'basketflow-season';
+  private supabase = inject(SupabaseService);
 
   allSeasons: SeasonOption[] = [];
 
@@ -12,7 +14,7 @@ export class SeasonService {
   currentSeason = computed(() => this.selectedSeason());
 
   constructor() {
-    this.initSeasons();
+    this.allSeasons = [SeasonService.optionFor(this.loadSavedSeason())];
   }
 
   private loadSavedSeason(): string {
@@ -32,29 +34,37 @@ export class SeasonService {
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
-    if (month >= 7) {
+    if (month >= 9) {
       return `${year}-${year + 1}`;
     }
     return `${year - 1}-${year}`;
   }
 
-  static generateSeasonOptions(): SeasonOption[] {
-    const current = SeasonService.getCurrentSeason();
-    const currentStart = parseInt(current.split('-')[0]);
-    const options: SeasonOption[] = [];
-    for (let offset = -3; offset <= 2; offset++) {
-      const s = currentStart + offset;
-      const label = `${s}-${s + 1}`;
-      options.push({ value: label, label });
-    }
-    return options;
+  private static optionFor(s: string): SeasonOption {
+    return { value: s, label: s };
   }
 
-  private initSeasons() {
-    this.allSeasons = SeasonService.generateSeasonOptions();
+  async loadFromDb(clubId: string) {
+    const { data } = await this.supabase.client
+      .from('teams')
+      .select('season')
+      .eq('club_id', clubId)
+      .is('archived_at', null);
+    const seasons = [...new Set((data ?? []).map((t: any) => t.season).filter(Boolean))] as string[];
+
+    const now = new Date();
+    if (now.getMonth() + 1 >= 6) {
+      const current = SeasonService.getCurrentSeason();
+      const nextStart = parseInt(current.split('-')[0]) + 1;
+      const next = `${nextStart}-${nextStart + 1}`;
+      if (!seasons.includes(next)) seasons.push(next);
+    }
+
+    seasons.sort();
+    this.allSeasons = seasons.map(SeasonService.optionFor);
     const saved = this.selectedSeason();
-    if (!this.allSeasons.some(s => s.value === saved)) {
-      this.allSeasons.push({ value: saved, label: saved });
+    if (!seasons.includes(saved)) {
+      this.selectSeason(seasons[0] || SeasonService.getCurrentSeason());
     }
   }
 }

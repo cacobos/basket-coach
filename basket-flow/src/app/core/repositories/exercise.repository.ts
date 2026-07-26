@@ -102,6 +102,17 @@ export class ExerciseRepository implements BaseRepository<Exercise, Omit<Exercis
   }
 
   // ── Variants ──
+  async getVariantsByExerciseIds(exerciseIds: string[]): Promise<ExerciseVariant[]> {
+    if (exerciseIds.length === 0) return [];
+    const { data, error } = await this.supabase.client
+      .from('exercise_variants')
+      .select('*')
+      .in('exercise_id', exerciseIds)
+      .order('name');
+    if (error) throw error;
+    return (data as ExerciseVariant[]) || [];
+  }
+
   async getVariants(exerciseId: string): Promise<ExerciseVariant[]> {
     const { data, error } = await this.supabase.client
       .from('exercise_variants')
@@ -118,6 +129,13 @@ export class ExerciseRepository implements BaseRepository<Exercise, Omit<Exercis
       .insert({ ...v, created_by: this.auth.user()!.id })
       .select()
       .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async updateVariant(id: string, v: Partial<ExerciseVariant>): Promise<ExerciseVariant> {
+    const { data, error } = await this.supabase.client
+      .from('exercise_variants').update(v).eq('id', id).select().single();
     if (error) throw error;
     return data;
   }

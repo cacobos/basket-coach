@@ -2,7 +2,7 @@ import { Component, inject, computed, signal, HostListener, OnDestroy } from '@a
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subscription, from, of, timer, switchMap, takeWhile, filter, map } from 'rxjs';
+import { Subscription, from, of, timer, switchMap, takeWhile, filter, map, tap } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { PermissionService, type Permission } from '../../core/services/permission.service';
 import { DataService } from '../../core/services/data.service';
@@ -57,6 +57,27 @@ interface NavItem {
               <option [value]="opt.value">{{ opt.label }}</option>
             }
           </select>
+        </div>
+
+        <div class="club-selector">
+          @if (data.clubs().length > 1) {
+            <span class="material-symbols-outlined season-icon">business</span>
+            <select [ngModel]="data.currentClub()?.id" (ngModelChange)="onClubChange($event)" class="season-select">
+              @for (club of data.clubs(); track club.id) {
+                <option [value]="club.id">{{ club.name }}</option>
+              }
+            </select>
+          } @else if (data.currentClub(); as club) {
+            @if (club.logo_url) {
+              <img [src]="club.logo_url" alt="" class="club-logo" />
+            } @else {
+              <span class="material-symbols-outlined season-icon">business</span>
+            }
+            <span class="club-label">{{ club.name }}</span>
+          } @else {
+            <span class="material-symbols-outlined season-icon">business</span>
+            <span class="club-label">Cargando…</span>
+          }
         </div>
 
         <nav class="nav">
@@ -172,6 +193,9 @@ interface NavItem {
     }
     .season-select:hover { border-color: rgba(255,255,255,0.2); }
     .season-select option { background: #030737; color: #dfe0ff; }
+    .club-selector { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .club-logo { width: 20px; height: 20px; border-radius: 4px; object-fit: contain; flex-shrink: 0; }
+    .club-label { flex: 1; font-size: 13px; color: #dfe0ff; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .nav {
       flex: 1;
       padding: 8px;
@@ -258,7 +282,7 @@ export class MainLayoutComponent implements OnDestroy {
   auth = inject(AuthService);
   perms = inject(PermissionService);
   seasonService = inject(SeasonService);
-  private data = inject(DataService);
+  protected data = inject(DataService);
   private supabase = inject(SupabaseService);
   mobileMenuOpen = false;
   private pollSub?: Subscription;
@@ -291,15 +315,26 @@ export class MainLayoutComponent implements OnDestroy {
   private clubRole = signal<string | null>(null);
   private isFamily = signal(false);
 
+  clubNavItem = computed(() => {
+    const clubId = this.data.currentClub()?.id;
+    if (!clubId) return null;
+    const role = this.clubRole();
+    if (!role || !this.perms.hasPermission(role as any, 'club.members.manage')) return null;
+    return { path: `/clubs/${clubId}/settings`, label: 'Club', icon: 'settings', exact: true } as NavItem;
+  });
+
   visibleItems = computed(() => {
     if (this.isFamily()) return this.familyNavItems;
     const role = this.clubRole();
     const isSuperadmin = this.auth.profile()?.is_superadmin;
-    return this.staffNavItems.filter(item => {
+    const items = this.staffNavItems.filter(item => {
       if (item.adminOnly && !isSuperadmin) return false;
       if (item.permission) return this.perms.hasPermission(role as any, item.permission);
       return true;
     });
+    const clubItem = this.clubNavItem();
+    if (clubItem) items.unshift(clubItem);
+    return items;
   });
 
   constructor() {
@@ -324,6 +359,7 @@ export class MainLayoutComponent implements OnDestroy {
               map(() => this.data.currentClub()?.id),
               takeWhile(id => !id, true),
               filter(Boolean),
+              tap(clubId => this.seasonService.loadFromDb(clubId)),
               switchMap(clubId => this.perms.getRoleInClub(clubId!))
             );
           })
@@ -340,6 +376,11 @@ export class MainLayoutComponent implements OnDestroy {
 
   onSeasonChange(season: string) {
     this.seasonService.selectSeason(season);
+  }
+
+  onClubChange(clubId: string) {
+    const club = this.data.clubs().find(c => c.id === clubId);
+    if (club) this.data.setCurrentClub(club);
   }
 
   @HostListener('window:resize')

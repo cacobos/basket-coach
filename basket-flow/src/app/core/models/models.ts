@@ -166,6 +166,7 @@ export interface SessionExercise {
   session_id: string;
   section_id: string | null;
   exercise_id: string;
+  variant_id: string | null;
   order: number;
   duration_minutes: number;
   notes: string | null;
