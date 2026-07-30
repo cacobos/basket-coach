@@ -126,6 +126,7 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
                        (dragenter)="onDragEnter($event, sec, se)"
                        (dragleave)="onDragLeave($event)"
                        (drop)="onDropItem($event, sec, se)"
+                       (dragend)="onDragEnd($event)"
                        [attr.data-exercise-id]="se.id"
                        [class.drag-over]="dragTarget?.id === se.id">
                     <div class="ex-order">{{ ei + 1 }}</div>
@@ -158,7 +159,8 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
                     </button>
                   </div>
                   <div class="ex-drop-zone" [class.empty]="getSectionExercises(sec.id).length === 0"
-                       (dragover)="onDragOverContainer($event)" (drop)="onDropContainer($event, sec)">
+                       (dragover)="onDragOverContainer($event)" (drop)="onDropContainer($event, sec)"
+                       (dragend)="onDragEnd($event)">
                     <span class="material-symbols-outlined">drag_indicator</span>
                     <span>{{ getSectionExercises(sec.id).length === 0 ? 'Arrastra o añade ejercicios desde abajo' : 'Suelta aquí' }}</span>
                   </div>
@@ -673,11 +675,13 @@ export class SessionBuilderComponent {
   }
 
   onDragOverContainer(event: DragEvent) {
+    event.stopPropagation();
     event.preventDefault();
     event.dataTransfer!.dropEffect = 'move';
   }
 
   onDropContainer(event: DragEvent, targetSection: SectionVM) {
+    event.stopPropagation();
     event.preventDefault();
     if (!this.dragItem) return;
     const { section: sourceSection, exercise: draggedEx } = this.dragItem;
@@ -700,6 +704,7 @@ export class SessionBuilderComponent {
   }
 
   onDragOverItem(event: DragEvent, _sec: SectionVM, _se: ExerciseVM) {
+    event.stopPropagation();
     event.preventDefault();
     event.dataTransfer!.dropEffect = 'move';
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
@@ -717,6 +722,7 @@ export class SessionBuilderComponent {
   }
 
   onDropItem(event: DragEvent, targetSection: SectionVM, targetEx: ExerciseVM) {
+    event.stopPropagation();
     event.preventDefault();
     (event.currentTarget as HTMLElement).classList.remove('drag-before', 'drag-after');
     if (!this.dragItem) return;
@@ -755,8 +761,15 @@ export class SessionBuilderComponent {
   }
 
   private clearDrag() {
+    document.querySelectorAll('.ex-item.drag-before, .ex-item.drag-after').forEach(el => {
+      el.classList.remove('drag-before', 'drag-after');
+    });
     this.dragItem = null;
     this.dragTarget = null;
+  }
+
+  onDragEnd(_event: DragEvent) {
+    this.clearDrag();
   }
 
   updateDefaultTitle() {
