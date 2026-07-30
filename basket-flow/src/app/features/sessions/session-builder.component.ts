@@ -116,13 +116,15 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
                 </div>
               </div>
 
-              <div class="section-exercises">
-                  <div class="ex-item" *ngFor="let se of getSectionExercises(sec.id); let ei = index">
+              <div class="section-exercises"
+                   (dragover)="onDragOver($event)"
+                   (drop)="onDrop($event, sec)">
+                  <div class="ex-item" *ngFor="let se of getSectionExercises(sec.id); let ei = index"
+                       draggable="true"
+                       (dragstart)="onDragStart($event, sec, se)"
+                       [attr.data-exercise-id]="se.id"
+                       [class.drag-over]="dragTarget?.id === se.id">
                     <div class="ex-order">{{ ei + 1 }}</div>
-                    <div class="ex-info">
-                      <span class="ex-name">{{ getExerciseDisplayName(se) }}</span>
-                      <span class="ex-duration">{{ se.duration_minutes }} min</span>
-                    </div>
                     <div class="ex-notes-group" *ngIf="!editingNotes.has(se.id)">
                       <span class="ex-notes-text" (click)="editNotes(se)" [class.has-notes]="se.notes">
                         {{ se.notes || 'Añadir nota...' }}
@@ -342,7 +344,11 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
       background: rgba(0,0,0,0.2);
       border-radius: 10px;
       padding: 10px 14px;
+      transition: box-shadow 0.15s;
     }
+    .ex-item[draggable="true"] { cursor: grab; }
+    .ex-item[draggable="true"]:active { cursor: grabbing; }
+    .ex-item.drag-over { box-shadow: 0 0 0 2px #0068ed; }
     .ex-order {
       width: 26px; height: 26px; border-radius: 50%;
       background: rgba(189,194,255,0.1);
@@ -502,6 +508,8 @@ export class SessionBuilderComponent {
   sectionAddForms: Record<string, SectionAddForm> = {};
   editingNotes: Set<string> = new Set();
   autoTitle = true;
+  dragItem: { section: SectionVM; exercise: ExerciseVM } | null = null;
+  dragTarget: ExerciseVM | null = null;
 
   sectionColors = ['#0068ed', '#00c853', '#ff9100', '#e040fb', '#00bcd4', '#ff6d00'];
 
@@ -637,6 +645,53 @@ export class SessionBuilderComponent {
     this.sections[idx] = this.sections[target];
     this.sections[target] = sec;
     this.sections.forEach((s, i) => s.sort_order = i + 1);
+  }
+
+  onDragStart(event: DragEvent, sec: SectionVM, se: ExerciseVM) {
+    this.dragItem = { section: sec, exercise: se };
+    event.dataTransfer?.setData('text/plain', se.id);
+    event.dataTransfer!.effectAllowed = 'move';
+  }
+
+  onDragOver(event: DragEvent) {
+    event.preventDefault();
+    event.dataTransfer!.dropEffect = 'move';
+  }
+
+  onDrop(event: DragEvent, targetSection: SectionVM) {
+    event.preventDefault();
+    if (!this.dragItem) return;
+    const { section: sourceSection, exercise: draggedEx } = this.dragItem;
+    const list = this.sectionExercisesMap[targetSection.id] || [];
+    const draggedIdx = this.sectionExercisesMap[sourceSection.id]?.indexOf(draggedEx) ?? -1;
+    if (draggedIdx === -1) { this.clearDrag(); return; }
+    const dropTarget = document.elementFromPoint(event.clientX, event.clientY)?.closest('.ex-item') as HTMLElement | null;
+    const targetEx = dropTarget ? this.getExerciseById(targetSection, dropTarget.dataset['exerciseId'] ?? '') : undefined;
+    let dropIdx = targetEx ? list.indexOf(targetEx) : -1;
+    if (dropIdx === -1) dropIdx = list.length;
+    if (sourceSection.id === targetSection.id) {
+      if (draggedIdx === dropIdx) { this.clearDrag(); return; }
+      list.splice(draggedIdx, 1);
+      dropIdx = draggedIdx < dropIdx ? dropIdx - 1 : dropIdx;
+      list.splice(dropIdx, 0, draggedEx);
+    } else {
+      this.sectionExercisesMap[sourceSection.id] =
+        (this.sectionExercisesMap[sourceSection.id] || []).filter(e => e.id !== draggedEx.id);
+      list.splice(dropIdx, 0, draggedEx);
+      draggedEx.section_id = targetSection.id;
+    }
+    list.forEach((e, i) => e.order = i + 1);
+    this.sectionExercisesMap[targetSection.id] = [...list];
+    this.clearDrag();
+  }
+
+  private getExerciseById(section: SectionVM, id: string): ExerciseVM | undefined {
+    return (this.sectionExercisesMap[section.id] || []).find(e => e.id === id);
+  }
+
+  private clearDrag() {
+    this.dragItem = null;
+    this.dragTarget = null;
   }
 
   updateDefaultTitle() {
