@@ -1,7 +1,7 @@
 [build]
   base = "basket-flow"
   command = "npm run build"
-  publish = "basket-flow/dist/basket-flow/browser"
+  publish = "dist/basket-flow/browser"
 
 [[redirects]]
   from = "/*"
