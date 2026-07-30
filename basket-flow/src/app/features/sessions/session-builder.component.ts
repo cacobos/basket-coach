@@ -117,14 +117,22 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
               </div>
 
               <div class="section-exercises"
-                   (dragover)="onDragOver($event)"
-                   (drop)="onDrop($event, sec)">
+                   (dragover)="onDragOverContainer($event)"
+                   (drop)="onDropContainer($event, sec)">
                   <div class="ex-item" *ngFor="let se of getSectionExercises(sec.id); let ei = index"
                        draggable="true"
                        (dragstart)="onDragStart($event, sec, se)"
+                       (dragover)="onDragOverItem($event, sec, se)"
+                       (dragenter)="onDragEnter($event, sec, se)"
+                       (dragleave)="onDragLeave($event)"
+                       (drop)="onDropItem($event, sec, se)"
                        [attr.data-exercise-id]="se.id"
                        [class.drag-over]="dragTarget?.id === se.id">
                     <div class="ex-order">{{ ei + 1 }}</div>
+                    <div class="ex-info">
+                      <span class="ex-name">{{ getExerciseDisplayName(se) }}</span>
+                      <span class="ex-duration">{{ se.duration_minutes }} min</span>
+                    </div>
                     <div class="ex-notes-group" *ngIf="!editingNotes.has(se.id)">
                       <span class="ex-notes-text" (click)="editNotes(se)" [class.has-notes]="se.notes">
                         {{ se.notes || 'Añadir nota...' }}
@@ -149,9 +157,10 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
                       <span class="material-symbols-outlined">remove_circle</span>
                     </button>
                   </div>
-                  <div class="ex-empty" *ngIf="getSectionExercises(sec.id).length === 0">
+                  <div class="ex-drop-zone" [class.empty]="getSectionExercises(sec.id).length === 0"
+                       (dragover)="onDragOverContainer($event)" (drop)="onDropContainer($event, sec)">
                     <span class="material-symbols-outlined">drag_indicator</span>
-                    <span>Arrastra o añade ejercicios desde abajo</span>
+                    <span>{{ getSectionExercises(sec.id).length === 0 ? 'Arrastra o añade ejercicios desde abajo' : 'Suelta aquí' }}</span>
                   </div>
               </div>
 
@@ -349,6 +358,8 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
     .ex-item[draggable="true"] { cursor: grab; }
     .ex-item[draggable="true"]:active { cursor: grabbing; }
     .ex-item.drag-over { box-shadow: 0 0 0 2px #0068ed; }
+    .ex-item.drag-before { box-shadow: 0 -3px 0 0 #0068ed; }
+    .ex-item.drag-after { box-shadow: 0 3px 0 0 #0068ed; }
     .ex-order {
       width: 26px; height: 26px; border-radius: 50%;
       background: rgba(189,194,255,0.1);
@@ -380,12 +391,20 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
     .btn-icon-small .material-symbols-outlined { font-size: 14px !important; }
     .btn-icon-save { color: #4caf50 !important; }
     .btn-icon-save:hover { background: rgba(76,175,80,0.1) !important; }
-    .ex-empty {
+    .ex-drop-zone {
       text-align: center; color: #3a3f6a; font-size: 13px;
-      padding: 24px; display: flex; align-items: center;
+      padding: 12px 24px; display: flex; align-items: center;
       justify-content: center; gap: 8px;
+      border: 1px dashed transparent; border-radius: 8px;
+      transition: all 0.15s;
     }
-    .ex-empty .material-symbols-outlined { font-size: 18px; }
+    .ex-drop-zone.empty {
+      min-height: 60px; padding: 20px 24px;
+    }
+    .ex-drop-zone .material-symbols-outlined { font-size: 18px; }
+    .ex-drop-zone.drop-active {
+      border-color: #0068ed; background: rgba(0,104,237,0.05);
+    }
 
     /* Add exercise row */
     .section-add-ex {
@@ -649,44 +668,90 @@ export class SessionBuilderComponent {
 
   onDragStart(event: DragEvent, sec: SectionVM, se: ExerciseVM) {
     this.dragItem = { section: sec, exercise: se };
-    event.dataTransfer?.setData('text/plain', se.id);
     event.dataTransfer!.effectAllowed = 'move';
+    event.dataTransfer!.setData('text/plain', se.id);
   }
 
-  onDragOver(event: DragEvent) {
+  onDragOverContainer(event: DragEvent) {
     event.preventDefault();
     event.dataTransfer!.dropEffect = 'move';
   }
 
-  onDrop(event: DragEvent, targetSection: SectionVM) {
+  onDropContainer(event: DragEvent, targetSection: SectionVM) {
     event.preventDefault();
     if (!this.dragItem) return;
     const { section: sourceSection, exercise: draggedEx } = this.dragItem;
-    const list = this.sectionExercisesMap[targetSection.id] || [];
-    const draggedIdx = this.sectionExercisesMap[sourceSection.id]?.indexOf(draggedEx) ?? -1;
+    const sourceList = this.sectionExercisesMap[sourceSection.id] || [];
+    const targetList = this.sectionExercisesMap[targetSection.id] || [];
+    const draggedIdx = sourceList.indexOf(draggedEx);
     if (draggedIdx === -1) { this.clearDrag(); return; }
-    const dropTarget = document.elementFromPoint(event.clientX, event.clientY)?.closest('.ex-item') as HTMLElement | null;
-    const targetEx = dropTarget ? this.getExerciseById(targetSection, dropTarget.dataset['exerciseId'] ?? '') : undefined;
-    let dropIdx = targetEx ? list.indexOf(targetEx) : -1;
-    if (dropIdx === -1) dropIdx = list.length;
     if (sourceSection.id === targetSection.id) {
-      if (draggedIdx === dropIdx) { this.clearDrag(); return; }
-      list.splice(draggedIdx, 1);
-      dropIdx = draggedIdx < dropIdx ? dropIdx - 1 : dropIdx;
-      list.splice(dropIdx, 0, draggedEx);
+      this.doMove(sourceSection, draggedEx, draggedIdx, targetList.length);
     } else {
-      this.sectionExercisesMap[sourceSection.id] =
-        (this.sectionExercisesMap[sourceSection.id] || []).filter(e => e.id !== draggedEx.id);
-      list.splice(dropIdx, 0, draggedEx);
+      sourceList.splice(draggedIdx, 1);
+      targetList.push(draggedEx);
       draggedEx.section_id = targetSection.id;
+      sourceList.forEach((e, i) => e.order = i + 1);
+      targetList.forEach((e, i) => e.order = i + 1);
+      this.sectionExercisesMap[sourceSection.id] = [...sourceList];
+      this.sectionExercisesMap[targetSection.id] = [...targetList];
     }
-    list.forEach((e, i) => e.order = i + 1);
-    this.sectionExercisesMap[targetSection.id] = [...list];
     this.clearDrag();
   }
 
-  private getExerciseById(section: SectionVM, id: string): ExerciseVM | undefined {
-    return (this.sectionExercisesMap[section.id] || []).find(e => e.id === id);
+  onDragOverItem(event: DragEvent, _sec: SectionVM, _se: ExerciseVM) {
+    event.preventDefault();
+    event.dataTransfer!.dropEffect = 'move';
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    (event.currentTarget as HTMLElement).classList.toggle('drag-before', event.clientY < midY);
+    (event.currentTarget as HTMLElement).classList.toggle('drag-after', event.clientY >= midY);
+  }
+
+  onDragEnter(_event: DragEvent, _sec: SectionVM, se: ExerciseVM) {
+    this.dragTarget = se;
+  }
+
+  onDragLeave(event: DragEvent) {
+    (event.currentTarget as HTMLElement).classList.remove('drag-before', 'drag-after');
+  }
+
+  onDropItem(event: DragEvent, targetSection: SectionVM, targetEx: ExerciseVM) {
+    event.preventDefault();
+    (event.currentTarget as HTMLElement).classList.remove('drag-before', 'drag-after');
+    if (!this.dragItem) return;
+    const { section: sourceSection, exercise: draggedEx } = this.dragItem;
+    const sourceList = this.sectionExercisesMap[sourceSection.id] || [];
+    const targetList = this.sectionExercisesMap[targetSection.id] || [];
+    const draggedIdx = sourceList.indexOf(draggedEx);
+    if (draggedIdx === -1) { this.clearDrag(); return; }
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    let dropIdx = targetList.indexOf(targetEx);
+    if (dropIdx === -1) dropIdx = targetList.length;
+    if (event.clientY >= rect.top + rect.height / 2) dropIdx++;
+    if (sourceSection.id === targetSection.id) {
+      this.doMove(sourceSection, draggedEx, draggedIdx, dropIdx);
+    } else {
+      sourceList.splice(draggedIdx, 1);
+      dropIdx = Math.min(dropIdx, targetList.length);
+      targetList.splice(dropIdx, 0, draggedEx);
+      draggedEx.section_id = targetSection.id;
+      sourceList.forEach((e, i) => e.order = i + 1);
+      targetList.forEach((e, i) => e.order = i + 1);
+      this.sectionExercisesMap[sourceSection.id] = [...sourceList];
+      this.sectionExercisesMap[targetSection.id] = [...targetList];
+    }
+    this.clearDrag();
+  }
+
+  private doMove(section: SectionVM, ex: ExerciseVM, from: number, to: number) {
+    const list = this.sectionExercisesMap[section.id] || [];
+    if (from === to) return;
+    list.splice(from, 1);
+    const adjusted = from < to ? to - 1 : to;
+    list.splice(adjusted, 0, ex);
+    list.forEach((e, i) => e.order = i + 1);
+    this.sectionExercisesMap[section.id] = [...list];
   }
 
   private clearDrag() {
