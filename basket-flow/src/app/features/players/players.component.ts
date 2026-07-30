@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { AsyncPipe, NgFor, NgIf } from '@angular/common';
+import { AsyncPipe, DatePipe, NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { toObservable } from '@angular/core/rxjs-interop';
@@ -12,7 +12,7 @@ import type { Player, Team } from '../../core/models/models';
 @Component({
   selector: 'app-players',
   standalone: true,
-  imports: [AsyncPipe, NgFor, NgIf, FormsModule],
+  imports: [AsyncPipe, DatePipe, NgFor, NgIf, FormsModule],
   template: `
     <div class="page" *ngIf="vm$ | async">
       <header class="page-header">
@@ -20,10 +20,17 @@ import type { Player, Team } from '../../core/models/models';
           <h2 class="page-title">Jugadores</h2>
           <p class="page-sub">Gestión centralizada del roster y perfiles individuales.</p>
         </div>
-        <button class="btn-primary" (click)="openCreate()">
-          <span class="material-symbols-outlined fill">add</span>
-          Nuevo Jugador
-        </button>
+        <div class="header-actions">
+          <button class="btn-trash" [class.active]="showDeleted" (click)="toggleTrash()">
+            <span class="material-symbols-outlined">delete_sweep</span>
+            Papelera
+            <span class="trash-count" *ngIf="deletedPlayers.length > 0">{{ deletedPlayers.length }}</span>
+          </button>
+          <button class="btn-primary" (click)="openCreate()">
+            <span class="material-symbols-outlined fill">add</span>
+            Nuevo Jugador
+          </button>
+        </div>
       </header>
 
       <div class="filters">
@@ -76,9 +83,30 @@ import type { Player, Team } from '../../core/models/models';
             <span class="material-symbols-outlined">delete</span>
           </button>
         </div>
-        <div class="empty-state" *ngIf="filtered.length === 0">
+        <div class="empty-state" *ngIf="filtered.length === 0 && !showDeleted">
           <span class="material-symbols-outlined empty-icon">face</span>
           <p>No hay jugadores que coincidan.</p>
+        </div>
+
+        <div class="deleted-section" *ngIf="showDeleted && deletedPlayers.length > 0">
+          <h3 class="deleted-title">Jugadores eliminados</h3>
+          <div class="player-card deleted" *ngFor="let player of deletedPlayers">
+            <div class="player-avatar" style="background: #454652">
+              <span class="player-initials">{{ (player.first_name[0] + player.last_name[0]).toUpperCase() }}</span>
+            </div>
+            <div class="player-info">
+              <h3 class="player-name">{{ player.first_name }} {{ player.last_name }}</h3>
+              <p class="player-meta">Eliminado {{ player.deleted_at | date:'short' }}</p>
+            </div>
+            <button class="btn-restore" (click)="$event.stopPropagation(); restorePlayer(player)">
+              <span class="material-symbols-outlined">restore_from_trash</span>
+              Restaurar
+            </button>
+          </div>
+        </div>
+        <div class="empty-state" *ngIf="showDeleted && deletedPlayers.length === 0">
+          <span class="material-symbols-outlined empty-icon">delete_sweep</span>
+          <p>No hay jugadores en la papelera.</p>
         </div>
       </div>
 
@@ -121,6 +149,23 @@ import type { Player, Team } from '../../core/models/models';
   styles: [`
     .page { padding: 40px; max-width: 1440px; margin: 0 auto; }
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 48px; }
+    .header-actions { display: flex; gap: 12px; align-items: center; }
+    .btn-trash {
+      display: flex; align-items: center; gap: 6px;
+      background: #212653; color: #908f9d;
+      padding: 10px 16px; border-radius: 10px;
+      border: 1px solid rgba(69,70,82,0.3);
+      font-family: 'Hanken Grotesk', sans-serif; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-trash:hover { background: #2a3160; color: #c6c5d4; }
+    .btn-trash.active { background: rgba(239,68,68,0.12); color: #ef4444; border-color: rgba(239,68,68,0.3); }
+    .btn-trash .material-symbols-outlined { font-size: 20px; }
+    .trash-count {
+      font-size: 11px; font-weight: 700;
+      background: rgba(239,68,68,0.2); color: #ef4444;
+      padding: 1px 7px; border-radius: 9999px;
+    }
     .page-title { font-size: 48px; line-height: 56px; font-weight: 800; letter-spacing: -0.02em; color: #dfe0ff; margin: 0; }
     .page-sub { font-size: 18px; line-height: 28px; color: #c6c5d4; margin: 4px 0 0; }
     .btn-primary {
@@ -214,9 +259,29 @@ import type { Player, Team } from '../../core/models/models';
     .btn-cancel { background: #212653; color: #c6c5d4; }
     .btn-save { background: #0068ed; color: white; }
     .btn-save:hover { opacity: 0.9; }
+    .deleted-section { margin-top: 40px; }
+    .deleted-title {
+      font-size: 14px; font-weight: 700; color: #908f9d;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin: 0 0 12px; padding-bottom: 8px;
+      border-bottom: 1px solid rgba(69,70,82,0.2);
+    }
+    .player-card.deleted { opacity: 0.7; }
+    .player-card.deleted:hover { opacity: 1; }
+    .btn-restore {
+      display: flex; align-items: center; gap: 4px;
+      background: rgba(16,185,129,0.12); color: #10b981;
+      border: 1px solid rgba(16,185,129,0.25);
+      padding: 6px 12px; border-radius: 8px;
+      font-family: 'Hanken Grotesk', sans-serif; font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .btn-restore:hover { background: rgba(16,185,129,0.2); }
+    .btn-restore .material-symbols-outlined { font-size: 16px; }
     @media (max-width: 768px) {
       .page { padding: 20px !important; }
       .page-header { flex-direction: column !important; align-items: stretch !important; gap: 16px !important; }
+      .header-actions { width: 100%; justify-content: flex-end; }
       .page-title { font-size: 28px !important; line-height: 36px !important; }
       .page-sub { font-size: 14px !important; }
       .search-wrap { max-width: 100% !important; }
@@ -240,6 +305,7 @@ export class PlayersComponent {
   private playerRepo = inject(PlayerRepository);
 
   players: Player[] = [];
+  deletedPlayers: Player[] = [];
   teams: Team[] = [];
   teamNames: Record<string, string> = {};
   _stats: Record<string, { ppg: string; mpg: string }> = {};
@@ -248,6 +314,7 @@ export class PlayersComponent {
   teamFilter = '';
   positionFilter = '';
   showForm = false;
+  showDeleted = false;
   formFirstName = '';
   formLastName = '';
   formTeamId = '';
@@ -330,6 +397,22 @@ export class PlayersComponent {
 
   viewPlayer(id: string) {
     this.router.navigate(['/players', id]);
+  }
+
+  async toggleTrash() {
+    this.showDeleted = !this.showDeleted;
+    if (this.showDeleted && this.deletedPlayers.length === 0) {
+      const clubId = this.data.currentClub()?.id;
+      if (clubId) {
+        this.deletedPlayers = await this.playerRepo.findDeleted(clubId);
+      }
+    }
+  }
+
+  async restorePlayer(player: Player) {
+    await this.playerRepo.restore(player.id);
+    this.deletedPlayers = this.deletedPlayers.filter(p => p.id !== player.id);
+    await this.load();
   }
 
   private async load() {

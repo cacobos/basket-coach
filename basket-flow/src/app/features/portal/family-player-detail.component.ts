@@ -212,12 +212,14 @@ export class FamilyPlayerDetailComponent {
   private async loadAll() {
     this.loading.set(true);
     try {
-      const { data: player } = await this.supabase.client
-        .from('players').select('*, teams(name, club_id)').eq('id', this.playerId).single();
+      const [{ data: player }, { data: playerTeam }] = await Promise.all([
+        this.supabase.client.from('players').select('*').eq('id', this.playerId).single(),
+        this.supabase.client.from('player_teams').select('teams(name, club_id)').eq('player_id', this.playerId).maybeSingle(),
+      ]);
       if (player) {
         this.player.set(player as any);
-        this.teamName.set(((player as any).teams as any)?.name ?? '');
-        this.clubId = ((player as any).teams as any)?.club_id ?? '';
+        this.teamName.set((playerTeam as any)?.teams?.name ?? '');
+        this.clubId = (playerTeam as any)?.teams?.club_id ?? '';
       }
 
       const userId = this.auth.user()?.id;

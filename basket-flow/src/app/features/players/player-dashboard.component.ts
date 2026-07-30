@@ -8,11 +8,16 @@ import { filter, map, startWith, switchMap, tap } from 'rxjs/operators';
 import { SupabaseService } from '../../core/supabase/supabase.service';
 import { DataService } from '../../core/services/data.service';
 import { PlayerRepository } from '../../core/repositories/player.repository';
-import type { Player, Team, PlayerTeam, Evaluation } from '../../core/models/models';
+import type { Player, Team, PlayerTeam, Evaluation, SessionPlayerReview } from '../../core/models/models';
 import { NotificationService } from '../../core/services/notification.service';
 
 interface PlayerTeamWithTeam extends PlayerTeam {
   teams: Team;
+}
+
+interface SessionReviewWithSession extends SessionPlayerReview {
+  session_title?: string;
+  session_date?: string;
 }
 
 @Component({
@@ -82,6 +87,20 @@ interface PlayerTeamWithTeam extends PlayerTeam {
                 </div>
               </div>
               <p class="empty-state" *ngIf="evaluations().length === 0">Sin evaluaciones registradas.</p>
+            </section>
+
+            <section class="card">
+              <h3 class="card-title">Opiniones de Sesiones</h3>
+              <div class="review-list" *ngIf="sessionReviews().length > 0">
+                <div class="review-item" *ngFor="let r of sessionReviews()">
+                  <div class="review-header">
+                    <span class="review-session">{{ r.session_title || 'Sesion sin titulo' }}</span>
+                    <span class="review-date">{{ r.session_date | date:'shortDate' }}</span>
+                  </div>
+                  <p class="review-text">{{ r.comments }}</p>
+                </div>
+              </div>
+              <p class="empty-state" *ngIf="sessionReviews().length === 0">Sin opiniones de sesiones.</p>
             </section>
 
             <section class="card">
@@ -229,6 +248,15 @@ interface PlayerTeamWithTeam extends PlayerTeam {
     .eval-score-val { font-size: 16px; font-weight: 700; color: #dfe0ff; }
     .eval-score-label { font-size: 9px; color: #908f9d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
 
+    .review-list { display: flex; flex-direction: column; gap: 8px; }
+    .review-item {
+      background: rgba(0,0,0,0.15); border-radius: 10px; padding: 12px;
+    }
+    .review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .review-session { font-size: 13px; font-weight: 600; color: #dfe0ff; }
+    .review-date { font-size: 11px; color: #908f9d; }
+    .review-text { font-size: 13px; color: #c6c5d4; margin: 0; line-height: 1.5; white-space: pre-wrap; }
+
     @media (max-width: 768px) {
       .page { padding: 16px !important; }
       .page-title { font-size: 28px !important; }
@@ -253,6 +281,7 @@ export class PlayerDashboardComponent {
   teams = signal<PlayerTeamWithTeam[]>([]);
   allClubTeams = signal<Team[]>([]);
   evaluations = signal<Evaluation[]>([]);
+  sessionReviews = signal<SessionReviewWithSession[]>([]);
   guardians = signal<any[]>([]);
   loading = signal(true);
   selectedTeamId = signal('');
@@ -302,12 +331,17 @@ export class PlayerDashboardComponent {
           .select('*')
           .eq('player_id', id)
           .order('created_at', { ascending: false }),
+        sessionReviews: this.supabase.client
+          .from('session_player_reviews')
+          .select('*, training_sessions(title, date)')
+          .eq('player_id', id)
+          .order('created_at', { ascending: false }),
         guardians: this.supabase.client
           .from('player_guardians')
           .select('*')
           .eq('player_id', id),
       }).pipe(
-        tap(({ allPlayers, teams, playerTeams, evaluations, guardians }) => {
+        tap(({ allPlayers, teams, playerTeams, evaluations, sessionReviews, guardians }) => {
           const foundPlayer = allPlayers.find(p => p.id === id);
           if (!foundPlayer) {
             this.loading.set(false);
@@ -320,6 +354,15 @@ export class PlayerDashboardComponent {
           }
           if (evaluations.data) {
             this.evaluations.set(evaluations.data as Evaluation[]);
+          }
+          if (sessionReviews.data) {
+            this.sessionReviews.set(
+              sessionReviews.data.map((r: any) => ({
+                ...r,
+                session_title: r.training_sessions?.title,
+                session_date: r.training_sessions?.date,
+              })) as SessionReviewWithSession[]
+            );
           }
           if (guardians.data) {
             this.guardians.set(guardians.data);

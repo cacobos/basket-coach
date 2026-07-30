@@ -241,11 +241,13 @@ export class PlayerDocumentsPage {
   private async loadAll() {
     this.loading.set(true);
     try {
-      const { data: player } = await this.supabase.client
-        .from('players').select('*, teams(name)').eq('id', this.playerId).single();
+      const [{ data: player }, { data: playerTeam }] = await Promise.all([
+        this.supabase.client.from('players').select('*').eq('id', this.playerId).single(),
+        this.supabase.client.from('player_teams').select('teams(name)').eq('player_id', this.playerId).maybeSingle(),
+      ]);
       if (player) {
         this.player.set(player as any);
-        this.teamName.set(((player as any).teams as any)?.name ?? '');
+        this.teamName.set((playerTeam as any)?.teams?.name ?? '');
       }
 
       const [license, documents, consents] = await Promise.all([

@@ -137,6 +137,12 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
                         <span class="material-symbols-outlined">check</span>
                       </button>
                     </div>
+                    <button class="btn-icon btn-icon-small" (click)="moveExercise(sec, se, -1)" *ngIf="ei > 0" title="Mover arriba">
+                      <span class="material-symbols-outlined">arrow_upward</span>
+                    </button>
+                    <button class="btn-icon btn-icon-small" (click)="moveExercise(sec, se, 1)" *ngIf="ei < getSectionExercises(sec.id).length - 1" title="Mover abajo">
+                      <span class="material-symbols-outlined">arrow_downward</span>
+                    </button>
                     <button class="btn-icon btn-icon-danger" (click)="removeExFromSection(se)">
                       <span class="material-symbols-outlined">remove_circle</span>
                     </button>
@@ -145,7 +151,7 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
                     <span class="material-symbols-outlined">drag_indicator</span>
                     <span>Arrastra o añade ejercicios desde abajo</span>
                   </div>
-                </div>
+              </div>
 
                 <div class="section-add-ex" *ngIf="sectionAddForms[sec.id]?.show; else addExToggle">
                   <select class="field-input add-ex-select" [(ngModel)]="sectionAddForms[sec.id].exerciseId" (ngModelChange)="onExerciseChange(sec)">
@@ -683,6 +689,17 @@ export class SessionBuilderComponent {
   removeExFromSection(se: ExerciseVM) {
     const list = this.sectionExercisesMap[se.section_id] || [];
     this.sectionExercisesMap[se.section_id] = list.filter(x => x.id !== se.id);
+  }
+
+  moveExercise(sec: SectionVM, se: ExerciseVM, dir: number) {
+    const list = this.sectionExercisesMap[sec.id] || [];
+    const idx = list.indexOf(se);
+    const target = idx + dir;
+    if (target < 0 || target >= list.length) return;
+    list[idx] = list[target];
+    list[target] = se;
+    list.forEach((e, i) => e.order = i + 1);
+    this.sectionExercisesMap[sec.id] = [...list];
   }
 
   async save() {

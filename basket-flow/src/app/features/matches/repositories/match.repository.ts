@@ -15,7 +15,8 @@ export class MatchRepository {
 
   async findByTeam(teamId: string): Promise<Match[]> {
     const { data, error } = await this.supabase.client
-      .from('matches').select('*').eq('team_id', teamId)
+      .from('matches').select('*')
+      .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
       .order('date', { ascending: false });
     if (error) throw error;
     return data ?? [];

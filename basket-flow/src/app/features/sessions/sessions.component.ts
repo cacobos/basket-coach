@@ -211,15 +211,17 @@ export class SessionsComponent {
     filter(Boolean),
     switchMap(club => this.reload.pipe(
       startWith(undefined),
-      switchMap(() => forkJoin({
-        teams: from(this.data.getTeams()),
-        sessions: from(this.sessionRepo.findAll(club.id)),
-      }).pipe(
-        catchError(err => {
-          this.notification.show(err instanceof Error ? err.message : String(err));
-          return of({ teams: [] as Team[], sessions: [] as TrainingSession[] });
-        })
-      )),
+      switchMap(() => {
+        const teams$ = from(this.data.getTeams().catch(e1 => {
+          console.error('[Sessions] getTeams error:', e1);
+          return [] as Team[];
+        }));
+        const sessions$ = from(this.sessionRepo.findAll(club.id).catch(e2 => {
+          console.error('[Sessions] findAll error:', e2);
+          return [] as TrainingSession[];
+        }));
+        return forkJoin({ teams: teams$, sessions: sessions$ });
+      }),
       map(({ teams, sessions }) => ({
         teams,
         sessions,

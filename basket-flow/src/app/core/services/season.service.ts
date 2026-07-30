@@ -4,30 +4,20 @@ import { SupabaseService } from '../supabase/supabase.service';
 
 @Injectable({ providedIn: 'root' })
 export class SeasonService {
-  private readonly STORAGE_KEY = 'basketflow-season';
   private supabase = inject(SupabaseService);
 
   allSeasons: SeasonOption[] = [];
 
-  selectedSeason = signal(this.loadSavedSeason());
+  selectedSeason = signal(SeasonService.getCurrentSeason());
 
   currentSeason = computed(() => this.selectedSeason());
 
   constructor() {
-    this.allSeasons = [SeasonService.optionFor(this.loadSavedSeason())];
-  }
-
-  private loadSavedSeason(): string {
-    return localStorage.getItem(this.STORAGE_KEY) || SeasonService.getCurrentSeason();
-  }
-
-  private saveSeason(season: string) {
-    localStorage.setItem(this.STORAGE_KEY, season);
+    this.allSeasons = [SeasonService.optionFor(this.selectedSeason())];
   }
 
   selectSeason(season: string) {
     this.selectedSeason.set(season);
-    this.saveSeason(season);
   }
 
   static getCurrentSeason(): string {

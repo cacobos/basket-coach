@@ -5,6 +5,8 @@ import { SeasonService } from '../services/season.service';
 import type { TrainingSession, SessionSection, SessionExercise, Attendance, SessionPlayerReview } from '../models/models';
 import type { BaseRepository } from './base.repository';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 @Injectable({ providedIn: 'root' })
 export class SessionRepository implements BaseRepository<TrainingSession, Omit<TrainingSession, 'id' | 'created_at' | 'created_by' | 'deleted_at'>, Partial<TrainingSession>> {
   private supabase = inject(SupabaseService);
@@ -12,6 +14,7 @@ export class SessionRepository implements BaseRepository<TrainingSession, Omit<T
   private seasonService = inject(SeasonService);
 
   async findAll(clubId: string, options?: { season?: string }): Promise<TrainingSession[]> {
+    if (!clubId || !UUID_RE.test(clubId)) return [];
     const season = options?.season || this.seasonService.selectedSeason();
     const teamIds = await this.getSeasonTeamIds(clubId, season);
     if (teamIds.length === 0) return [];
@@ -38,6 +41,7 @@ export class SessionRepository implements BaseRepository<TrainingSession, Omit<T
   }
 
   async findByDateRange(clubId: string, from: string, to: string, options?: { season?: string }): Promise<TrainingSession[]> {
+    if (!clubId || !UUID_RE.test(clubId)) return [];
     const season = options?.season || this.seasonService.selectedSeason();
     const teamIds = await this.getSeasonTeamIds(clubId, season);
     if (teamIds.length === 0) return [];
@@ -55,13 +59,16 @@ export class SessionRepository implements BaseRepository<TrainingSession, Omit<T
   }
 
   private async getSeasonTeamIds(clubId: string, season: string): Promise<string[]> {
+    if (!clubId || !UUID_RE.test(clubId)) return [];
+    if (!season) return [];
     const { data } = await this.supabase.client
       .from('teams')
       .select('id')
       .eq('club_id', clubId)
       .eq('season', season)
       .is('archived_at', null);
-    return (data || []).map(t => t.id);
+    const ids = (data || []).map(t => t.id).filter((id): id is string => typeof id === 'string' && UUID_RE.test(id));
+    return ids;
   }
 
   async findById(id: string): Promise<TrainingSession | null> {

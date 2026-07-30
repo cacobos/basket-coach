@@ -319,6 +319,8 @@ export class MainLayoutComponent implements OnDestroy {
     const clubId = this.data.currentClub()?.id;
     if (!clubId) return null;
     const role = this.clubRole();
+    const isSuperadmin = this.auth.profile()?.is_superadmin;
+    if (isSuperadmin) return { path: `/clubs/${clubId}/settings`, label: 'Club', icon: 'settings', exact: true } as NavItem;
     if (!role || !this.perms.hasPermission(role as any, 'club.members.manage')) return null;
     return { path: `/clubs/${clubId}/settings`, label: 'Club', icon: 'settings', exact: true } as NavItem;
   });
@@ -329,7 +331,10 @@ export class MainLayoutComponent implements OnDestroy {
     const isSuperadmin = this.auth.profile()?.is_superadmin;
     const items = this.staffNavItems.filter(item => {
       if (item.adminOnly && !isSuperadmin) return false;
-      if (item.permission) return this.perms.hasPermission(role as any, item.permission);
+      if (item.permission) {
+        if (isSuperadmin) return true;
+        return this.perms.hasPermission(role as any, item.permission);
+      }
       return true;
     });
     const clubItem = this.clubNavItem();

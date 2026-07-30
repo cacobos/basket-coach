@@ -29,13 +29,13 @@ export class PlayerRepository implements BaseRepository<Player, Omit<Player, 'id
     const season = options?.season || this.seasonService.selectedSeason();
     const { data, error } = await this.supabase.client
       .from('players')
-      .select('*, teams!inner(name)')
+      .select('*')
       .eq('club_id', clubId)
       .eq('season', season)
       .is('deleted_at', null)
       .order('last_name');
     if (error) throw error;
-    return (data as any[])?.map(p => ({ ...p, team_id: p.team_id })) as Player[] || [];
+    return (data as Player[]) || [];
   }
 
   async findById(id: string): Promise<Player | null> {
@@ -66,5 +66,22 @@ export class PlayerRepository implements BaseRepository<Player, Omit<Player, 'id
     const { error } = await this.supabase.client
       .from('players').update({ deleted_at: new Date().toISOString() }).eq('id', id);
     if (error) throw error;
+  }
+
+  async restore(id: string): Promise<void> {
+    const { error } = await this.supabase.client
+      .from('players').update({ deleted_at: null }).eq('id', id);
+    if (error) throw error;
+  }
+
+  async findDeleted(clubId: string): Promise<Player[]> {
+    const { data, error } = await this.supabase.client
+      .from('players')
+      .select('*')
+      .eq('club_id', clubId)
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false });
+    if (error) throw error;
+    return (data as Player[]) || [];
   }
 }

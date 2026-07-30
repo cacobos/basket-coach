@@ -8,7 +8,7 @@ import { switchMap, filter, map, tap, catchError, take, shareReplay } from 'rxjs
 import { ExerciseRepository } from '../../core/repositories/exercise.repository';
 import { DataService } from '../../core/services/data.service';
 import { NotificationService } from '../../core/services/notification.service';
-import type { Club, Tag, ExerciseVariant } from '../../core/models/models';
+import type { Club, Tag } from '../../core/models/models';
 
 const FORM_STORAGE_KEY = 'exercise-form-state';
 const DIAGRAM_STORAGE_KEY = 'tactics-diagram-export';
@@ -65,38 +65,6 @@ const DIAGRAM_STORAGE_KEY = 'tactics-diagram-export';
             </div>
           </fieldset>
 
-          <!-- Inline variant management -->
-          <fieldset class="variants-section" *ngIf="editing">
-            <legend>Variantes <span class="variant-count" *ngIf="variants.length">({{ variants.length }})</span></legend>
-            <div class="variant-item" *ngFor="let v of variants; let i = index">
-              <div class="variant-summary" *ngIf="editingVariantId !== v.id" (click)="startEditVariant(v)">
-                <strong>{{ v.name }}</strong>
-                <span class="variant-summary-desc" *ngIf="v.description">{{ v.description }}</span>
-                <button class="btn-icon-small" (click)="$event.stopPropagation(); deleteVariant(v)"><span class="material-symbols-outlined">delete</span></button>
-              </div>
-              <div class="variant-edit-form" *ngIf="editingVariantId === v.id">
-                <input class="field-input" [(ngModel)]="variantEditName" placeholder="Nombre corto (ej: 3x2)"/>
-                <textarea class="field-input field-textarea" [(ngModel)]="variantEditDesc" rows="2" placeholder="Descripción adicional..."></textarea>
-                <div class="variant-edit-actions">
-                  <button class="btn-cancel-small" (click)="cancelEditVariant()">Cancelar</button>
-                  <button class="btn-save-small" (click)="saveVariant(v)">Guardar</button>
-                </div>
-              </div>
-            </div>
-            <div class="variant-new" *ngIf="!addingVariant">
-              <button class="btn-add-variant" (click)="startAddVariant()">
-                <span class="material-symbols-outlined">add</span> Añadir variante
-              </button>
-            </div>
-            <div class="variant-edit-form" *ngIf="addingVariant">
-              <input class="field-input" [(ngModel)]="variantEditName" placeholder="Nombre corto (ej: 3x2)"/>
-              <textarea class="field-input field-textarea" [(ngModel)]="variantEditDesc" rows="2" placeholder="Descripción adicional..."></textarea>
-              <div class="variant-edit-actions">
-                <button class="btn-cancel-small" (click)="cancelAddVariant()">Cancelar</button>
-                <button class="btn-save-small" (click)="createVariant()">Crear</button>
-              </div>
-            </div>
-          </fieldset>
         </div>
         <div class="form-actions">
           <button class="btn-cancel" routerLink="/exercises">Cancelar</button>
@@ -141,51 +109,7 @@ const DIAGRAM_STORAGE_KEY = 'tactics-diagram-export';
     .tag-selector::-webkit-scrollbar-thumb { background: rgba(189,194,255,0.2); border-radius: 2px; }
     .no-tags { font-size: 13px; color: #908f9d; }
     .no-tags a { color: #bdc2ff; }
-    .variants-section { border: 1px solid rgba(69,70,82,0.3); border-radius: 8px; padding: 12px; margin-top: 8px; min-width: 0; overflow: visible; }
-    .variants-section legend { font-size: 12px; font-weight: 600; color: #c6c5d4; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 6px; }
-    .variant-count { font-weight: 400; color: #908f9d; text-transform: none; letter-spacing: 0; }
-    .variant-item { margin-bottom: 6px; max-width: 100%; }
-    .variant-summary {
-      display: flex; align-items: center; gap: 8px;
-      background: #111644; border: 1px solid rgba(69,70,82,0.2);
-      border-radius: 8px; padding: 10px 12px; cursor: pointer;
-      transition: border-color 0.15s; max-width: 100%; box-sizing: border-box;
-    }
-    .variant-summary:hover { border-color: #4f6ef7; }
-    .variant-summary strong { color: #dfe0ff; font-size: 14px; flex-shrink: 0; }
-    .variant-summary-desc { color: #908f9d; font-size: 12px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .btn-icon-small {
-      background: rgba(255,138,128,0.15); border: none; color: #ff8a80;
-      cursor: pointer; padding: 3px; border-radius: 6px;
-      display: flex; align-items: center; flex-shrink: 0;
-    }
-    .btn-icon-small .material-symbols-outlined { font-size: 16px; }
-    .variant-edit-form {
-      display: flex; flex-direction: column; gap: 8px;
-      background: #111644; border: 1px solid #4f6ef7;
-      border-radius: 8px; padding: 12px; margin-bottom: 6px;
-      max-width: 100%; box-sizing: border-box;
-    }
-    .variant-edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
-    .btn-cancel-small {
-      background: #212653; color: #c6c5d4; border: none;
-      padding: 6px 14px; border-radius: 6px; cursor: pointer;
-      font-family: 'Hanken Grotesk', sans-serif; font-size: 13px; font-weight: 600;
-    }
-    .btn-save-small {
-      background: #0068ed; color: white; border: none;
-      padding: 6px 14px; border-radius: 6px; cursor: pointer;
-      font-family: 'Hanken Grotesk', sans-serif; font-size: 13px; font-weight: 600;
-    }
-    .btn-add-variant {
-      display: flex; align-items: center; gap: 6px;
-      background: none; border: 1px dashed rgba(69,70,82,0.3);
-      color: #908f9d; cursor: pointer; padding: 10px 16px; border-radius: 8px;
-      font-family: 'Hanken Grotesk', sans-serif; font-size: 13px;
-      width: 100%; justify-content: center; box-sizing: border-box;
-    }
-    .btn-add-variant:hover { border-color: #bdc2ff; color: #bdc2ff; }
-    .btn-add-variant .material-symbols-outlined { font-size: 16px; }
+
     .diagrams-section { border: 1px solid rgba(69,70,82,0.3); border-radius: 8px; padding: 12px; }
     .diagrams-section legend { font-size: 12px; font-weight: 600; color: #c6c5d4; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 6px; }
     .diagram-item { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.15); border-radius: 8px; }
@@ -264,12 +188,6 @@ export class ExerciseFormComponent {
   availableTags: Tag[] = [];
   selectedTagIds = new Set<string>();
 
-  variants: ExerciseVariant[] = [];
-  addingVariant = false;
-  editingVariantId: string | null = null;
-  variantEditName = '';
-  variantEditDesc = '';
-
   private club$ = toObservable(this.data.currentClub).pipe(
     filter((c): c is Club => c !== null)
   );
@@ -279,12 +197,10 @@ export class ExerciseFormComponent {
     switchMap(club => {
       const tags$ = from(this.exerciseRepo.getTags(club.id));
       const exercise$ = this.exerciseId ? from(this.exerciseRepo.findById(this.exerciseId)) : of(null);
-      const variants$ = this.exerciseId ? from(this.exerciseRepo.getVariants(this.exerciseId)) : of([]);
-      return forkJoin([tags$, exercise$, variants$]);
+      return forkJoin([tags$, exercise$]);
     }),
-    tap(([tags, exercise, variants]) => {
+    tap(([tags, exercise]) => {
       this.availableTags = tags;
-      this.variants = variants || [];
 
       this.restoreFormState(exercise);
 
@@ -363,67 +279,6 @@ export class ExerciseFormComponent {
     this.router.navigate(['/tactics'], {
       queryParams: { mode: 'exercise-diagram', returnUrl }
     });
-  }
-
-  // ── Variant Management ──
-
-  startAddVariant() {
-    this.addingVariant = true;
-    this.editingVariantId = null;
-    this.variantEditName = '';
-    this.variantEditDesc = this.formDescription || '';
-  }
-
-  cancelAddVariant() {
-    this.addingVariant = false;
-  }
-
-  startEditVariant(v: ExerciseVariant) {
-    this.addingVariant = false;
-    this.editingVariantId = v.id;
-    this.variantEditName = v.name;
-    this.variantEditDesc = v.description || '';
-  }
-
-  cancelEditVariant() {
-    this.editingVariantId = null;
-  }
-
-  async createVariant() {
-    if (!this.variantEditName.trim() || !this.exerciseId) return;
-    const created = await this.exerciseRepo.createVariant({
-      exercise_id: this.exerciseId,
-      name: this.variantEditName.trim(),
-      description: this.variantEditDesc.trim() || null,
-      difficulty: null,
-      duration_minutes: null,
-      players_min: null,
-      players_max: null,
-      tags: [],
-      diagrams: [],
-      notes: null,
-    });
-    this.variants.push(created);
-    this.addingVariant = false;
-  }
-
-  async saveVariant(v: ExerciseVariant) {
-    if (!this.variantEditName.trim()) return;
-    await this.exerciseRepo.updateVariant(v.id, {
-      name: this.variantEditName.trim(),
-      description: this.variantEditDesc.trim() || null,
-    });
-    Object.assign(v, {
-      name: this.variantEditName.trim(),
-      description: this.variantEditDesc.trim() || null,
-    });
-    this.editingVariantId = null;
-  }
-
-  async deleteVariant(v: ExerciseVariant) {
-    if (!confirm(`¿Eliminar la variante "${v.name}"?`)) return;
-    await this.exerciseRepo.deleteVariant(v.id);
-    this.variants = this.variants.filter(x => x.id !== v.id);
   }
 
   async save() {

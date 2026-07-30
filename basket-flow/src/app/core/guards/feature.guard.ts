@@ -1,6 +1,6 @@
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { map } from 'rxjs';
+import { map, filter, first, race, timer, switchMap } from 'rxjs';
 import { PermissionService } from '../services/permission.service';
 import { DataService } from '../services/data.service';
 
@@ -11,10 +11,22 @@ export function featureGuard(feature: string) {
     const router = inject(Router);
 
     const clubId = data.currentClub()?.id;
-    if (!clubId) return router.createUrlTree(['/dashboard']);
+    if (clubId) {
+      return perms.hasFeatureAccess(feature, clubId).pipe(
+        map(hasAccess => hasAccess ? true : router.createUrlTree(['/upgrade']))
+      );
+    }
 
-    return perms.hasFeatureAccess(feature, clubId).pipe(
-      map(hasAccess => hasAccess ? true : router.createUrlTree(['/upgrade']))
-    );
+    return race([
+      timer(10000).pipe(map(() => router.createUrlTree(['/dashboard']))),
+      timer(0, 100).pipe(
+        map(() => data.currentClub()?.id),
+        filter(Boolean),
+        first(),
+        switchMap(id => perms.hasFeatureAccess(feature, id).pipe(
+          map(hasAccess => hasAccess ? true : router.createUrlTree(['/upgrade']))
+        )),
+      ),
+    ]);
   };
 }
