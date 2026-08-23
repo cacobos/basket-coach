@@ -45,7 +45,7 @@ vi.mock('@angular/core', async (importOriginal) => {
 const { FinanceStore } = await import('../finance.store');
 
 describe('FinanceStore', () => {
-  let store: FinanceStore;
+  let store: InstanceType<typeof FinanceStore>;
 
   beforeEach(() => {
     vi.clearAllMocks();

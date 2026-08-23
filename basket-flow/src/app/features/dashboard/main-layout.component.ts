@@ -1,8 +1,8 @@
-import { Component, inject, computed, signal, HostListener, OnDestroy } from '@angular/core';
+import { Component, inject, computed, signal, effect, HostListener, OnDestroy } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subscription, from, of, timer, switchMap, takeWhile, filter, map, tap } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { PermissionService, type Permission } from '../../core/services/permission.service';
 import { DataService } from '../../core/services/data.service';
@@ -16,7 +16,11 @@ interface NavItem {
   exact?: boolean;
   permission?: Permission;
   adminOnly?: boolean;
-  familyOnly?: boolean;
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
 }
 
 @Component({
@@ -52,7 +56,7 @@ interface NavItem {
 
         <div class="season-selector">
           <span class="material-symbols-outlined season-icon">calendar_month</span>
-          <select [ngModel]="seasonService.selectedSeason()" (ngModelChange)="onSeasonChange($event)" class="season-select">
+          <select aria-label="Seleccionar temporada" [ngModel]="seasonService.selectedSeason()" (ngModelChange)="onSeasonChange($event)" class="season-select">
             @for (opt of seasonService.allSeasons; track opt.value) {
               <option [value]="opt.value">{{ opt.label }}</option>
             }
@@ -62,7 +66,7 @@ interface NavItem {
         <div class="club-selector">
           @if (data.clubs().length > 1) {
             <span class="material-symbols-outlined season-icon">business</span>
-            <select [ngModel]="data.currentClub()?.id" (ngModelChange)="onClubChange($event)" class="season-select">
+            <select aria-label="Seleccionar club" [ngModel]="data.currentClub()?.id" (ngModelChange)="onClubChange($event)" class="season-select">
               @for (club of data.clubs(); track club.id) {
                 <option [value]="club.id">{{ club.name }}</option>
               }
@@ -81,23 +85,39 @@ interface NavItem {
         </div>
 
         <nav class="nav">
-          @for (item of visibleItems(); track item.path) {
-            <a [routerLink]="item.path" routerLinkActive="active-nav-item"
-               [routerLinkActiveOptions]="item.exact ? {exact:true} : {}"
-               class="nav-item" (click)="mobileMenuOpen = false">
-              <span class="material-symbols-outlined nav-icon">{{ item.icon }}</span>
-              <span>{{ item.label }}</span>
-            </a>
+          @if (isFamily()) {
+            @for (item of familyNavItems; track item.path) {
+              <a [routerLink]="item.path" routerLinkActive="active-nav-item"
+                 [routerLinkActiveOptions]="item.exact ? {exact:true} : {}"
+                 class="nav-item" (click)="mobileMenuOpen = false">
+                <span class="material-symbols-outlined nav-icon">{{ item.icon }}</span>
+                <span>{{ item.label }}</span>
+              </a>
+            }
+          } @else {
+            @for (group of visibleGroups(); track group.label) {
+              <div class="nav-group-label">{{ group.label }}</div>
+              @for (item of group.items; track item.path) {
+                <a [routerLink]="item.path" routerLinkActive="active-nav-item"
+                   [routerLinkActiveOptions]="item.exact ? {exact:true} : {}"
+                   class="nav-item" (click)="mobileMenuOpen = false">
+                  <span class="material-symbols-outlined nav-icon">{{ item.icon }}</span>
+                  <span>{{ item.label }}</span>
+                </a>
+              }
+            }
           }
         </nav>
 
         <div class="sidebar-footer">
-          <a routerLink="/upgrade" class="upgrade-link">Mejorar plan</a>
           <div class="user-info" *ngIf="auth.profile() as profile">
-            <div class="avatar">{{ profile.full_name.charAt(0) || '?' }}</div>
+            <div class="avatar">{{ displayName().charAt(0).toUpperCase() }}</div>
             <div class="user-details">
-              <span class="user-name">{{ profile.full_name }}</span>
-              <span class="user-email">{{ profile.email }}</span>
+              <span class="user-name">{{ displayName() }}</span>
+              @if (profile.email !== displayName()) {
+                <span class="user-email">{{ profile.email }}</span>
+              }
+              <a routerLink="/upgrade" class="upgrade-link">Mejorar plan</a>
             </div>
           </div>
           <button class="logout-btn" (click)="auth.signOut()" title="Cerrar sesión">
@@ -204,6 +224,16 @@ interface NavItem {
       flex-direction: column;
       gap: 2px;
     }
+    .nav-group-label {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #6a6a80;
+      padding: 14px 12px 4px;
+      user-select: none;
+    }
+    .nav-group-label:first-child { padding-top: 6px; }
     .nav-item {
       display: flex;
       align-items: center;
@@ -226,15 +256,13 @@ interface NavItem {
       gap: 8px;
     }
     .upgrade-link {
-      display: block; text-align: center;
-      padding: 8px; border-radius: 8px;
-      background: rgba(0,104,237,0.12);
-      color: #bdc2ff; text-decoration: none;
-      font-size: 12px; font-weight: 700;
-      letter-spacing: 0.03em;
-      transition: all 0.15s;
+      display: inline-block; align-self: flex-start;
+      margin-top: 2px;
+      color: #8f96e8; text-decoration: none;
+      font-size: 11px; font-weight: 600;
+      transition: color 0.15s;
     }
-    .upgrade-link:hover { background: rgba(0,104,237,0.2); }
+    .upgrade-link:hover { color: #bdc2ff; text-decoration: underline; }
     .user-info { display: flex; align-items: center; gap: 10px; flex: 1; overflow: hidden; }
     .avatar {
       width: 32px; height: 32px; border-radius: 50%;
@@ -285,35 +313,70 @@ export class MainLayoutComponent implements OnDestroy {
   protected data = inject(DataService);
   private supabase = inject(SupabaseService);
   mobileMenuOpen = false;
-  private pollSub?: Subscription;
 
-  private staffNavItems: NavItem[] = [
-    { path: '/dashboard', label: 'Dashboard', icon: 'dashboard', exact: true },
-    { path: '/teams', label: 'Equipos', icon: 'groups', permission: 'team.manage' },
-    { path: '/players', label: 'Jugadores', icon: 'face', permission: 'player.manage' },
-    { path: '/matches', label: 'Partidos', icon: 'sports_basketball', permission: 'match.manage' },
-    { path: '/exercises', label: 'Ejercicios', icon: 'fitness_center', permission: 'exercise.manage' },
-    { path: '/sessions', label: 'Sesiones', icon: 'calendar_month', permission: 'session.manage' },
-    { path: '/sessions/new', label: 'Crear Sesión', icon: 'playlist_add', permission: 'session.manage' },
-    { path: '/planning', label: 'Planificación', icon: 'timeline', permission: 'planning.manage' },
-    { path: '/calendar', label: 'Calendario', icon: 'calendar_view_month' },
-    { path: '/tactics', label: 'Pizarra', icon: 'draw', permission: 'tactics.manage' },
-    { path: '/evaluations', label: 'Evaluar', icon: 'fact_check', permission: 'evaluation.manage' },
-    { path: '/documents', label: 'Documentos', icon: 'description', permission: 'documents.manage' },
-    { path: '/announcements', label: 'Comunicación', icon: 'campaign', permission: 'announcements.manage' },
-    { path: '/finance', label: 'Finanzas', icon: 'payments', permission: 'finance.manage' },
-    { path: '/configuration', label: 'Configuración', icon: 'settings', permission: 'configuration.manage' },
-    { path: '/superadmin', label: 'Admin', icon: 'admin_panel_settings', adminOnly: true },
+  private staffNavGroups: NavGroup[] = [
+    {
+      label: 'Inicio',
+      items: [
+        { path: '/dashboard', label: 'Dashboard', icon: 'dashboard', exact: true },
+      ],
+    },
+    {
+      label: 'Entrenamiento',
+      items: [
+        { path: '/sessions', label: 'Sesiones', icon: 'calendar_month', permission: 'session.manage' },
+        { path: '/planning', label: 'Planificación', icon: 'timeline', permission: 'planning.manage' },
+        { path: '/exercises', label: 'Ejercicios', icon: 'fitness_center', permission: 'exercise.manage' },
+        { path: '/tactics', label: 'Pizarra táctica', icon: 'draw', permission: 'tactics.manage' },
+      ],
+    },
+    {
+      label: 'Partidos',
+      items: [
+        { path: '/matches', label: 'Partidos', icon: 'sports_basketball', permission: 'match.manage' },
+      ],
+    },
+    {
+      label: 'Equipo',
+      items: [
+        { path: '/players', label: 'Jugadores', icon: 'face', permission: 'player.manage' },
+        { path: '/teams', label: 'Equipos', icon: 'groups', permission: 'team.manage' },
+        { path: '/evaluations', label: 'Evaluaciones', icon: 'fact_check', permission: 'evaluation.manage' },
+      ],
+    },
+    {
+      label: 'Club',
+      items: [
+        { path: '/finance', label: 'Cuotas', icon: 'payments', permission: 'finance.manage' },
+        { path: '/documents', label: 'Documentos', icon: 'description', permission: 'documents.manage' },
+        { path: '/announcements', label: 'Avisos', icon: 'campaign' },
+        { path: '/configuration', label: 'Configuración', icon: 'settings', permission: 'configuration.manage' },
+      ],
+    },
+    {
+      label: 'Sistema',
+      items: [
+        { path: '/superadmin', label: 'Panel admin', icon: 'admin_panel_settings', adminOnly: true },
+      ],
+    },
   ];
 
-  private familyNavItems: NavItem[] = [
-    { path: '/portal', label: 'Mi Portal', icon: 'home', exact: true, familyOnly: true },
-    { path: '/calendar', label: 'Calendario', icon: 'calendar_view_month', familyOnly: true },
-    { path: '/announcements', label: 'Comunicación', icon: 'campaign', familyOnly: true },
+  readonly familyNavItems: NavItem[] = [
+    { path: '/portal', label: 'Mi Portal', icon: 'home', exact: true },
+    { path: '/calendar', label: 'Calendario', icon: 'calendar_view_month' },
+    { path: '/announcements', label: 'Avisos', icon: 'campaign' },
   ];
 
   private clubRole = signal<string | null>(null);
-  private isFamily = signal(false);
+  readonly isFamily = signal(false);
+  private lastNavKey: string | null = null;
+
+  readonly displayName = computed(() => {
+    const profile = this.auth.profile();
+    if (!profile) return '';
+    const name = (profile.full_name || '').trim();
+    return name && !name.includes('@') ? name : profile.email;
+  });
 
   clubNavItem = computed(() => {
     const clubId = this.data.currentClub()?.id;
@@ -325,58 +388,81 @@ export class MainLayoutComponent implements OnDestroy {
     return { path: `/clubs/${clubId}/settings`, label: 'Club', icon: 'settings', exact: true } as NavItem;
   });
 
-  visibleItems = computed(() => {
-    if (this.isFamily()) return this.familyNavItems;
+  visibleGroups = computed<NavGroup[]>(() => {
+    if (this.isFamily()) return [];
     const role = this.clubRole();
     const isSuperadmin = this.auth.profile()?.is_superadmin;
-    const items = this.staffNavItems.filter(item => {
-      if (item.adminOnly && !isSuperadmin) return false;
-      if (item.permission) {
-        if (isSuperadmin) return true;
-        return this.perms.hasPermission(role as any, item.permission);
-      }
-      return true;
-    });
     const clubItem = this.clubNavItem();
-    if (clubItem) items.unshift(clubItem);
-    return items;
+    return this.staffNavGroups
+      .map(group => ({
+        label: group.label,
+        items: group.items.filter(item => {
+          if (item.adminOnly && !isSuperadmin) return false;
+          if (item.permission) {
+            if (isSuperadmin) return true;
+            return this.perms.hasPermission(role as any, item.permission);
+          }
+          return true;
+        }),
+      }))
+      .map(group =>
+        group.label === 'Club' && clubItem ? { ...group, items: [clubItem, ...group.items] } : group
+      )
+      .filter(group => group.items.length > 0);
   });
 
   constructor() {
-    this.pollSub = from(this.auth.ready).pipe(
-      switchMap(() => {
-        const profile = this.auth.profile();
-        if (!profile) return of(null);
-        const userId = this.auth.user()?.id;
-        if (!userId) return of(null);
-        return from(
-          this.supabase.client
-            .from('player_guardians')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId)
-        ).pipe(
-          switchMap(({ count }) => {
-            if (count && count > 0) {
-              this.isFamily.set(true);
-              return of(null);
-            }
-            return timer(0, 50).pipe(
-              map(() => this.data.currentClub()?.id),
-              takeWhile(id => !id, true),
-              filter(Boolean),
-              tap(clubId => this.seasonService.loadFromDb(clubId)),
-              switchMap(clubId => this.perms.getRoleInClub(clubId!))
-            );
-          })
-        );
-      })
-    ).subscribe(role => {
-      if (role) this.clubRole.set(role);
+    effect(() => {
+      const user = this.auth.user();
+      const club = this.data.currentClub();
+      if (!user) return;
+
+      const key = `${user.id}:${club?.id ?? 'noclub'}`;
+      if (this.lastNavKey === key) return;
+      void this.resolveAndLoad(club?.id ?? null, user.id, key);
     });
   }
 
+  private async resolveAndLoad(clubId: string | null, userId: string, key: string): Promise<void> {
+    this.lastNavKey = key;
+    const isGuardian = await this.isGuardian(userId);
+    if (isGuardian && !clubId) {
+      this.isFamily.set(true);
+      return;
+    }
+    if (!clubId) return;
+    if (isGuardian) {
+      const role = await firstValueFrom(this.perms.getRoleInClub(clubId)).catch(() => null);
+      if (!role) {
+        this.isFamily.set(true);
+        return;
+      }
+    }
+    this.isFamily.set(false);
+    await this.loadRoleFor(clubId);
+  }
+
+  private async isGuardian(userId: string): Promise<boolean> {
+    try {
+      const { count } = await this.supabase.client
+        .from('player_guardians')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      return !!count && count > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  private async loadRoleFor(clubId: string): Promise<void> {
+    this.seasonService.loadFromDb(clubId);
+    await this.perms.ensureLoaded();
+    const role = await firstValueFrom(this.perms.getRoleInClub(clubId)).catch(() => null);
+    this.clubRole.set(role ?? null);
+  }
+
   ngOnDestroy() {
-    this.pollSub?.unsubscribe();
+    /* reactive effects are disposed automatically */
   }
 
   onSeasonChange(season: string) {

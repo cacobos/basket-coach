@@ -34,6 +34,10 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Exerci
             <p class="detail-objectives" *ngIf="vm.session.objectives">{{ vm.session.objectives }}</p>
           </div>
           <div class="detail-header-actions">
+            <button class="btn-secondary" (click)="goBuilder()">
+              <span class="material-symbols-outlined">edit_note</span>
+              Editar en Builder
+            </button>
             <button class="btn-secondary" (click)="showPdfFormatPicker = true">
               <span class="material-symbols-outlined">picture_as_pdf</span>
               Exportar PDF
@@ -74,50 +78,16 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Exerci
           <main class="detail-main">
             <div class="sections-list">
               <div class="section-card" *ngFor="let sec of vm.sections; let si = index"
-                [id]="'section-' + si"
-                draggable="true"
-                (dragstart)="onSectionDragStart($event, si)"
-                (dragover)="onSectionDragOver($event, si)"
-                (dragend)="onSectionDragEnd()"
-                (drop)="onSectionDrop($event, si)"
-                [class.drag-over]="dragOverSectionIdx === si"
-                [style.border-left-color]="sectionColors[si % sectionColors.length]">
+                 [id]="'section-' + si"
+                 [style.border-left-color]="sectionColors[si % sectionColors.length]">
                 <div class="section-header">
-                  <div class="section-handle" (mousedown)="$event.stopPropagation()">
-                    <span class="material-symbols-outlined">drag_indicator</span>
-                  </div>
-                  <div class="section-title-group">
-                    <span class="section-badge" [style.background]="sectionColors[si % sectionColors.length]">{{ sec.name }}</span>
-                    <input class="section-name-input" [(ngModel)]="sec.name" (blur)="updateSectionName(sec)" placeholder="Nombre de la sección"/>
-                  </div>
-                  <div class="section-header-actions">
-                    <span class="duration-pill">{{ getSectionDuration(sec.id) }} min</span>
-                    <button class="btn-icon" (click)="moveSection(sec, -1)" *ngIf="si > 0" title="Mover arriba">
-                      <span class="material-symbols-outlined">keyboard_arrow_up</span>
-                    </button>
-                    <button class="btn-icon" (click)="moveSection(sec, 1)" *ngIf="si < sections.length - 1" title="Mover abajo">
-                      <span class="material-symbols-outlined">keyboard_arrow_down</span>
-                    </button>
-                    <button class="btn-icon btn-icon-danger" (click)="promptRemoveSection(sec)" *ngIf="sections.length > 1" title="Eliminar sección">
-                      <span class="material-symbols-outlined">delete</span>
-                    </button>
-                  </div>
+                  <span class="section-badge" [style.background]="sectionColors[si % sectionColors.length]">{{ sec.name }}</span>
+                  <span class="duration-pill">{{ getSectionDuration(sec.id) }} min</span>
+                  <span class="ex-count">{{ getSectionExercises(sec.id).length }} ejercicios</span>
                 </div>
 
-                <div class="section-exercises"
-                  (dragover)="onExDragOver($event, sec.id)"
-                  (drop)="onExDrop($event, sec.id)"
-                  [class.ex-drop-target]="dragExTargetSection === sec.id">
-                  <div class="ex-item" *ngFor="let se of getSectionExercises(sec.id); let ei = index"
-                    draggable="true"
-                    (dragstart)="onExDragStart($event, se, sec.id)"
-                    (dragover)="onExDragOverItem($event, ei)"
-                    (drop)="onExDropOnItem($event, sec.id, ei)"
-                    [class.drag-over-top]="dragOverExIdx === ei && dragExTargetSection === sec.id && dragExPosition === 'before'"
-                    [class.drag-over-bottom]="dragOverExIdx === ei && dragExTargetSection === sec.id && dragExPosition === 'after'">
-                    <div class="ex-drag-handle" (mousedown)="$event.stopPropagation()">
-                      <span class="material-symbols-outlined">drag_indicator</span>
-                    </div>
+                <div class="section-exercises">
+                  <div class="ex-item" *ngFor="let se of getSectionExercises(sec.id); let ei = index">
                     <div class="ex-order">{{ ei + 1 }}</div>
                     <div class="ex-info">
                       <div class="ex-name-row">
@@ -127,58 +97,17 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Exerci
                       <div class="ex-tags-row" *ngIf="getExerciseTags(se.exercise_id).length">
                         <span class="mini-tag" *ngFor="let t of getExerciseTags(se.exercise_id)">{{ t }}</span>
                       </div>
-                      <input class="ex-notes field-input" [(ngModel)]="se.notes" (blur)="updateExNotes(se)" placeholder="Notas opcionales..."/>
+                      <span class="ex-notes-text" *ngIf="se.notes">{{ se.notes }}</span>
                     </div>
-                    <button class="btn-icon btn-icon-danger" (click)="promptRemoveEx(se)">
-                      <span class="material-symbols-outlined">remove_circle</span>
-                    </button>
                   </div>
                   <div class="ex-empty" *ngIf="getSectionExercises(sec.id).length === 0">
                     <span class="material-symbols-outlined">fitness_center</span>
-                    <span>Sin ejercicios — añade desde abajo</span>
+                    <span>Sin ejercicios</span>
                   </div>
                 </div>
-
-                <div class="section-add-ex">
-                  <button class="btn-select-ex" (click)="openExercisePicker(sec)">
-                    <span class="material-symbols-outlined">search</span>
-                    {{ addExExerciseId && getExercise(addExExerciseId) ? getExercise(addExExerciseId)!.name : 'Seleccionar ejercicio...' }}
-                  </button>
-                  <select class="field-input add-ex-variant" *ngIf="addExVariants.length > 0" [(ngModel)]="addExVariantId">
-                    <option *ngFor="let v of addExVariants" [value]="v.id">{{ v.name }}</option>
-                  </select>
-                  <input class="field-input add-ex-dur" type="number" [(ngModel)]="addExDuration" min="1" max="120" placeholder="min"/>
-                  <input class="field-input add-ex-notes" [(ngModel)]="addExNotes" placeholder="Notas..."/>
-                  <button class="btn-add-ex" (click)="addExerciseToSection(sec)" [disabled]="!addExExerciseId || addingExercise">
-                    <span class="material-symbols-outlined" *ngIf="!addingExercise">add</span>
-                    <span class="material-symbols-outlined loading-icon-sm" *ngIf="addingExercise">sync</span>
-                    Añadir
-                  </button>
-                </div>
-              </div>
-
-              <button class="add-section-btn" (click)="addSection()" [disabled]="savingSection">
-                <span class="material-symbols-outlined loading-icon-sm" *ngIf="savingSection">sync</span>
-                <span class="material-symbols-outlined" *ngIf="!savingSection">add</span>
-                {{ savingSection ? 'Añadiendo...' : 'Añadir Sección' }}
-              </button>
+            </div>
             </div>
           </main>
-        </div>
-      </div>
-
-      <!-- Confirm modal -->
-      <div class="modal-overlay" *ngIf="showConfirm" (click)="cancelConfirm()">
-        <div class="modal-card confirm-card" (click)="$event.stopPropagation()">
-          <div class="confirm-icon">
-            <span class="material-symbols-outlined">help</span>
-          </div>
-          <h3 class="confirm-title">{{ confirmTitle }}</h3>
-          <p class="confirm-message">{{ confirmMessage }}</p>
-          <div class="confirm-actions">
-            <button class="btn-cancel" (click)="cancelConfirm()">Cancelar</button>
-            <button class="btn-danger" (click)="executeConfirm()">Eliminar</button>
-          </div>
         </div>
       </div>
 
@@ -204,45 +133,6 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Exerci
           <div class="modal-actions">
             <button class="btn-cancel" (click)="showEditForm = false">Cancelar</button>
             <button class="btn-save" (click)="saveEdit()">Guardar Cambios</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Exercise picker modal -->
-      <div class="modal-overlay" *ngIf="showExercisePicker" (click)="showExercisePicker = false">
-        <div class="modal-card picker-card" (click)="$event.stopPropagation()">
-          <div class="picker-header">
-            <h3 class="modal-title">Seleccionar Ejercicio</h3>
-            <button class="btn-close-modal" (click)="showExercisePicker = false">
-              <span class="material-symbols-outlined">close</span>
-            </button>
-          </div>
-          <div class="picker-filters">
-            <div class="picker-search-wrap">
-              <span class="material-symbols-outlined search-icon">search</span>
-              <input class="field-input picker-search" [(ngModel)]="pickerSearch" placeholder="Buscar por nombre o tag..."/>
-            </div>
-            <div class="picker-tags">
-              <button class="tag-filter-btn" [class.active]="!pickerTag" (click)="pickerTag = ''">Todos</button>
-              <button class="tag-filter-btn" *ngFor="let t of collectAllTags()" [class.active]="pickerTag === t" (click)="pickerTag = pickerTag === t ? '' : t">{{ t }}</button>
-            </div>
-          </div>
-          <div class="picker-list">
-            <div class="picker-item" *ngFor="let ex of filteredPickerExercises" (click)="selectPickerExercise(ex)">
-              <div class="picker-item-info">
-                <span class="picker-item-name">{{ ex.name }}</span>
-                <div class="picker-item-tags" *ngIf="(ex.tags || []).length">
-                  <span class="mini-tag" *ngFor="let t of ex.tags">{{ t.name }}</span>
-                </div>
-              </div>
-              <div class="picker-item-meta">
-                <span class="picker-tag-count">{{ (ex.tags || []).length }} tags</span>
-              </div>
-            </div>
-            <div class="picker-empty" *ngIf="filteredPickerExercises.length === 0">
-              <span class="material-symbols-outlined">search_off</span>
-              <span>No se encontraron ejercicios</span>
-            </div>
           </div>
         </div>
       </div>
@@ -289,7 +179,6 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Exerci
     .detail-page { padding: 40px; max-width: 1440px; margin: 0 auto; min-height: 100vh; }
     .empty-state, .loading-state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 80px 20px; color: #908f9d; }
     .loading-icon { font-size: 48px; animation: spin 1s linear infinite; }
-    .loading-icon-sm { font-size: 16px; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .empty-state p, .loading-state p { margin: 0; font-size: 16px; }
 
@@ -378,34 +267,24 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Exerci
       padding: 20px;
       border: 1px solid rgba(69,70,82,0.2);
       border-left-width: 4px;
-      transition: opacity 0.15s, border-color 0.15s;
+      transition: border-color 0.15s;
     }
-    .section-card.drag-over { border-color: #bdc2ff; opacity: 0.7; }
-    .section-card:not(.drag-over):hover { border-color: rgba(69,70,82,0.4); }
+    .section-card:hover { border-color: rgba(69,70,82,0.4); }
     .section-header {
       display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
     }
-    .section-handle { color: #3a3f6a; cursor: grab; display: flex; flex-shrink: 0; }
-    .section-handle:active { cursor: grabbing; }
-    .section-handle .material-symbols-outlined { font-size: 20px; }
-    .section-title-group { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
     .section-badge {
       font-size: 10px; font-weight: 800; text-transform: uppercase;
       letter-spacing: 0.05em;
       padding: 4px 10px; border-radius: 9999px; color: white; flex-shrink: 0;
     }
-    .section-name-input {
-      background: transparent; border: 1px solid transparent;
-      color: #dfe0ff; font-size: 16px; font-weight: 700;
-      font-family: 'Hanken Grotesk', sans-serif;
-      padding: 4px 8px; border-radius: 6px; outline: none; flex: 1; min-width: 0;
-    }
-    .section-name-input:focus { border-color: rgba(189,194,255,0.3); background: rgba(0,0,0,0.2); }
-    .section-header-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
     .duration-pill {
       font-size: 11px; font-weight: 700;
       padding: 4px 10px; border-radius: 9999px;
       background: rgba(0,104,237,0.15); color: #bdc2ff;
+    }
+    .ex-count {
+      font-size: 12px; color: #908f9d; margin-left: auto;
     }
     .btn-icon {
       background: none; border: none; color: #908f9d;
@@ -417,22 +296,14 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Exerci
     .btn-icon .material-symbols-outlined { font-size: 18px; }
 
     .section-exercises {
-      display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;
-      min-height: 40px; transition: background 0.15s; border-radius: 8px;
+      display: flex; flex-direction: column; gap: 6px;
+      min-height: 40px; border-radius: 8px;
     }
-    .section-exercises.ex-drop-target { background: rgba(189,194,255,0.05); }
     .ex-item {
       display: flex; align-items: center; gap: 8px;
       background: rgba(0,0,0,0.2);
       border-radius: 10px; padding: 8px 10px;
-      transition: box-shadow 0.15s, margin 0.15s;
-      position: relative;
     }
-    .ex-item.drag-over-top { box-shadow: 0 -2px 0 0 #bdc2ff; }
-    .ex-item.drag-over-bottom { box-shadow: 0 2px 0 0 #bdc2ff; }
-    .ex-drag-handle { color: #3a3f6a; cursor: grab; display: flex; flex-shrink: 0; }
-    .ex-drag-handle:active { cursor: grabbing; }
-    .ex-drag-handle .material-symbols-outlined { font-size: 16px; }
     .ex-order {
       width: 24px; height: 24px; border-radius: 50%;
       background: rgba(189,194,255,0.1);
@@ -444,10 +315,9 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Exerci
     .ex-name-row { display: flex; align-items: center; gap: 10px; }
     .ex-name { color: #dfe0ff; font-size: 14px; font-weight: 600; }
     .ex-duration { font-size: 12px; color: #908f9d; flex-shrink: 0; }
-    .ex-notes {
-      width: 100%; max-width: 400px; box-sizing: border-box;
-      margin-top: 4px;
-      padding: 6px 10px !important; font-size: 12px !important;
+    .ex-notes-text {
+      display: block; font-size: 12px; color: #908f9d;
+      margin-top: 4px; font-style: italic;
     }
     .ex-empty {
       text-align: center; color: #3a3f6a; font-size: 13px;
@@ -455,36 +325,11 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Exerci
       justify-content: center; gap: 8px;
     }
     .ex-empty .material-symbols-outlined { font-size: 18px; }
-
-    .add-ex-dur { width: 70px !important; }
-    .add-ex-notes { flex: 1; min-width: 120px; }
-    .btn-add-ex {
-      display: flex; align-items: center; gap: 4px;
-      background: #0068ed; color: white;
-      border: none; border-radius: 8px;
-      padding: 8px 14px;
-      font-family: 'Hanken Grotesk', sans-serif;
-      font-size: 13px; font-weight: 600;
-      cursor: pointer; transition: all 0.2s;
-      white-space: nowrap;
+    .mini-tag {
+      font-size: 10px; padding: 2px 8px; border-radius: 9999px;
+      background: rgba(189,194,255,0.08); color: #bdc2ff;
     }
-    .btn-add-ex:hover:not(:disabled) { opacity: 0.9; }
-    .btn-add-ex:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-add-ex .material-symbols-outlined { font-size: 16px; }
-
-    .add-section-btn {
-      width: 100%; background: none;
-      border: 2px dashed rgba(69,70,82,0.3);
-      color: #908f9d; cursor: pointer; padding: 16px;
-      border-radius: 16px; display: flex; align-items: center;
-      gap: 8px; justify-content: center;
-      font-family: 'Hanken Grotesk', sans-serif;
-      font-size: 15px; font-weight: 600;
-      transition: all 0.2s;
-    }
-    .add-section-btn:hover:not(:disabled) { border-color: #bdc2ff; color: #bdc2ff; background: rgba(189,194,255,0.03); }
-    .add-section-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .add-section-btn .material-symbols-outlined { font-size: 20px; }
+    .ex-tags-row { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0 0; }
 
     .field-input {
       background: #111644; border: 1px solid rgba(69,70,82,0.3);
@@ -553,62 +398,6 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Exerci
       padding: 2px 8px; border-radius: 9999px;
     }
 
-    .add-ex-variant { min-width: 140px; }
-    .section-add-ex { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .btn-select-ex {
-      flex: 1; min-width: 160px;
-      display: flex; align-items: center; gap: 6px;
-      background: #111644; border: 1px solid rgba(69,70,82,0.3);
-      color: #908f9d; border-radius: 8px; padding: 10px 12px;
-      font-family: 'Hanken Grotesk', sans-serif;
-      font-size: 14px; cursor: pointer; transition: all 0.15s;
-      text-align: left;
-    }
-    .btn-select-ex:hover { border-color: #bdc2ff; color: #dfe0ff; }
-    .btn-select-ex .material-symbols-outlined { font-size: 18px; }
-    .add-ex-dur { width: 70px !important; }
-    .add-ex-notes { flex: 1; min-width: 120px; }
-
-    .picker-card { max-width: 560px; max-height: 85vh; display: flex; flex-direction: column; padding: 24px; }
-    .picker-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-    .picker-header .modal-title { margin: 0; }
-    .btn-close-modal {
-      background: none; border: none; color: #908f9d; cursor: pointer; padding: 4px; border-radius: 6px;
-    }
-    .btn-close-modal:hover { color: #dfe0ff; background: rgba(255,255,255,0.05); }
-    .btn-close-modal .material-symbols-outlined { font-size: 22px; }
-    .picker-filters { margin-bottom: 16px; }
-    .picker-search-wrap { position: relative; margin-bottom: 10px; }
-    .picker-search { width: 100%; padding-left: 36px !important; }
-    .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 18px; color: #3a3f6a; pointer-events: none; }
-    .picker-tags { display: flex; gap: 6px; flex-wrap: wrap; }
-    .tag-filter-btn {
-      background: rgba(189,194,255,0.06); border: 1px solid transparent;
-      color: #908f9d; padding: 4px 12px; border-radius: 9999px;
-      font-family: 'Hanken Grotesk', sans-serif; font-size: 12px; font-weight: 600;
-      cursor: pointer; transition: all 0.15s;
-    }
-    .tag-filter-btn:hover { border-color: rgba(189,194,255,0.2); color: #c6c5d4; }
-    .tag-filter-btn.active { background: rgba(0,104,237,0.15); color: #bdc2ff; border-color: rgba(0,104,237,0.3); }
-    .picker-list { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 6px; }
-    .picker-item {
-      display: flex; align-items: center; gap: 12px;
-      background: rgba(0,0,0,0.15); border-radius: 10px; padding: 12px;
-      cursor: pointer; transition: all 0.15s;
-    }
-    .picker-item:hover { background: rgba(0,0,0,0.25); }
-    .picker-item-info { flex: 1; min-width: 0; }
-    .picker-item-name { font-size: 14px; font-weight: 600; color: #dfe0ff; display: block; margin-bottom: 4px; }
-    .picker-item-tags { display: flex; gap: 4px; flex-wrap: wrap; }
-    .picker-item-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
-    .picker-dur { font-size: 12px; font-weight: 700; color: #bdc2ff; }
-    .picker-empty {
-      display: flex; flex-direction: column; align-items: center; gap: 8px;
-      padding: 32px; color: #3a3f6a; text-align: center;
-    }
-    .picker-empty .material-symbols-outlined { font-size: 32px; }
-
-
     .pdf-format-card { max-width: 400px; }
     .pdf-format-options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
     .pdf-format-option {
@@ -637,17 +426,8 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Exerci
       .sections-nav { width: 100% !important; }
       .nav-list { flex-direction: row !important; flex-wrap: wrap !important; }
       .nav-item { flex: 1 !important; min-width: 120px !important; }
-      .section-header { flex-wrap: wrap !important; gap: 8px !important; }
-      .section-title-group { min-width: 0 !important; flex-wrap: wrap !important; }
-      .section-name-input { width: 100% !important; }
-      .section-header-actions { width: 100% !important; justify-content: flex-end !important; }
-      .section-add-ex { flex-direction: column !important; align-items: stretch !important; }
-      .btn-select-ex { width: 100% !important; }
-      .add-ex-dur { width: 100% !important; }
-      .add-ex-notes { width: 100% !important; }
       .modal-card { margin: 10px !important; padding: 20px !important; }
       .field-row { flex-direction: column !important; }
-      .picker-card { margin: 10px !important; max-height: 90vh !important; }
     }
     @media (max-width: 480px) {
       .detail-page { padding: 12px !important; }
@@ -684,35 +464,8 @@ export class SessionDetailComponent {
   formLocation = '';
   formObjectives = '';
 
-  addExExerciseId = '';
-  addExDuration = 10;
-  addExNotes = '';
-  addExVariants: ExerciseVariant[] = [];
-  addExVariantId = '';
-
-  savingSection = false;
-  addingExercise = false;
-
-  showExercisePicker = false;
-  pickerSearch = '';
-  pickerTag = '';
-  pickerTargetSection: SessionSection | null = null;
-
   showPdfFormatPicker = false;
   pdfFormat: 'a4' | 'a5' = 'a4';
-
-  // Confirm modal state
-  showConfirm = false;
-  confirmTitle = '';
-  confirmMessage = '';
-  private confirmAction: (() => Promise<void>) | null = null;
-
-  dragOverSectionIdx = -1;
-  dragExTargetSection = '';
-  dragExSourceSection = '';
-  dragExId = '';
-  dragOverExIdx = -1;
-  dragExPosition: 'before' | 'after' = 'after';
 
   sectionColors = ['#0068ed', '#00c853', '#ff9100', '#e040fb', '#00bcd4', '#ff6d00'];
 
@@ -833,27 +586,7 @@ export class SessionDetailComponent {
     }
   }
 
-  protected collectAllTags(): string[] {
-    const set = new Set<string>();
-    for (const ex of this.exercises) {
-      for (const tag of ex.tags || []) set.add(tag.name);
-    }
-    return Array.from(set).sort();
-  }
-
-  get filteredPickerExercises(): Exercise[] {
-    let list = this.exercises;
-    const q = this.pickerSearch.toLowerCase().trim();
-    if (q) {
-      list = list.filter(e => e.name.toLowerCase().includes(q) || (e.tags || []).some(t => t.name.toLowerCase().includes(q)));
-    }
-    if (this.pickerTag) {
-      list = list.filter(e => (e.tags || []).some(t => t.name === this.pickerTag));
-    }
-    return list;
-  }
-
-  async exportPDF(format: 'a4' | 'a5' = 'a4') {
+  async exportPDF(format: 'a4' | 'a5'): Promise<void> {
     if (!this.session) return;
 
     const html2canvas = (await import('html2canvas')).default;
@@ -1093,28 +826,6 @@ export class SessionDetailComponent {
     this.exportPDF(this.pdfFormat);
   }
 
-  // ── Exercise Picker Modal ──
-
-  openExercisePicker(sec: SessionSection) {
-    this.pickerTargetSection = sec;
-    this.pickerSearch = '';
-    this.pickerTag = '';
-    this.addExVariants = [];
-    this.addExVariantId = '';
-    this.showExercisePicker = true;
-  }
-
-  selectPickerExercise(ex: Exercise) {
-    this.addExExerciseId = ex.id;
-    this.addExDuration = 10;
-    this.addExNotes = '';
-    this.showExercisePicker = false;
-    this.exerciseRepo.getVariants(ex.id).then(variants => {
-      this.addExVariants = variants;
-      this.addExVariantId = variants.length > 0 ? variants[0].id : '';
-    });
-  }
-
   goBack() {
     this.router.navigate(['/sessions']);
   }
@@ -1138,6 +849,10 @@ export class SessionDetailComponent {
 
   goAnalysis() {
     if (this.session) this.router.navigate(['/sessions', this.session.id, 'analysis']);
+  }
+
+  goBuilder() {
+    if (this.session) this.router.navigate(['/sessions', this.session.id, 'builder']);
   }
 
   async saveEdit() {
@@ -1169,217 +884,5 @@ export class SessionDetailComponent {
 
   getSectionDuration(sectionId: string): number {
     return (this.sectionExercises[sectionId] || []).reduce((a, b) => a + b.duration_minutes, 0);
-  }
-
-  async addSection() {
-    if (!this.session || this.savingSection) return;
-    this.savingSection = true;
-    try {
-      const order = this.sections.length + 1;
-      const sec = await this.data.createSection({ session_id: this.session.id, name: 'Nueva Sección', sort_order: order });
-      if (sec) {
-        this.reload.next();
-      }
-    } finally {
-      this.savingSection = false;
-    }
-  }
-
-  promptRemoveSection(sec: SessionSection) {
-    this.confirmTitle = 'Eliminar sección';
-    this.confirmMessage = `¿Estás seguro de eliminar la sección "${sec.name}"? Los ejercicios que contiene también se eliminarán.`;
-    this.confirmAction = async () => {
-      await this.data.deleteSection(sec.id);
-      this.reload.next();
-    };
-    this.showConfirm = true;
-  }
-
-  async updateSectionName(sec: SessionSection) {
-    await this.data.updateSection(sec.id, { name: sec.name });
-  }
-
-  async moveSection(sec: SessionSection, dir: number) {
-    const idx = this.sections.indexOf(sec);
-    const target = idx + dir;
-    if (target < 0 || target >= this.sections.length) return;
-    this.sections[idx] = this.sections[target];
-    this.sections[target] = sec;
-    await this.updateSectionOrders();
-  }
-
-  promptRemoveEx(se: SessionExercise) {
-    const exName = this.getExerciseDisplayName(se);
-    this.confirmTitle = 'Quitar ejercicio';
-    this.confirmMessage = `¿Estás seguro de quitar "${exName}" de la sesión?`;
-    this.confirmAction = async () => {
-      await this.data.removeSessionExercise(se.id);
-      this.reload.next();
-    };
-    this.showConfirm = true;
-  }
-
-  cancelConfirm() {
-    this.showConfirm = false;
-    this.confirmAction = null;
-  }
-
-  async executeConfirm() {
-    if (!this.confirmAction) return;
-    this.showConfirm = false;
-    const action = this.confirmAction;
-    this.confirmAction = null;
-    await action();
-  }
-
-  async addExerciseToSection(sec: SessionSection) {
-    if (!this.addExExerciseId || !this.session || this.addingExercise) return;
-    this.addingExercise = true;
-    try {
-      const exs = this.sectionExercises[sec.id] || [];
-      const newSe = await this.data.addSessionExercise({
-        session_id: this.session.id,
-        section_id: sec.id,
-        exercise_id: this.addExExerciseId,
-        variant_id: this.addExVariantId || null,
-        order: exs.length + 1,
-        duration_minutes: this.addExDuration,
-        notes: this.addExNotes || null,
-      });
-      if (newSe) {
-        this.reload.next();
-        this.addExExerciseId = '';
-        this.addExNotes = '';
-        this.addExDuration = 10;
-      }
-    } finally {
-      this.addingExercise = false;
-    }
-  }
-
-  async updateExNotes(se: SessionExercise) {
-    await this.data.updateSessionExercise(se.id, { notes: se.notes });
-  }
-
-  // Section drag & drop
-  onSectionDragStart(e: DragEvent, idx: number) {
-    e.dataTransfer?.setData('text/plain', String(idx));
-    e.dataTransfer!.effectAllowed = 'move';
-    this.dragOverSectionIdx = -1;
-  }
-
-  onSectionDragOver(e: DragEvent, idx: number) {
-    e.preventDefault();
-    e.dataTransfer!.dropEffect = 'move';
-    this.dragOverSectionIdx = idx;
-  }
-
-  onSectionDragEnd() {
-    this.dragOverSectionIdx = -1;
-  }
-
-  async onSectionDrop(e: DragEvent, targetIdx: number) {
-    e.preventDefault();
-    this.dragOverSectionIdx = -1;
-    const srcIdx = parseInt(e.dataTransfer?.getData('text/plain') || '', 10);
-    if (isNaN(srcIdx) || srcIdx === targetIdx) return;
-
-    const [moved] = this.sections.splice(srcIdx, 1);
-    this.sections.splice(targetIdx, 0, moved);
-    await this.updateSectionOrders();
-  }
-
-  async updateSectionOrders() {
-    for (let i = 0; i < this.sections.length; i++) {
-      await this.data.updateSection(this.sections[i].id, { sort_order: i + 1 });
-      this.sections[i].sort_order = i + 1;
-    }
-    this.reload.next();
-  }
-
-  // Exercise drag & drop
-  onExDragStart(e: DragEvent, se: SessionExercise, sectionId: string) {
-    e.dataTransfer?.setData('text/plain', JSON.stringify({ id: se.id, sectionId }));
-    e.dataTransfer!.effectAllowed = 'move';
-    this.dragExSourceSection = sectionId;
-    this.dragExId = se.id;
-    this.dragExTargetSection = '';
-    this.dragOverExIdx = -1;
-  }
-
-  onExDragOver(e: DragEvent, sectionId: string) {
-    e.preventDefault();
-    e.dataTransfer!.dropEffect = 'move';
-    this.dragExTargetSection = sectionId;
-  }
-
-  onExDragOverItem(e: DragEvent, idx: number) {
-    e.preventDefault();
-    e.dataTransfer!.dropEffect = 'move';
-    this.dragOverExIdx = idx;
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const mid = rect.top + rect.height / 2;
-    this.dragExPosition = e.clientY < mid ? 'before' : 'after';
-  }
-
-  async onExDrop(e: DragEvent, targetSectionId: string) {
-    e.preventDefault();
-    this.dragExTargetSection = '';
-    this.dragOverExIdx = -1;
-    const raw = e.dataTransfer?.getData('text/plain');
-    if (!raw) return;
-    const { id: exId, sectionId: srcSectionId } = JSON.parse(raw);
-    if (srcSectionId === targetSectionId) {
-      await this.reorderExercisesInSection(targetSectionId, exId);
-    } else {
-      await this.moveExerciseBetweenSections(exId, srcSectionId, targetSectionId);
-    }
-  }
-
-  async onExDropOnItem(e: DragEvent, targetSectionId: string, targetIdx: number) {
-    e.preventDefault();
-    this.dragExTargetSection = '';
-    this.dragOverExIdx = -1;
-    const raw = e.dataTransfer?.getData('text/plain');
-    if (!raw) return;
-    const { id: exId, sectionId: srcSectionId } = JSON.parse(raw);
-    if (srcSectionId === targetSectionId) {
-      await this.reorderExercisesInSection(targetSectionId, exId, targetIdx);
-    } else {
-      await this.moveExerciseBetweenSections(exId, srcSectionId, targetSectionId, targetIdx);
-    }
-  }
-
-  async reorderExercisesInSection(sectionId: string, exId: string, targetIdx?: number) {
-    const exs = [...(this.sectionExercises[sectionId] || [])];
-    const srcIdx = exs.findIndex(e => e.id === exId);
-    if (srcIdx === -1) return;
-    const [moved] = exs.splice(srcIdx, 1);
-    const insertIdx = targetIdx !== undefined ? (targetIdx > srcIdx ? targetIdx - 1 : targetIdx) : exs.length;
-    exs.splice(insertIdx, 0, moved);
-    this.sectionExercises[sectionId] = exs;
-    await this.persistExerciseOrders(sectionId);
-  }
-
-  async moveExerciseBetweenSections(exId: string, srcSectionId: string, targetSectionId: string, targetIdx?: number) {
-    const se = this.sectionExercises[srcSectionId]?.find(e => e.id === exId);
-    if (!se) return;
-    this.sectionExercises[srcSectionId] = (this.sectionExercises[srcSectionId] || []).filter(e => e.id !== exId);
-    const targetExs = [...(this.sectionExercises[targetSectionId] || [])];
-    const insertIdx = targetIdx !== undefined ? Math.min(targetIdx, targetExs.length) : targetExs.length;
-    targetExs.splice(insertIdx, 0, { ...se, section_id: targetSectionId });
-    this.sectionExercises[targetSectionId] = targetExs;
-    await this.data.updateSessionExercise(exId, { section_id: targetSectionId });
-    await this.persistExerciseOrders(srcSectionId);
-    await this.persistExerciseOrders(targetSectionId);
-  }
-
-  async persistExerciseOrders(sectionId: string) {
-    const exs = this.sectionExercises[sectionId] || [];
-    for (let i = 0; i < exs.length; i++) {
-      await this.data.updateSessionExercise(exs[i].id, { order: i + 1 });
-      exs[i].order = i + 1;
-    }
-    this.reload.next();
   }
 }

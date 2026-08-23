@@ -47,16 +47,31 @@ export class PermissionService {
     return this.injector.get(AuthService);
   }
 
+  private async withAuthRetry<T>(query: () => PromiseLike<{ data: T | null }>): Promise<T | null> {
+    let { data } = await query();
+    if (!data) {
+      await new Promise(r => setTimeout(r, 400));
+      ({ data } = await query());
+    }
+    return data;
+  }
+
   async load(): Promise<void> {
-    const { data } = await this.supabase.client
-      .from('role_permissions')
-      .select('role, permission, granted');
+    const data = await this.withAuthRetry(() =>
+      this.supabase.client.from('role_permissions').select('role, permission, granted')
+    );
     if (!data) return;
     const map: Record<string, boolean> = {};
     for (const row of data as any[]) {
       map[`${row.role}:${row.permission}`] = row.granted;
     }
     this.cache.set(map);
+  }
+
+  async ensureLoaded(): Promise<void> {
+    if (Object.keys(this.cache()).length === 0) {
+      await this.load();
+    }
   }
 
   hasPermission(role: Role | null | undefined, permission: Permission): boolean {
@@ -86,14 +101,16 @@ export class PermissionService {
       switchMap(() => {
         const userId = this.auth.user()?.id;
         if (!userId) return of(null);
-        return from(
+        const query = () =>
           this.supabase.client
             .from('club_members')
             .select('role')
             .eq('club_id', clubId)
             .eq('user_id', userId)
-            .maybeSingle()
-        ).pipe(map(({ data }) => (data?.role as Role) ?? null));
+            .maybeSingle();
+        return from(this.withAuthRetry(query)).pipe(
+          map(data => (data as { role: Role } | null)?.role ?? null)
+        );
       })
     );
   }

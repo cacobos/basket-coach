@@ -53,12 +53,23 @@ export class AuthService {
   }
 
   private async _loadProfile(userId: string): Promise<void> {
-    const { data } = await this.supabase.client
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
+    const fetchProfile = async () => {
+      try {
+        const { data } = await this.supabase.client
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+        return data;
+      } catch {
+        return null;
+      }
+    };
+    let data = await fetchProfile();
+    if (!data) {
+      await new Promise(r => setTimeout(r, 400));
+      data = await fetchProfile();
+    }
     if (data) {
       this._profile.set(data as Profile);
     }

@@ -101,6 +101,26 @@ export class ExerciseRepository implements BaseRepository<Exercise, Omit<Exercis
     return data;
   }
 
+  async updateCategory(id: string, changes: { name?: string; color?: string }): Promise<ExerciseCategory> {
+    const { data, error } = await this.supabase.client
+      .from('exercise_categories')
+      .update(changes)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async removeCategory(id: string): Promise<void> {
+    // exercises.category_id es ON DELETE SET NULL: los ejercicios quedan sin categoría
+    const { error } = await this.supabase.client
+      .from('exercise_categories')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  }
+
   // ── Variants ──
   async getVariantsByExerciseIds(exerciseIds: string[]): Promise<ExerciseVariant[]> {
     if (exerciseIds.length === 0) return [];

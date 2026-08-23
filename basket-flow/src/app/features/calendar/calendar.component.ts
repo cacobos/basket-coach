@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, input } from '@angular/core';
 import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -16,18 +16,26 @@ import type { TrainingSession, Team } from '../../core/models/models';
   standalone: true,
   imports: [AsyncPipe, NgFor, NgIf, FormsModule],
   template: `
-    <div class="page" *ngIf="vm$ | async">
-      <header class="page-header">
-        <div>
-          <h2 class="page-title">Calendario</h2>
-          <p class="page-sub">Visualiza y planifica tus sesiones de entrenamiento.</p>
-        </div>
-        <div class="header-actions">
-          <button class="btn-nav" (click)="prevMonth()"><span class="material-symbols-outlined">chevron_left</span></button>
+    <div class="page" [class.embedded]="embedded()" *ngIf="vm$ | async">
+      @if (!embedded()) {
+        <header class="page-header">
+          <div>
+            <h2 class="page-title">Calendario</h2>
+            <p class="page-sub">Visualiza y planifica tus sesiones de entrenamiento.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn-nav" (click)="prevMonth()"><span class="material-symbols-outlined">chevron_left</span></button>
+            <span class="current-month">{{ monthNames[month] }} {{ year }}</span>
+            <button class="btn-nav" (click)="nextMonth()"><span class="material-symbols-outlined">chevron_right</span></button>
+          </div>
+        </header>
+      } @else {
+        <div class="header-actions embedded-nav">
+          <button type="button" class="btn-nav view-toggle" (click)="prevMonth()"><span class="material-symbols-outlined">chevron_left</span></button>
           <span class="current-month">{{ monthNames[month] }} {{ year }}</span>
-          <button class="btn-nav" (click)="nextMonth()"><span class="material-symbols-outlined">chevron_right</span></button>
+          <button type="button" class="btn-nav view-toggle" (click)="nextMonth()"><span class="material-symbols-outlined">chevron_right</span></button>
         </div>
-      </header>
+      }
 
       <div class="calendar-wrap">
         <div class="calendar-header">
@@ -100,6 +108,9 @@ import type { TrainingSession, Team } from '../../core/models/models';
   `,
   styles: [`
     .page { padding: 40px; max-width: 1200px; margin: 0 auto; }
+    .page.embedded { padding: 0; max-width: none; }
+    .embedded-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .embedded-nav .current-month { font-size: 15px; font-weight: 700; color: #dfe0ff; min-width: 130px; text-align: center; }
     .page-header { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 32px; }
     .page-title { font-size: 48px; line-height: 56px; font-weight: 800; letter-spacing: -0.02em; color: #dfe0ff; margin: 0; }
     .page-sub { font-size: 18px; line-height: 28px; color: #c6c5d4; margin: 4px 0 0; }
@@ -221,6 +232,8 @@ export class CalendarComponent {
   private auth = inject(AuthService);
   private sessionRepo = inject(SessionRepository);
   private router = inject(Router);
+
+  readonly embedded = input(false);
 
   month = new Date().getMonth();
   year = new Date().getFullYear();

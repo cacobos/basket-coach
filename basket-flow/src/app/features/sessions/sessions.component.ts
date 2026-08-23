@@ -1,19 +1,21 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, computed, signal } from '@angular/core';
 import { NgFor, NgIf, SlicePipe, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { Subject, forkJoin, from, of } from 'rxjs';
 import { startWith, switchMap, filter, map, catchError } from 'rxjs/operators';
-import { toObservable } from '@angular/core/rxjs-interop';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { DataService } from '../../core/services/data.service';
 import { SessionRepository } from '../../core/repositories/session.repository';
 import { NotificationService } from '../../core/services/notification.service';
+import { CalendarComponent } from '../calendar/calendar.component';
+import { EmptyStateComponent } from '../../shared/components/empty-state.component';
 import type { TrainingSession, Team } from '../../core/models/models';
 
 @Component({
   selector: 'app-sessions',
   standalone: true,
-  imports: [NgFor, NgIf, SlicePipe, FormsModule, AsyncPipe],
+  imports: [NgFor, NgIf, SlicePipe, FormsModule, AsyncPipe, CalendarComponent, EmptyStateComponent],
   template: `
     <div class="page" *ngIf="vm$ | async as vm; else loadingTpl">
       <header class="page-header">
@@ -27,33 +29,46 @@ import type { TrainingSession, Team } from '../../core/models/models';
         </button>
       </header>
 
-      <div class="session-list">
-        <div class="session-card" *ngFor="let session of vm.sessions"
-             (click)="router.navigate(['/sessions', session.id])">
-          <div class="session-date">
-            <span class="session-day">{{ session.date | slice:8:10 }}</span>
-            <span class="session-month">{{ monthNames[+session.date.slice(5,7) - 1] }}</span>
-          </div>
-          <div class="session-info">
-            <h3 class="session-name">{{ session.title }}</h3>
-            <div class="session-meta">
-              <span><span class="material-symbols-outlined">schedule</span>{{ session.start_time.slice(0,5) }} - {{ session.end_time.slice(0,5) }}</span>
-              <span><span class="material-symbols-outlined">groups</span>{{ vm.teamNames[session.team_id] || '—' }}</span>
-              <span *ngIf="session.objectives"><span class="material-symbols-outlined">track_changes</span>{{ session.objectives }}</span>
-            </div>
-          </div>
-          <div class="session-status" [class.completed]="session.status === 'completed'" [class.draft]="session.status === 'draft'" [class.cancelled]="session.status === 'cancelled'">
-            {{ statusLabel(session.status) }}
-          </div>
-          <button class="session-delete" (click)="$event.stopPropagation(); deleteSession(session)">
-            <span class="material-symbols-outlined">delete</span>
-          </button>
-        </div>
-        <div class="empty-state" *ngIf="vm.sessions.length === 0">
-          <span class="material-symbols-outlined empty-icon">calendar_month</span>
-          <p>No hay sesiones planificadas.</p>
-        </div>
+      <div class="view-toggle" role="tablist" aria-label="Vista de sesiones">
+        <button type="button" role="tab" [class.active]="view() === 'list'" [attr.aria-selected]="view() === 'list'" (click)="setView('list')">Lista</button>
+        <button type="button" role="tab" [class.active]="view() === 'calendar'" [attr.aria-selected]="view() === 'calendar'" (click)="setView('calendar')">Calendario</button>
       </div>
+
+      @if (view() === 'calendar') {
+        <app-calendar [embedded]="true" />
+      } @else {
+        <div class="session-list">
+          <div class="session-card" *ngFor="let session of vm.sessions"
+               (click)="router.navigate(['/sessions', session.id])">
+            <div class="session-date">
+              <span class="session-day">{{ session.date | slice:8:10 }}</span>
+              <span class="session-month">{{ monthNames[+session.date.slice(5,7) - 1] }}</span>
+            </div>
+            <div class="session-info">
+              <h3 class="session-name">{{ session.title }}</h3>
+              <div class="session-meta">
+                <span><span class="material-symbols-outlined">schedule</span>{{ session.start_time.slice(0,5) }} - {{ session.end_time.slice(0,5) }}</span>
+                <span><span class="material-symbols-outlined">groups</span>{{ vm.teamNames[session.team_id] || '—' }}</span>
+                <span *ngIf="session.objectives"><span class="material-symbols-outlined">track_changes</span>{{ session.objectives }}</span>
+              </div>
+            </div>
+            <div class="session-status" [class.completed]="session.status === 'completed'" [class.draft]="session.status === 'draft'" [class.cancelled]="session.status === 'cancelled'">
+              {{ statusLabel(session.status) }}
+            </div>
+            <button class="session-delete" (click)="$event.stopPropagation(); deleteSession(session)">
+              <span class="material-symbols-outlined">delete</span>
+            </button>
+          </div>
+          <app-empty-state
+            *ngIf="vm.sessions.length === 0"
+            icon="calendar_month"
+            title="No hay sesiones planificadas"
+            hint="Crea tu primera sesión o pulsa un día del calendario para empezar."
+            ctaLabel="Nueva sesión"
+            (ctaAction)="openCreate(vm)"
+          />
+        </div>
+      }
 
       <div class="modal-overlay" *ngIf="showForm" (click)="showForm = false">
         <div class="modal-card" (click)="$event.stopPropagation()">
@@ -101,6 +116,25 @@ import type { TrainingSession, Team } from '../../core/models/models';
     }
     .btn-primary:hover { transform: scale(1.05); }
     .btn-primary .fill { font-variation-settings: 'FILL' 1; }
+    .empty-cta { margin-top: 8px; padding: 12px 20px !important; font-size: 15px !important; }
+    .view-toggle {
+      display: inline-flex;
+      gap: 4px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(69,70,82,0.3);
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 24px;
+      width: fit-content;
+    }
+    .view-toggle button {
+      background: none; border: none; border-radius: 7px;
+      color: #908f9d; font-family: 'Hanken Grotesk', sans-serif;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      padding: 8px 18px; transition: all 0.15s;
+    }
+    .view-toggle button:hover { color: #dfe0ff; }
+    .view-toggle button.active { background: rgba(189,194,255,0.14); color: #bdc2ff; }
     .session-list { display: flex; flex-direction: column; gap: 8px; }
     .session-card {
       display: flex; align-items: center; gap: 20px;
@@ -193,8 +227,25 @@ export class SessionsComponent {
   private data = inject(DataService);
   private sessionRepo = inject(SessionRepository);
   router = inject(Router);
+  private route = inject(ActivatedRoute);
   private notification = inject(NotificationService);
   private reload = new Subject<void>();
+
+  private queryParams = toSignal(this.route.queryParamMap, {
+    initialValue: this.route.snapshot.queryParamMap,
+  });
+  readonly view = computed<'list' | 'calendar'>(() =>
+    this.queryParams().get('view') === 'calendar' ? 'calendar' : 'list'
+  );
+
+  setView(v: 'list' | 'calendar'): void {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { view: v === 'calendar' ? 'calendar' : null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
 
   showForm = false;
   formTitle = '';
@@ -269,9 +320,11 @@ export class SessionsComponent {
       await this.data.createSection({ session_id: session.id, name: 'Calentamiento', sort_order: 1 });
       await this.data.createSection({ session_id: session.id, name: 'Parte Principal', sort_order: 2 });
       await this.data.createSection({ session_id: session.id, name: 'Vuelta a la Calma', sort_order: 3 });
+      this.router.navigate(['/sessions', session.id, 'builder']);
+    } else {
+      this.showForm = false;
+      this.reload.next();
     }
-    this.showForm = false;
-    this.reload.next();
   }
 
   async deleteSession(session: TrainingSession) {

@@ -268,21 +268,44 @@ export class TacticsComponent implements AfterViewInit, OnDestroy {
     pdf.save(`${this.playbook.name || 'pizarra'}.pdf`);
   }
 
+  readonly toolColors = ['#666666', '#DD0000', '#00AA00', '#0000DD', '#DDDD00'];
+  readonly shapeColors = ['#000000', '#DD0000', '#00AA00', '#0000DD', '#DDDD00'];
+
+  private playerNumbersCache = new Map<PlayerType, { key: string; value: number[] }>();
+
   get passTargetPlayers(): CanvasPlayer[] {
     return this.pbService.getCurrentStep()?.players || [];
   }
 
   getPlayerNumbers(type: PlayerType): number[] {
     const step = this.pbService.getCurrentStep();
-    if (!step) return [1];
-    const used = new Set(
-      step.players.filter(p => p.type === type).map(p => p.number)
-    );
-    const max = type === 'COACH' ? 5 : 12;
-    for (let i = 1; i <= max; i++) {
-      if (!used.has(i)) return [i];
+    const key = step
+      ? step.players
+          .filter(p => p.type === type)
+          .map(p => p.number)
+          .sort((a, b) => a - b)
+          .join(',')
+      : '';
+    const cached = this.playerNumbersCache.get(type);
+    if (cached && cached.key === key) return cached.value;
+    let value: number[];
+    if (!step) {
+      value = [1];
+    } else {
+      const used = new Set(
+        step.players.filter(p => p.type === type).map(p => p.number)
+      );
+      const max = type === 'COACH' ? 5 : 12;
+      value = [];
+      for (let i = 1; i <= max; i++) {
+        if (!used.has(i)) {
+          value = [i];
+          break;
+        }
+      }
     }
-    return [];
+    this.playerNumbersCache.set(type, { key, value });
+    return value;
   }
 
   trackById(index: number, item: any): any {

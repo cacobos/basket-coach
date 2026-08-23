@@ -1,7 +1,15 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgIf } from '@angular/common';
 import { AuthService } from '../../core/auth/auth.service';
+
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid_credentials: 'Email o contraseña incorrectos. Compruébalos e inténtalo de nuevo.',
+  email_not_confirmed: 'Confirma tu email antes de iniciar sesión. Revisa tu bandeja de entrada.',
+  user_banned: 'Esta cuenta está desactivada. Contacta con tu administrador.',
+  over_request_rate_limit: 'Demasiados intentos. Espera un minuto e inténtalo de nuevo.',
+  user_not_found: 'No existe una cuenta con ese email. Regístrate primero.',
+};
 
 @Component({
   selector: 'app-login',
@@ -94,7 +102,7 @@ import { AuthService } from '../../core/auth/auth.service';
           </p>
         </div>
 
-        <p *ngIf="message" class="message">{{ message }}</p>
+        <p *ngIf="message()" class="message" role="alert">{{ message() }}</p>
       </main>
 
       <footer class="login-footer">
@@ -322,29 +330,38 @@ export class LoginComponent {
   password = '';
   fullName = '';
   isSignUp = false;
-  message = '';
+  readonly message = signal('');
 
   toggleMode(): void {
     this.isSignUp = !this.isSignUp;
-    this.message = '';
+    this.message.set('');
+  }
+
+  private toFriendlyMessage(error: { message: string; code?: string } | null): string {
+    if (!error) return '';
+    if (error.code && ERROR_MESSAGES[error.code]) return ERROR_MESSAGES[error.code];
+    if (error.message === 'Invalid login credentials') return ERROR_MESSAGES['invalid_credentials'];
+    return error.message;
   }
 
   async signInGoogle(): Promise<void> {
     const { error } = await this.auth.signInWithGoogle();
-    if (error) this.message = error.message;
+    this.message.set(this.toFriendlyMessage(error));
   }
 
   async signIn(): Promise<void> {
+    this.message.set('');
     const { error } = await this.auth.signInWithEmail(this.email, this.password);
-    if (error) this.message = error.message;
+    this.message.set(this.toFriendlyMessage(error));
   }
 
   async signUp(): Promise<void> {
+    this.message.set('');
     const { error } = await this.auth.signUpWithEmail(this.email, this.password);
     if (error) {
-      this.message = error.message;
+      this.message.set(this.toFriendlyMessage(error));
     } else {
-      this.message = 'Revisa tu email para verificar la cuenta.';
+      this.message.set('Revisa tu email para verificar la cuenta.');
       this.isSignUp = false;
     }
   }

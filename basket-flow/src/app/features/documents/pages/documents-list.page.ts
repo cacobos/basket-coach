@@ -3,43 +3,43 @@ import { RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { DocumentRepository } from '../repositories/document.repository';
 import { DataService } from '../../../core/services/data.service';
+import { AlertBannerComponent } from '../../../shared/components/alert-banner.component';
+import { EmptyStateComponent } from '../../../shared/components/empty-state.component';
 import type { PlayerDocumentsStatus, Document } from '../../../core/models/models';
 
 @Component({
   selector: 'app-documents-list',
   standalone: true,
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, AlertBannerComponent, EmptyStateComponent],
   template: `
     <div class="page">
       <h1>Documentos</h1>
 
       @if (expiring().length > 0) {
-        <div class="alert-banner">
-          <span class="alert-icon">&#9888;</span>
-          <div class="alert-content">
-            <strong>{{ expiring().length }} documento(s) próximos a vencer</strong>
-            <ul>
-              @for (doc of expiring(); track doc.id) {
-                <li>
-                  {{ docTypeLabel(doc.type) }} —
-                  vence {{ doc.expires_at | date:'dd/MM/yyyy' }}
-                  @if (docPlayerName(doc); as name) {
-                    de {{ name }}
-                  }
-                </li>
-              }
-            </ul>
-          </div>
-        </div>
+        <app-alert-banner severity="warn">
+          <strong>{{ expiring().length }} documento(s) próximos a vencer</strong>
+          <ul>
+            @for (doc of expiring(); track doc.id) {
+              <li>
+                {{ docTypeLabel(doc.type) }} —
+                vence {{ doc.expires_at | date:'dd/MM/yyyy' }}
+                @if (docPlayerName(doc); as name) {
+                  de {{ name }}
+                }
+              </li>
+            }
+          </ul>
+        </app-alert-banner>
       }
 
       @if (loading()) {
         <div class="loading">Cargando documentos...</div>
       } @else if (statuses().length === 0) {
-        <div class="empty">
-          <h3>No hay jugadores con documentos</h3>
-          <p>Los documentos de los jugadores aparecerán aquí una vez que se registren.</p>
-        </div>
+        <app-empty-state
+          icon="description"
+          title="No hay jugadores con documentos"
+          hint="Los documentos de los jugadores aparecerán aquí una vez que se registren."
+        />
       } @else {
         <table class="players-table">
           <thead>
@@ -82,19 +82,6 @@ import type { PlayerDocumentsStatus, Document } from '../../../core/models/model
     .page { padding: 24px; max-width: 1000px; margin: 0 auto; }
     h1 { font-size: 24px; font-weight: 700; margin: 0 0 24px; color: var(--text-primary); }
     .loading { text-align: center; padding: 60px; color: var(--text-secondary); }
-    .empty { text-align: center; padding: 80px 24px; }
-    .empty h3 { margin: 0 0 8px; color: var(--text-primary); }
-    .empty p { color: var(--text-secondary); margin: 0; }
-    .alert-banner {
-      display: flex; gap: 12px; align-items: flex-start;
-      background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3);
-      border-radius: 10px; padding: 14px 18px; margin-bottom: 24px;
-    }
-    .alert-icon { font-size: 20px; color: #f59e0b; flex-shrink: 0; margin-top: 2px; }
-    .alert-content { color: var(--text-primary); font-size: 14px; }
-    .alert-content strong { display: block; margin-bottom: 6px; }
-    .alert-content ul { margin: 0; padding-left: 18px; }
-    .alert-content li { color: var(--text-secondary); line-height: 1.6; }
     .players-table {
       width: 100%; border-collapse: collapse;
       background: var(--bg-card); border-radius: 12px; overflow: hidden;

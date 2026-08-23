@@ -50,7 +50,7 @@
         <div class="player-group">
           <span class="player-label atacantes">Atacantes</span>
           <div class="player-badges">
-            @for (num of getPlayerNumbers('ATTACKER'); track num) {
+            @for (num of getPlayerNumbers('ATTACKER'); track $index) {
               <button class="player-badge attacker" (click)="addPlayer('ATTACKER', num)">{{num}}</button>
             }
           </div>
@@ -58,7 +58,7 @@
         <div class="player-group">
           <span class="player-label defensores">Defensores</span>
           <div class="player-badges">
-            @for (num of getPlayerNumbers('DEFENDER'); track num) {
+            @for (num of getPlayerNumbers('DEFENDER'); track $index) {
               <button class="player-badge defender" (click)="addPlayer('DEFENDER', num)"><span class="defender-x-badge">✕</span>{{num}}</button>
             }
           </div>
@@ -66,7 +66,7 @@
         <div class="player-group">
           <span class="player-label entrenadores">Entrenador</span>
           <div class="player-badges">
-            @for (num of getPlayerNumbers('COACH'); track num) {
+            @for (num of getPlayerNumbers('COACH'); track $index) {
               <button class="player-badge coach" (click)="addPlayer('COACH', num)">C{{num}}</button>
             }
           </div>
@@ -118,7 +118,7 @@
         </div>
         <div class="tool-group">
           <span class="tool-label">COLOR</span>
-          @for (c of ['#666666', '#DD0000', '#00AA00', '#0000DD', '#DDDD00']; track c) {
+          @for (c of toolColors; track c) {
             <button class="color-btn" [style.background]="c" [class.active]="editorState.selectedColor === c" (click)="setColor(c)"></button>
           }
         </div>
@@ -166,7 +166,7 @@
           <div class="edit-body">
             <h6>Color</h6>
             <div class="color-row">
-              @for (c of ['#666666', '#DD0000', '#00AA00', '#0000DD', '#DDDD00']; track c) {
+              @for (c of toolColors; track c) {
                 <button class="color-btn" [style.background]="c" (click)="setColor(c)"></button>
               }
             </div>
@@ -184,7 +184,7 @@
           <div class="edit-body">
             <h6>Color</h6>
             <div class="color-row">
-              @for (c of ['#000000', '#DD0000', '#00AA00', '#0000DD', '#DDDD00']; track c) {
+              @for (c of shapeColors; track c) {
                 <button class="color-btn" [style.background]="c" (click)="setColor(c)"></button>
               }
             </div>

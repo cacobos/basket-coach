@@ -166,6 +166,7 @@ describe('MatchStore', () => {
   describe('addSquadMember', () => {
     it('should add a squad member', () => {
       const member: MatchSquad = {
+        id: 'sq1',
         match_id: 'm1',
         player_id: 'p1',
         starter: true,

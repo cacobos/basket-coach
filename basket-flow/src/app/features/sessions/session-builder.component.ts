@@ -116,57 +116,78 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
                 </div>
               </div>
 
-              <div class="section-exercises"
-                   (dragover)="onDragOverContainer($event)"
-                   (drop)="onDropContainer($event, sec)">
-                  <div class="ex-item" *ngFor="let se of getSectionExercises(sec.id); let ei = index"
-                       draggable="true"
-                       (dragstart)="onDragStart($event, sec, se)"
-                       (dragover)="onDragOverItem($event, sec, se)"
-                       (dragenter)="onDragEnter($event, sec, se)"
-                       (dragleave)="onDragLeave($event)"
-                       (drop)="onDropItem($event, sec, se)"
-                       (dragend)="onDragEnd($event)"
-                       [attr.data-exercise-id]="se.id"
-                       [class.drag-over]="dragTarget?.id === se.id">
+                  <div class="section-exercises"
+                       (dragover)="onDragOver($event, sec)"
+                       (dragleave)="onDragLeave(sec)"
+                       (drop)="onDrop($event, sec)"
+                       [class.drag-over]="dragOverSection === sec.id">
+                    <div class="ex-item" *ngFor="let se of getSectionExercises(sec.id); let ei = index"
+                         draggable="true"
+                         (dragstart)="onDragStart(se, sec)"
+                         (dragend)="onDragEnd()"
+                         (dragover)="onItemDragOver($event, sec, se)"
+                         (dragleave)="onItemDragLeave(se)"
+                         [class.dragging]="draggedExercise?.id === se.id"
+                         [class.drop-before]="dropBeforeId === se.id">
+                    <div class="ex-drag-handle">
+                      <span class="material-symbols-outlined">drag_indicator</span>
+                    </div>
                     <div class="ex-order">{{ ei + 1 }}</div>
-                    <div class="ex-info">
-                      <span class="ex-name">{{ getExerciseDisplayName(se) }}</span>
-                      <span class="ex-duration">{{ se.duration_minutes }} min</span>
+                    <div class="ex-body">
+                      <div class="ex-body-row">
+                        <span class="ex-name">{{ getExerciseDisplayName(se) }}</span>
+                        <span class="ex-duration">{{ se.duration_minutes }}</span>
+                        <span class="ex-duration-unit">min</span>
+                      </div>
+                      <div class="ex-notes-group" *ngIf="!editingNotes.has(se.id)">
+                        <span class="ex-notes-text" (click)="editNotes(se)" [class.has-notes]="se.notes">
+                          {{ se.notes || 'Añadir nota...' }}
+                        </span>
+                        <button class="btn-icon btn-icon-small" (click)="editNotes(se)" title="Editar nota">
+                          <span class="material-symbols-outlined">edit</span>
+                        </button>
+                      </div>
+                      <div class="ex-notes-edit" *ngIf="editingNotes.has(se.id)">
+                        <input class="field-input ex-notes-input" [(ngModel)]="se.notes" (keyup.enter)="saveNotes(se)" placeholder="Observaciones..."/>
+                        <button class="btn-icon btn-icon-small btn-icon-save" (click)="saveNotes(se)" title="Guardar nota">
+                          <span class="material-symbols-outlined">check</span>
+                        </button>
+                      </div>
                     </div>
-                    <div class="ex-notes-group" *ngIf="!editingNotes.has(se.id)">
-                      <span class="ex-notes-text" (click)="editNotes(se)" [class.has-notes]="se.notes">
-                        {{ se.notes || 'Añadir nota...' }}
-                      </span>
-                      <button class="btn-icon btn-icon-small" (click)="editNotes(se)" title="Editar nota">
-                        <span class="material-symbols-outlined">edit</span>
+                    <div class="ex-actions">
+                      <button class="btn-icon btn-icon-small" (click)="moveExercise(sec, se, -1)" *ngIf="ei > 0" title="Mover arriba">
+                        <span class="material-symbols-outlined">arrow_upward</span>
+                      </button>
+                      <button class="btn-icon btn-icon-small" (click)="moveExercise(sec, se, 1)" *ngIf="ei < getSectionExercises(sec.id).length - 1" title="Mover abajo">
+                        <span class="material-symbols-outlined">arrow_downward</span>
+                      </button>
+                      <div class="ex-move-section" *ngIf="sections.length > 1">
+                        <button class="btn-icon btn-icon-small btn-move-section" title="Mover a otra sección">
+                          <span class="material-symbols-outlined">drive_file_move</span>
+                        </button>
+                        <div class="ex-move-dropdown">
+                          <div class="ex-move-header">Mover a...</div>
+                          <button class="ex-move-option" *ngFor="let targetSec of sections"
+                                  (click)="moveToSection(se, sec, targetSec)"
+                                  [class.disabled]="targetSec.id === sec.id"
+                                  [disabled]="targetSec.id === sec.id">
+                            <span class="ex-move-dot" [style.background]="sectionColors[sections.indexOf(targetSec) % sectionColors.length]"></span>
+                            {{ targetSec.name }}
+                          </button>
+                        </div>
+                      </div>
+                      <button class="btn-icon btn-icon-danger" (click)="removeExFromSection(se)">
+                        <span class="material-symbols-outlined">remove_circle</span>
                       </button>
                     </div>
-                    <div class="ex-notes-edit" *ngIf="editingNotes.has(se.id)">
-                      <input class="field-input ex-notes-input" [(ngModel)]="se.notes" (keyup.enter)="saveNotes(se)" placeholder="Observaciones..."/>
-                      <button class="btn-icon btn-icon-small btn-icon-save" (click)="saveNotes(se)" title="Guardar nota">
-                        <span class="material-symbols-outlined">check</span>
-                      </button>
-                    </div>
-                    <button class="btn-icon btn-icon-small" (click)="moveExercise(sec, se, -1)" *ngIf="ei > 0" title="Mover arriba">
-                      <span class="material-symbols-outlined">arrow_upward</span>
-                    </button>
-                    <button class="btn-icon btn-icon-small" (click)="moveExercise(sec, se, 1)" *ngIf="ei < getSectionExercises(sec.id).length - 1" title="Mover abajo">
-                      <span class="material-symbols-outlined">arrow_downward</span>
-                    </button>
-                    <button class="btn-icon btn-icon-danger" (click)="removeExFromSection(se)">
-                      <span class="material-symbols-outlined">remove_circle</span>
-                    </button>
                   </div>
-                  <div class="ex-drop-zone" [class.empty]="getSectionExercises(sec.id).length === 0"
-                       (dragover)="onDragOverContainer($event)" (drop)="onDropContainer($event, sec)"
-                       (dragend)="onDragEnd($event)">
-                    <span class="material-symbols-outlined">drag_indicator</span>
-                    <span>{{ getSectionExercises(sec.id).length === 0 ? 'Arrastra o añade ejercicios desde abajo' : 'Suelta aquí' }}</span>
+                  <div class="ex-empty" *ngIf="getSectionExercises(sec.id).length === 0">
+                    <span class="material-symbols-outlined">fitness_center</span>
+                    <span>Añade ejercicios desde abajo</span>
                   </div>
               </div>
 
-                <div class="section-add-ex" *ngIf="sectionAddForms[sec.id]?.show; else addExToggle">
+                <div class="section-add-ex" *ngIf="sectionAddForms[sec.id]?.show">
                   <select class="field-input add-ex-select" [(ngModel)]="sectionAddForms[sec.id].exerciseId" (ngModelChange)="onExerciseChange(sec)">
                     <option value="">Seleccionar ejercicio...</option>
                     <option *ngFor="let e of vm.exercises" [value]="e.id">{{ e.name }}</option>
@@ -175,20 +196,19 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
                     <option *ngFor="let v of sectionAddForms[sec.id].variants" [value]="v.id">{{ v.name }}</option>
                   </select>
                   <input class="field-input add-ex-dur" type="number" [(ngModel)]="sectionAddForms[sec.id].duration" min="1" max="120" placeholder="min"/>
+                  <input class="field-input add-ex-notes" [(ngModel)]="sectionAddForms[sec.id].notes" placeholder="Notas/observaciones..."/>
                   <button class="btn-add-ex" (click)="addExerciseToSection(sec)" [disabled]="!sectionAddForms[sec.id].exerciseId">
                     <span class="material-symbols-outlined">add</span>
                     Añadir
                   </button>
                   <button class="btn-cancel-ex" (click)="closeAddForm(sec)">Cancelar</button>
                 </div>
-                <ng-template #addExToggle>
-                  <div class="section-add-toggle">
-                    <button class="btn-add-ex-toggle" (click)="openAddForm(sec)">
-                      <span class="material-symbols-outlined">add</span>
-                      Añadir ejercicio
-                    </button>
-                  </div>
-                </ng-template>
+                <div class="section-add-toggle" *ngIf="!sectionAddForms[sec.id]?.show">
+                  <button class="btn-add-ex-toggle" (click)="openAddForm(sec)">
+                    <span class="material-symbols-outlined">add</span>
+                    Añadir ejercicio
+                  </button>
+                </div>
             </div>
 
             <button class="add-section-btn" (click)="addSection()">
@@ -347,38 +367,76 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
     .btn-icon .material-symbols-outlined { font-size: 18px; }
 
     /* Exercises inside section */
-    .section-exercises { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .section-exercises {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+      min-height: 48px;
+    }
     .ex-item {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       background: rgba(0,0,0,0.2);
       border-radius: 10px;
-      padding: 10px 14px;
+      padding: 8px 12px;
       transition: box-shadow 0.15s;
     }
-    .ex-item[draggable="true"] { cursor: grab; }
-    .ex-item[draggable="true"]:active { cursor: grabbing; }
-    .ex-item.drag-over { box-shadow: 0 0 0 2px #0068ed; }
-    .ex-item.drag-before { box-shadow: 0 -3px 0 0 #0068ed; }
-    .ex-item.drag-after { box-shadow: 0 3px 0 0 #0068ed; }
+    .ex-drag-handle {
+      color: #3a3f6a;
+      cursor: grab;
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .ex-drag-handle .material-symbols-outlined { font-size: 18px; }
+    .ex-drag-handle:hover { color: #bdc2ff; }
     .ex-order {
-      width: 26px; height: 26px; border-radius: 50%;
+      width: 24px; height: 24px; border-radius: 50%;
       background: rgba(189,194,255,0.1);
       color: #bdc2ff;
       display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: 700; flex-shrink: 0;
+      font-size: 11px; font-weight: 700; flex-shrink: 0;
     }
-    .ex-info { flex: 1; display: flex; align-items: center; gap: 10px; }
+    .ex-body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .ex-body-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
     .ex-name { color: #dfe0ff; font-size: 14px; font-weight: 600; }
-    .ex-duration { font-size: 12px; color: #908f9d; white-space: nowrap; }
+    .ex-duration {
+      font-size: 13px;
+      font-weight: 700;
+      color: #bdc2ff;
+      font-variant-numeric: tabular-nums;
+      min-width: 24px;
+      text-align: right;
+    }
+    .ex-duration-unit {
+      font-size: 11px;
+      color: #908f9d;
+    }
+    .ex-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
     .ex-notes-input {
       min-width: 120px; max-width: 200px;
       padding: 6px 10px !important; font-size: 12px !important;
     }
     .ex-notes-group {
       display: flex; align-items: center; gap: 4px;
-      flex: 1; min-width: 0;
+      min-width: 0;
     }
     .ex-notes-text {
       font-size: 12px; color: #3a3f6a; cursor: pointer;
@@ -393,19 +451,65 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
     .btn-icon-small .material-symbols-outlined { font-size: 14px !important; }
     .btn-icon-save { color: #4caf50 !important; }
     .btn-icon-save:hover { background: rgba(76,175,80,0.1) !important; }
-    .ex-drop-zone {
+    .ex-empty {
       text-align: center; color: #3a3f6a; font-size: 13px;
-      padding: 12px 24px; display: flex; align-items: center;
+      padding: 20px 24px; display: flex; align-items: center;
       justify-content: center; gap: 8px;
-      border: 1px dashed transparent; border-radius: 8px;
-      transition: all 0.15s;
+      border: 1px dashed rgba(69,70,82,0.3); border-radius: 8px;
     }
-    .ex-drop-zone.empty {
-      min-height: 60px; padding: 20px 24px;
+    .ex-empty .material-symbols-outlined { font-size: 18px; }
+
+    .ex-item.dragging { opacity: 0.4; }
+    .ex-item.drop-before {
+      border-top: 2px solid #bdc2ff;
+      margin-top: -1px;
+      border-radius: 0;
+      position: relative;
     }
-    .ex-drop-zone .material-symbols-outlined { font-size: 18px; }
-    .ex-drop-zone.drop-active {
-      border-color: #0068ed; background: rgba(0,104,237,0.05);
+    .section-exercises.drag-over {
+      outline: 2px dashed #bdc2ff;
+      outline-offset: -2px;
+      border-radius: 8px;
+      background: rgba(189,194,255,0.03);
+    }
+
+    /* Move to section dropdown */
+    .ex-move-section {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .btn-move-section { color: #3a3f6a !important; }
+    .btn-move-section:hover { color: #bdc2ff !important; }
+    .ex-move-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      right: 0;
+      z-index: 100;
+      background: #1e2457;
+      border: 1px solid rgba(69,70,82,0.3);
+      border-radius: 10px;
+      padding: 6px;
+      min-width: 180px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    .ex-move-section:hover .ex-move-dropdown { display: block; }
+    .ex-move-header {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      color: #908f9d; padding: 6px 10px 8px; letter-spacing: 0.05em;
+    }
+    .ex-move-option {
+      display: flex; align-items: center; gap: 8px;
+      width: 100%; padding: 8px 10px; border: none; border-radius: 6px;
+      background: none; color: #dfe0ff; font-size: 13px; font-weight: 500;
+      cursor: pointer; font-family: 'Hanken Grotesk', sans-serif;
+      text-align: left; transition: background 0.15s;
+    }
+    .ex-move-option:hover:not(.disabled) { background: rgba(0,104,237,0.15); }
+    .ex-move-option.disabled { opacity: 0.3; cursor: default; }
+    .ex-move-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
     }
 
     /* Add exercise row */
@@ -529,8 +633,11 @@ export class SessionBuilderComponent {
   sectionAddForms: Record<string, SectionAddForm> = {};
   editingNotes: Set<string> = new Set();
   autoTitle = true;
-  dragItem: { section: SectionVM; exercise: ExerciseVM } | null = null;
-  dragTarget: ExerciseVM | null = null;
+
+  draggedExercise: ExerciseVM | null = null;
+  draggedSection: SectionVM | null = null;
+  dragOverSection: string | null = null;
+  dropBeforeId: string | null = null;
 
   sectionColors = ['#0068ed', '#00c853', '#ff9100', '#e040fb', '#00bcd4', '#ff6d00'];
 
@@ -555,25 +662,26 @@ export class SessionBuilderComponent {
       switchMap(({ teams, exercises }) => {
         if (teams.length > 0 && !this.formTeam) this.formTeam = teams[0].id;
         if (!this.formDate) this.formDate = new Date().toISOString().slice(0, 10);
-        if (this.sections.length === 0) this.initSections();
 
         const sessionId = this.route.snapshot.paramMap.get('id');
-        if (sessionId && !this.editingSession) {
-          this.loadEditingSession(sessionId);
-        }
+        const load$ = (sessionId && !this.editingSession)
+          ? from(this.loadEditingSession(sessionId))
+          : of(true);
 
-        if (!this.editingSession && !this.formTitle) {
-          this.updateDefaultTitle();
-        }
-
-        const exerciseNames: Record<string, string> = {};
-        exercises.forEach(e => exerciseNames[e.id] = e.name);
-        return from(this.exerciseRepo.getVariantsByExerciseIds(exercises.map(e => e.id))).pipe(
-          map(allVariants => {
-            const variantNames: Record<string, string> = {};
-            allVariants.forEach(v => { variantNames[v.id] = v.name; });
-            this.variantNames = variantNames;
-            return { teams, exercises, exerciseNames, variantNames };
+        return load$.pipe(
+          switchMap(loaded => {
+            if (!loaded && this.sections.length === 0) this.initSections();
+            if (!this.editingSession && !this.formTitle) this.updateDefaultTitle();
+            const exerciseNames: Record<string, string> = {};
+            exercises.forEach(e => exerciseNames[e.id] = e.name);
+            return from(this.exerciseRepo.getVariantsByExerciseIds(exercises.map(e => e.id))).pipe(
+              map(allVariants => {
+                const variantNames: Record<string, string> = {};
+                allVariants.forEach(v => { variantNames[v.id] = v.name; });
+                this.variantNames = variantNames;
+                return { teams, exercises, exerciseNames, variantNames };
+              })
+            );
           })
         );
       })
@@ -595,32 +703,32 @@ export class SessionBuilderComponent {
     }
   }
 
-  private async loadEditingSession(sessionId: string) {
+  private async loadEditingSession(sessionId: string): Promise<boolean> {
     const clubId = this.data.currentClub()?.id;
-    if (!clubId) return;
+    if (!clubId) return false;
     const sessions = await this.sessionRepo.findAll(clubId);
     this.editingSession = sessions.find(s => s.id === sessionId) || null;
-    if (this.editingSession) {
-      this.formTitle = this.editingSession.title;
-      this.formTeam = this.editingSession.team_id;
-      this.formDate = this.editingSession.date;
-      this.formStart = this.editingSession.start_time;
-      this.formEnd = this.editingSession.end_time;
-      this.formLocation = this.editingSession.location || '';
-      this.formObjectives = this.editingSession.objectives || '';
+    if (!this.editingSession) return false;
+    this.formTitle = this.editingSession.title;
+    this.formTeam = this.editingSession.team_id;
+    this.formDate = this.editingSession.date;
+    this.formStart = this.editingSession.start_time;
+    this.formEnd = this.editingSession.end_time;
+    this.formLocation = this.editingSession.location || '';
+    this.formObjectives = this.editingSession.objectives || '';
 
-      const dbSections = await this.data.getSections(sessionId);
-      const allEx = await this.data.getSessionExercises(sessionId);
-      this.sections = [];
-      this.sectionExercisesMap = {};
-      for (const sec of dbSections) {
-        this.sections.push({ id: sec.id, name: sec.name, sort_order: sec.sort_order });
-        this.sectionExercisesMap[sec.id] = allEx
-          .filter(e => e.section_id === sec.id)
-          .map(e => ({ id: e.id, exercise_id: e.exercise_id, variant_id: e.variant_id || null, section_id: e.section_id!, duration_minutes: e.duration_minutes, notes: e.notes, order: e.order }));
-      }
-      if (this.sections.length === 0) this.addDefaultSections();
+    const dbSections = await this.data.getSections(sessionId);
+    const allEx = await this.data.getSessionExercises(sessionId);
+    this.sections = [];
+    this.sectionExercisesMap = {};
+    for (const sec of dbSections) {
+      this.sections.push({ id: sec.id, name: sec.name, sort_order: sec.sort_order });
+      this.sectionExercisesMap[sec.id] = allEx
+        .filter(e => e.section_id === sec.id)
+        .map(e => ({ id: e.id, exercise_id: e.exercise_id, variant_id: e.variant_id || null, section_id: e.section_id!, duration_minutes: e.duration_minutes, notes: e.notes, order: e.order }));
     }
+    if (this.sections.length === 0) this.addDefaultSections();
+    return true;
   }
 
   getExerciseDisplayName(se: ExerciseVM): string {
@@ -668,108 +776,18 @@ export class SessionBuilderComponent {
     this.sections.forEach((s, i) => s.sort_order = i + 1);
   }
 
-  onDragStart(event: DragEvent, sec: SectionVM, se: ExerciseVM) {
-    this.dragItem = { section: sec, exercise: se };
-    event.dataTransfer!.effectAllowed = 'move';
-    event.dataTransfer!.setData('text/plain', se.id);
-  }
-
-  onDragOverContainer(event: DragEvent) {
-    event.stopPropagation();
-    event.preventDefault();
-    event.dataTransfer!.dropEffect = 'move';
-  }
-
-  onDropContainer(event: DragEvent, targetSection: SectionVM) {
-    event.stopPropagation();
-    event.preventDefault();
-    if (!this.dragItem) return;
-    const { section: sourceSection, exercise: draggedEx } = this.dragItem;
-    const sourceList = this.sectionExercisesMap[sourceSection.id] || [];
-    const targetList = this.sectionExercisesMap[targetSection.id] || [];
-    const draggedIdx = sourceList.indexOf(draggedEx);
-    if (draggedIdx === -1) { this.clearDrag(); return; }
-    if (sourceSection.id === targetSection.id) {
-      this.doMove(sourceSection, draggedEx, draggedIdx, targetList.length);
-    } else {
-      sourceList.splice(draggedIdx, 1);
-      targetList.push(draggedEx);
-      draggedEx.section_id = targetSection.id;
-      sourceList.forEach((e, i) => e.order = i + 1);
-      targetList.forEach((e, i) => e.order = i + 1);
-      this.sectionExercisesMap[sourceSection.id] = [...sourceList];
-      this.sectionExercisesMap[targetSection.id] = [...targetList];
-    }
-    this.clearDrag();
-  }
-
-  onDragOverItem(event: DragEvent, _sec: SectionVM, _se: ExerciseVM) {
-    event.stopPropagation();
-    event.preventDefault();
-    event.dataTransfer!.dropEffect = 'move';
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const midY = rect.top + rect.height / 2;
-    (event.currentTarget as HTMLElement).classList.toggle('drag-before', event.clientY < midY);
-    (event.currentTarget as HTMLElement).classList.toggle('drag-after', event.clientY >= midY);
-  }
-
-  onDragEnter(_event: DragEvent, _sec: SectionVM, se: ExerciseVM) {
-    this.dragTarget = se;
-  }
-
-  onDragLeave(event: DragEvent) {
-    (event.currentTarget as HTMLElement).classList.remove('drag-before', 'drag-after');
-  }
-
-  onDropItem(event: DragEvent, targetSection: SectionVM, targetEx: ExerciseVM) {
-    event.stopPropagation();
-    event.preventDefault();
-    (event.currentTarget as HTMLElement).classList.remove('drag-before', 'drag-after');
-    if (!this.dragItem) return;
-    const { section: sourceSection, exercise: draggedEx } = this.dragItem;
-    const sourceList = this.sectionExercisesMap[sourceSection.id] || [];
-    const targetList = this.sectionExercisesMap[targetSection.id] || [];
-    const draggedIdx = sourceList.indexOf(draggedEx);
-    if (draggedIdx === -1) { this.clearDrag(); return; }
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    let dropIdx = targetList.indexOf(targetEx);
-    if (dropIdx === -1) dropIdx = targetList.length;
-    if (event.clientY >= rect.top + rect.height / 2) dropIdx++;
-    if (sourceSection.id === targetSection.id) {
-      this.doMove(sourceSection, draggedEx, draggedIdx, dropIdx);
-    } else {
-      sourceList.splice(draggedIdx, 1);
-      dropIdx = Math.min(dropIdx, targetList.length);
-      targetList.splice(dropIdx, 0, draggedEx);
-      draggedEx.section_id = targetSection.id;
-      sourceList.forEach((e, i) => e.order = i + 1);
-      targetList.forEach((e, i) => e.order = i + 1);
-      this.sectionExercisesMap[sourceSection.id] = [...sourceList];
-      this.sectionExercisesMap[targetSection.id] = [...targetList];
-    }
-    this.clearDrag();
-  }
-
-  private doMove(section: SectionVM, ex: ExerciseVM, from: number, to: number) {
-    const list = this.sectionExercisesMap[section.id] || [];
-    if (from === to) return;
-    list.splice(from, 1);
-    const adjusted = from < to ? to - 1 : to;
-    list.splice(adjusted, 0, ex);
-    list.forEach((e, i) => e.order = i + 1);
-    this.sectionExercisesMap[section.id] = [...list];
-  }
-
-  private clearDrag() {
-    document.querySelectorAll('.ex-item.drag-before, .ex-item.drag-after').forEach(el => {
-      el.classList.remove('drag-before', 'drag-after');
-    });
-    this.dragItem = null;
-    this.dragTarget = null;
-  }
-
-  onDragEnd(_event: DragEvent) {
-    this.clearDrag();
+  moveToSection(se: ExerciseVM, fromSec: SectionVM, toSec: SectionVM) {
+    if (fromSec.id === toSec.id) return;
+    const srcList = this.sectionExercisesMap[fromSec.id];
+    const dstList = this.sectionExercisesMap[toSec.id];
+    if (!srcList || !dstList) return;
+    const idx = srcList.indexOf(se);
+    if (idx === -1) return;
+    srcList.splice(idx, 1);
+    se.section_id = toSec.id;
+    dstList.push(se);
+    srcList.forEach((e, i) => e.order = i + 1);
+    dstList.forEach((e, i) => e.order = i + 1);
   }
 
   updateDefaultTitle() {
@@ -806,6 +824,7 @@ export class SessionBuilderComponent {
     const form = this.sectionAddForms[sec.id];
     if (!form || !form.exerciseId) return;
     const id = 'new-' + crypto.randomUUID();
+    const list = this.sectionExercisesMap[sec.id] || [];
     const vm: ExerciseVM = {
       id,
       exercise_id: form.exerciseId,
@@ -813,9 +832,9 @@ export class SessionBuilderComponent {
       section_id: sec.id,
       duration_minutes: form.duration,
       notes: form.notes || null,
-      order: (this.sectionExercisesMap[sec.id]?.length || 0) + 1,
+      order: list.length + 1,
     };
-    this.sectionExercisesMap[sec.id] = [...(this.sectionExercisesMap[sec.id] || []), vm];
+    this.sectionExercisesMap[sec.id] = [...list, vm];
     delete this.sectionAddForms[sec.id];
   }
 
@@ -833,6 +852,88 @@ export class SessionBuilderComponent {
     list[target] = se;
     list.forEach((e, i) => e.order = i + 1);
     this.sectionExercisesMap[sec.id] = [...list];
+  }
+
+  onDragStart(se: ExerciseVM, sec: SectionVM) {
+    this.draggedExercise = se;
+    this.draggedSection = sec;
+  }
+
+  onDragEnd() {
+    this.draggedExercise = null;
+    this.draggedSection = null;
+    this.dragOverSection = null;
+    this.dropBeforeId = null;
+  }
+
+  onDragOver(event: DragEvent, sec: SectionVM) {
+    event.preventDefault();
+    this.dragOverSection = sec.id;
+  }
+
+  onDragLeave(sec: SectionVM) {
+    if (this.dragOverSection === sec.id) {
+      this.dragOverSection = null;
+    }
+  }
+
+  onItemDragOver(event: DragEvent, sec: SectionVM, se: ExerciseVM) {
+    event.preventDefault();
+    this.dragOverSection = sec.id;
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    this.dropBeforeId = event.clientY < midY ? se.id : null;
+  }
+
+  onItemDragLeave(se: ExerciseVM) {
+    if (this.dropBeforeId === se.id) {
+      this.dropBeforeId = null;
+    }
+  }
+
+  onDrop(event: DragEvent, targetSec: SectionVM) {
+    event.preventDefault();
+    const ex = this.draggedExercise;
+    const fromSec = this.draggedSection;
+    if (!ex || !fromSec) return;
+
+    const targetList = this.sectionExercisesMap[targetSec.id];
+    if (!targetList) return;
+
+    const insertBeforeIdx = this.dropBeforeId
+      ? targetList.findIndex(e => e.id === this.dropBeforeId)
+      : -1;
+
+    const insertAt = insertBeforeIdx >= 0 ? insertBeforeIdx : targetList.length;
+
+    if (fromSec.id === targetSec.id) {
+      const srcList = targetList;
+      const fromIdx = srcList.indexOf(ex);
+      if (fromIdx === -1) return;
+      srcList.splice(fromIdx, 1);
+      const adjustedTarget = insertAt > fromIdx ? insertAt - 1 : insertAt;
+      srcList.splice(adjustedTarget, 0, ex);
+      srcList.forEach((e, i) => e.order = i + 1);
+      this.sectionExercisesMap[targetSec.id] = [...srcList];
+    } else {
+      const srcList = this.sectionExercisesMap[fromSec.id];
+      if (!srcList) return;
+      const fromIdx = srcList.indexOf(ex);
+      if (fromIdx === -1) return;
+      srcList.splice(fromIdx, 1);
+      srcList.forEach((e, i) => e.order = i + 1);
+      this.sectionExercisesMap[fromSec.id] = [...srcList];
+
+      ex.section_id = targetSec.id;
+      targetList.splice(insertAt, 0, ex);
+      targetList.forEach((e, i) => e.order = i + 1);
+      this.sectionExercisesMap[targetSec.id] = [...targetList];
+    }
+
+    this.draggedExercise = null;
+    this.draggedSection = null;
+    this.dragOverSection = null;
+    this.dropBeforeId = null;
   }
 
   async save() {
@@ -896,6 +997,7 @@ export class SessionBuilderComponent {
           if (created) existingExIds.add(created.id);
         } else {
           await this.data.updateSessionExercise(ex.id, {
+            section_id: sectionId,
             order: ex.order,
             duration_minutes: ex.duration_minutes,
             notes: ex.notes,

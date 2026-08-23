@@ -5,6 +5,7 @@ import { superadminGuard } from './core/guards/superadmin.guard';
 import { adminGuard } from './core/guards/admin.guard';
 import { clubAdminGuard } from './core/guards/club-admin.guard';
 import { familyGuard } from './core/guards/family.guard';
+import { calendarRedirectGuard } from './core/guards/calendar-redirect.guard';
 
 export const routes: Routes = [
   {
@@ -30,14 +31,14 @@ export const routes: Routes = [
       { path: 'exercises', loadComponent: () => import('./features/exercises/exercises.component').then(m => m.ExercisesComponent) },
       { path: 'exercises/new', loadComponent: () => import('./features/exercises/exercise-form.component').then(m => m.ExerciseFormComponent) },
       { path: 'exercises/:id/edit', loadComponent: () => import('./features/exercises/exercise-form.component').then(m => m.ExerciseFormComponent) },
-      { path: 'exercises/tags', loadComponent: () => import('./features/exercises/tags.component').then(m => m.TagsComponent) },
+      { path: 'exercises/tags', loadComponent: () => import('./features/exercises/tags.component').then(m => m.TagsRedirectComponent) },
       { path: 'sessions', loadComponent: () => import('./features/sessions/sessions.component').then(m => m.SessionsComponent) },
       { path: 'sessions/new', loadComponent: () => import('./features/sessions/session-new.component').then(m => m.SessionNewComponent) },
       { path: 'sessions/:id', loadComponent: () => import('./features/sessions/session-detail.component').then(m => m.SessionDetailComponent) },
       { path: 'sessions/:id/builder', loadComponent: () => import('./features/sessions/session-builder.component').then(m => m.SessionBuilderComponent) },
       { path: 'sessions/:id/analysis', loadComponent: () => import('./features/sessions/session-analysis.component').then(m => m.SessionAnalysisComponent) },
       { path: 'session-builder', redirectTo: 'sessions/new', pathMatch: 'full' },
-      { path: 'calendar', loadComponent: () => import('./features/calendar/calendar.component').then(m => m.CalendarComponent) },
+      { path: 'calendar', canActivate: [calendarRedirectGuard], loadComponent: () => import('./features/calendar/calendar.component').then(m => m.CalendarComponent) },
       { path: 'evaluations', canActivate: [featureGuard('evaluations')], loadComponent: () => import('./features/evaluations/evaluations.component').then(m => m.EvaluationsComponent) },
       { path: 'matches', canActivate: [featureGuard('match_analysis')], loadComponent: () => import('./features/matches/pages/match-list.page').then(m => m.MatchListPage) },
       { path: 'matches/new', canActivate: [featureGuard('match_analysis')], loadComponent: () => import('./features/matches/pages/match-form.page').then(m => m.MatchFormPage) },
@@ -62,7 +63,7 @@ export const routes: Routes = [
       { path: 'portal', canActivate: [familyGuard], loadComponent: () => import('./features/portal/family-portal.component').then(m => m.FamilyPortalComponent) },
       { path: 'portal/players/:id', canActivate: [familyGuard], loadComponent: () => import('./features/portal/family-player-detail.component').then(m => m.FamilyPlayerDetailComponent) },
       { path: 'onboarding', canActivate: [adminGuard], loadComponent: () => import('./features/onboarding/onboarding-wizard.component').then(m => m.OnboardingWizardComponent) },
-      { path: '', redirectTo: 'portal', pathMatch: 'full' },
+      { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
     ],
   },
   {

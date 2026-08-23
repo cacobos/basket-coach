@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, computed } from '@angular/core';
 import { NgIf, NgFor, AsyncPipe } from '@angular/common';
 import { AuthService } from '../../core/auth/auth.service';
 import { DataService } from '../../core/services/data.service';
@@ -24,7 +24,7 @@ import { toObservable } from '@angular/core/rxjs-interop';
         </div>
         <div class="topbar-actions">
           <div class="avatar-ring">
-            <div class="avatar-placeholder">{{ auth.profile()?.full_name?.charAt(0) || 'C' }}</div>
+            <div class="avatar-placeholder">{{ greetInitial() }}</div>
           </div>
         </div>
       </header>
@@ -32,8 +32,8 @@ import { toObservable } from '@angular/core/rxjs-interop';
       <section class="content">
         <div class="content-inner" *ngIf="vm$ | async as vm; else loadingTpl">
           <div class="greeting">
-            <h2 class="greeting-title">Coach Insights</h2>
-            <p class="greeting-sub" *ngIf="auth.profile() as profile">Bienvenido de nuevo, {{ profile.full_name }}. Aquí está el resumen de hoy.</p>
+            <h1 class="greeting-title">Coach Insights</h1>
+            <p class="greeting-sub" *ngIf="auth.profile() as profile">@if (greetName()) {Bienvenido de nuevo, {{ greetName() }}. }@else {Bienvenido de nuevo. }Aquí está el resumen de hoy.</p>
           </div>
 
           <div class="grid-3">
@@ -51,7 +51,8 @@ import { toObservable } from '@angular/core/rxjs-interop';
                   <span class="material-symbols-outlined team-arrow">chevron_right</span>
                 </div>
                 <div class="empty-state-sml" *ngIf="vm.teamSummaries.length === 0">
-                  <p>No hay equipos todavía. <a routerLink="/teams">Crea uno.</a></p>
+                  <p>No hay equipos todavía.</p>
+                  <a class="empty-cta" routerLink="/teams">Crear equipo</a>
                 </div>
               </div>
             </div>
@@ -72,7 +73,8 @@ import { toObservable } from '@angular/core/rxjs-interop';
                     </div>
                   </div>
                   <div class="empty-state-sml" *ngIf="vm.upcomingSessions.length === 0">
-                    <p>No hay sesiones próximas. <a routerLink="/sessions">Planifica una.</a></p>
+                    <p>No hay sesiones próximas.</p>
+                    <a class="empty-cta" routerLink="/sessions">Planificar sesión</a>
                   </div>
                 </div>
               </div>
@@ -206,8 +208,13 @@ import { toObservable } from '@angular/core/rxjs-interop';
     .chart-bars { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: space-around; padding: 0 40px 32px; opacity: 0.4; }
     .bar { width: 48px; background: #bdc2ff; border-radius: 8px 8px 0 0; transition: height 0.7s; }
     .chart-axis { position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; background: #454652; }
+    .empty-state-sml { display: flex; flex-direction: column; align-items: center; gap: 8px; }
     .empty-state-sml p { color: #908f9d; font-size: 13px; text-align: center; margin: 0; }
-    .empty-state-sml a { color: #bdc2ff; }
+    .empty-cta {
+      color: #bdc2ff; font-size: 13px; font-weight: 600;
+      text-decoration: underline; text-underline-offset: 3px;
+    }
+    .empty-cta:hover { color: #dfe0ff; }
     @keyframes spin { to { transform: rotate(360deg); } }
     @media (max-width: 768px) {
       .content { padding: 20px !important; }
@@ -234,6 +241,18 @@ export class DashboardComponent {
   private playerRepo = inject(PlayerRepository);
   private exerciseRepo = inject(ExerciseRepository);
   private sessionRepo = inject(SessionRepository);
+
+  readonly greetName = computed(() => {
+    const name = (this.auth.profile()?.full_name || '').trim();
+    return name && !name.includes('@') ? name : null;
+  });
+
+  greetInitial(): string {
+    const name = this.greetName();
+    if (name) return name.charAt(0).toUpperCase();
+    const email = this.auth.profile()?.email || '';
+    return email ? email.charAt(0).toUpperCase() : 'C';
+  }
 
   readonly vm$ = toObservable(this.data.currentClub).pipe(
     filter(Boolean),

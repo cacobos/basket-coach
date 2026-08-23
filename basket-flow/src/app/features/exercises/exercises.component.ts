@@ -1,19 +1,20 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ExerciseRepository } from '../../core/repositories/exercise.repository';
 import { DataService } from '../../core/services/data.service';
 import { NotificationService } from '../../core/services/notification.service';
-import type { Exercise } from '../../core/models/models';
-import { from, forkJoin, of } from 'rxjs';
+import { TagsComponent } from './tags.component';
+import type { Exercise, ExerciseCategory } from '../../core/models/models';
+import { BehaviorSubject, from, forkJoin, of } from 'rxjs';
 import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
 
 @Component({
   selector: 'app-exercises',
   standalone: true,
-  imports: [AsyncPipe, NgFor, NgIf, FormsModule, RouterLink],
+  imports: [AsyncPipe, NgFor, NgIf, FormsModule, RouterLink, TagsComponent],
   template: `
     <div class="page" *ngIf="vm$ | async as vm">
       <header class="page-header">
@@ -22,21 +23,38 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
           <p class="page-sub">Dise&ntilde;a, organiza y reutiliza ejercicios para tus sesiones.</p>
         </div>
         <div class="header-buttons">
-          <a class="btn-secondary" routerLink="/exercises/tags">
-            <span class="material-symbols-outlined">sell</span>
-            Tags
-          </a>
-          <a class="btn-primary" routerLink="/exercises/new">
-            <span class="material-symbols-outlined fill">add</span>
-            Nuevo Ejercicio
-          </a>
+          <div class="tab-toggle" role="tablist" aria-label="Sección">
+            <button type="button" role="tab" [class.active]="activeTab() === 'exercises'" [attr.aria-selected]="activeTab() === 'exercises'" (click)="setTab('exercises')">Ejercicios</button>
+            <button type="button" role="tab" [class.active]="activeTab() === 'tags'" [attr.aria-selected]="activeTab() === 'tags'" (click)="setTab('tags')">Tags</button>
+          </div>
+          @if (activeTab() === 'exercises') {
+            <a class="btn-primary" routerLink="/exercises/new">
+              <span class="material-symbols-outlined fill">add</span>
+              Nuevo Ejercicio
+            </a>
+          }
         </div>
       </header>
 
+      @if (activeTab() === 'tags') {
+        <app-tags [embedded]="true" />
+      } @else {
       <div class="filters">
         <div class="search-wrap">
           <span class="material-symbols-outlined search-icon">search</span>
           <input class="search-input" placeholder="Buscar ejercicios..." type="text" [(ngModel)]="search"/>
+        </div>
+        <div class="cat-row">
+          <button class="cat-chip" [class.active]="selectedCategoryId() === null" (click)="selectCategory(null)">Todas</button>
+          @for (c of categories(); track c.id) {
+            <button class="cat-chip" [class.active]="selectedCategoryId() === c.id" (click)="selectCategory(c.id)">
+              <span class="cat-dot" [style.background]="c.color"></span>{{ c.name }}
+            </button>
+          }
+          <button class="cat-manage" (click)="openCatDialog()">
+            <span class="material-symbols-outlined">tune</span>
+            Categorías
+          </button>
         </div>
         <div class="filter-tags" *ngIf="allTags.length > 0">
           <button class="tag-chip" [class.active]="selectedTags.length === 0" (click)="selectedTags = []">Todos</button>
@@ -48,6 +66,11 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
         <div class="ex-card" *ngFor="let ex of filtered">
           <div class="ex-body">
             <div class="ex-tags">
+              @if (categoryOf(ex); as c) {
+                <span class="ex-tag ex-cat" [style.background]="c.color + '22'" [style.color]="c.color">
+                  {{ c.name }}
+                </span>
+              }
               <span class="ex-tag" *ngFor="let tag of (ex.tags || [])">{{ tag.name }}</span>
             </div>
             <h3 class="ex-title">{{ ex.name }}</h3>
@@ -72,13 +95,62 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
       <ng-template #loadingTpl>
         <div class="loading-state"><span class="material-symbols-outlined loading-icon">sync</span><p>Cargando ejercicios...</p></div>
       </ng-template>
+      }
 
+      @if (catDialogOpen()) {
+        <div class="dialog-overlay" (click)="catDialogOpen.set(false)">
+          <div class="modal-card" (click)="$event.stopPropagation()" role="dialog" aria-label="Gestionar categorías">
+            <h3 class="modal-title">Categorías</h3>
+            <div class="cat-list">
+              @for (c of categories(); track c.id) {
+                <div class="cat-item">
+                  @if (editingCatId() === c.id) {
+                    <input type="color" [ngModel]="editColor" [ngModelOptions]="{standalone: true}" (ngModelChange)="editColor = $event" aria-label="Color"/>
+                    <input class="cat-input" [ngModel]="editName" [ngModelOptions]="{standalone: true}" (ngModelChange)="editName = $event" (keyup.enter)="saveEdit(c.id)"/>
+                    <button class="mini-btn save" (click)="saveEdit(c.id)">Guardar</button>
+                    <button class="mini-btn" (click)="editingCatId.set(null)">Cancelar</button>
+                  } @else {
+                    <span class="cat-dot" [style.background]="c.color"></span>
+                    <span class="cat-name">{{ c.name }}</span>
+                    <button class="icon-mini" (click)="startEdit(c)" aria-label="Renombrar">
+                      <span class="material-symbols-outlined">edit</span>
+                    </button>
+                    <button class="icon-mini danger" (click)="deleteCategory(c)" aria-label="Eliminar">
+                      <span class="material-symbols-outlined">delete</span>
+                    </button>
+                  }
+                </div>
+              }
+              @if (categories().length === 0) {
+                <p class="cat-empty">Sin categorías todavía. Crea la primera abajo.</p>
+              }
+            </div>
+            <div class="cat-new">
+              <input type="color" [(ngModel)]="newCatColor" aria-label="Color de la nueva categoría"/>
+              <input class="cat-input" placeholder="Nueva categoría..." [(ngModel)]="newCatName" (keyup.enter)="addCategory()"/>
+              <button class="btn-primary-sm" (click)="addCategory()" [disabled]="!newCatName.trim()">Añadir</button>
+            </div>
+          </div>
+        </div>
+      }
 
     </div>
   `,
   styles: [`
     .page { padding: 40px; max-width: 1440px; margin: 0 auto; }
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 48px; }
+    .tab-toggle {
+      display: inline-flex; gap: 2px; padding: 4px; align-self: center;
+      background: #111644; border: 1px solid rgba(69,70,82,0.3); border-radius: 10px;
+    }
+    .tab-toggle button {
+      background: transparent; border: none; cursor: pointer;
+      color: #908f9d; font-family: 'Hanken Grotesk', sans-serif;
+      font-size: 14px; font-weight: 600; padding: 8px 18px; border-radius: 8px;
+      transition: all 0.15s;
+    }
+    .tab-toggle button:hover { color: #c6c5d4; }
+    .tab-toggle button.active { background: #0068ed; color: white; }
     .page-title { font-size: 48px; line-height: 56px; font-weight: 800; letter-spacing: -0.02em; color: #dfe0ff; margin: 0; }
     .page-sub { font-size: 18px; line-height: 28px; color: #c6c5d4; margin: 4px 0 0; }
     .btn-primary {
@@ -103,6 +175,26 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
     }
     .search-input:focus { border-color: #bdc2ff; box-shadow: 0 0 0 1px #bdc2ff; }
     .filter-tags { display: flex; gap: 6px; flex-wrap: wrap; max-height: 80px; overflow-y: auto; }
+    .cat-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .cat-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 700;
+      padding: 6px 14px; border-radius: 9999px; border: 1px solid rgba(69,70,82,0.3);
+      background: transparent; color: #908f9d; cursor: pointer;
+      font-family: 'Hanken Grotesk', sans-serif; transition: all 0.15s;
+    }
+    .cat-chip:hover { border-color: rgba(189,194,255,0.3); color: #c6c5d4; }
+    .cat-chip.active { background: rgba(0,104,237,0.15); color: #bdc2ff; border-color: rgba(0,104,237,0.4); }
+    .cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+    .cat-manage {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: transparent; border: 1px dashed rgba(69,70,82,0.5); color: #908f9d;
+      font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 9999px;
+      cursor: pointer; font-family: 'Hanken Grotesk', sans-serif; transition: all 0.15s;
+    }
+    .cat-manage:hover { color: #bdc2ff; border-color: rgba(189,194,255,0.4); }
+    .cat-manage .material-symbols-outlined { font-size: 14px; }
+    .ex-cat { border: 1px solid transparent; }
     .filter-tags::-webkit-scrollbar { width: 4px; }
     .filter-tags::-webkit-scrollbar-thumb { background: rgba(189,194,255,0.2); border-radius: 2px; }
     .tag-chip {
@@ -168,6 +260,52 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
       display: flex; align-items: center;
     }
     .btn-icon .material-symbols-outlined { font-size: 16px; }
+    .dialog-overlay {
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(3,7,55,0.7); backdrop-filter: blur(2px);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal-card {
+      background: #161b48; border: 1px solid rgba(69,70,82,0.4);
+      border-radius: 16px; padding: 24px; width: min(420px, calc(100vw - 32px));
+      box-shadow: 0 24px 48px rgba(0,0,0,0.5);
+    }
+    .modal-title { margin: 0 0 16px; font-size: 18px; font-weight: 700; color: #dfe0ff; }
+    .cat-list { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto; margin-bottom: 16px; }
+    .cat-item { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; }
+    .cat-item:hover { background: rgba(255,255,255,0.04); }
+    .cat-name { flex: 1; font-size: 14px; color: #dfe0ff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cat-empty { color: #908f9d; font-size: 13px; margin: 8px 0; }
+    .cat-input {
+      flex: 1; background: #111644; border: 1px solid rgba(69,70,82,0.4);
+      color: #dfe0ff; border-radius: 8px; padding: 8px 12px; font-size: 14px;
+      outline: none; font-family: 'Hanken Grotesk', sans-serif; min-width: 0;
+    }
+    .cat-input:focus { border-color: #bdc2ff; }
+    input[type="color"] {
+      width: 36px; height: 36px; padding: 2px; border: 1px solid rgba(69,70,82,0.4);
+      border-radius: 8px; background: #111644; cursor: pointer;
+    }
+    .icon-mini {
+      background: transparent; border: none; color: #908f9d; cursor: pointer;
+      padding: 4px; border-radius: 6px; display: flex;
+    }
+    .icon-mini:hover { color: #dfe0ff; background: rgba(255,255,255,0.06); }
+    .icon-mini.danger:hover { color: #ff8a80; }
+    .mini-btn {
+      background: transparent; border: 1px solid rgba(69,70,82,0.4); color: #c6c5d4;
+      font-size: 12px; font-weight: 600; padding: 6px 10px; border-radius: 8px;
+      cursor: pointer; white-space: nowrap; font-family: 'Hanken Grotesk', sans-serif;
+    }
+    .mini-btn.save { background: rgba(189,194,255,0.15); border-color: rgba(189,194,255,0.4); color: #bdc2ff; }
+    .mini-btn:hover { border-color: rgba(189,194,255,0.4); }
+    .cat-new { display: flex; align-items: center; gap: 8px; border-top: 1px solid rgba(69,70,82,0.3); padding-top: 16px; }
+    .btn-primary-sm {
+      background: #0068ed; color: #f2f3ff; border: none; border-radius: 8px;
+      padding: 8px 14px; font-weight: 700; font-size: 13px; cursor: pointer;
+      font-family: 'Hanken Grotesk', sans-serif; transition: opacity 0.15s;
+    }
+    .btn-primary-sm:disabled { opacity: 0.4; cursor: default; }
     @media (max-width: 768px) {
       .page { padding: 20px; }
       .page-header { flex-direction: column; align-items: stretch; gap: 16px; }
@@ -191,32 +329,70 @@ export class ExercisesComponent {
   private exerciseRepo = inject(ExerciseRepository);
   private data = inject(DataService);
   private notification = inject(NotificationService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+
+  activeTab = signal<'exercises' | 'tags'>('exercises');
+  private reload$ = new BehaviorSubject<void>(undefined);
+
+  constructor() {
+    if (this.route.snapshot.queryParamMap.get('tab') === 'tags') {
+      this.activeTab.set('tags');
+    }
+  }
+
+  setTab(tab: 'exercises' | 'tags') {
+    if (this.activeTab() === tab) return;
+    this.activeTab.set(tab);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: tab === 'tags' ? 'tags' : null },
+      queryParamsHandling: 'merge',
+    });
+    if (tab === 'exercises') this.reload$.next();
+  }
 
   exercises: Exercise[] = [];
+  categories = signal<ExerciseCategory[]>([]);
+  selectedCategoryId = signal<string | null>(null);
+  catDialogOpen = signal(false);
+  editingCatId = signal<string | null>(null);
+  editName = '';
+  editColor = '#818cf8';
+  newCatName = '';
+  newCatColor = '#818cf8';
   search = '';
   selectedTags: string[] = [];
   allTags: string[] = [];
 
   private club$ = toObservable(this.data.currentClub).pipe(filter(Boolean));
 
-  vm$ = this.club$.pipe(
-    switchMap(club => forkJoin({
-      exercises: from(this.exerciseRepo.findAll(club.id)),
-    })),
-    map(({ exercises }) => {
-      this.exercises = exercises;
-      this.collectAllTags();
-      return { loading: false };
-    }),
-    catchError(err => {
-      this.notification.show(err instanceof Error ? err.message : String(err));
-      return of({ loading: false });
-    }),
-    startWith({ loading: true }),
+  vm$ = this.reload$.pipe(
+    switchMap(() => this.club$.pipe(
+      switchMap(club => forkJoin({
+        exercises: from(this.exerciseRepo.findAll(club.id)),
+        categories: from(this.exerciseRepo.getCategories(club.id)).pipe(catchError(() => of([] as ExerciseCategory[]))),
+      })),
+      map(({ exercises, categories }) => {
+        this.exercises = exercises;
+        this.categories.set(categories);
+        this.collectAllTags();
+        return { loading: false };
+      }),
+      catchError(err => {
+        this.notification.show(err instanceof Error ? err.message : String(err));
+        return of({ loading: false });
+      }),
+      startWith({ loading: true }),
+    )),
   );
 
   get filtered() {
     let list = this.exercises;
+    const catId = this.selectedCategoryId();
+    if (catId) {
+      list = list.filter(e => e.category_id === catId);
+    }
     if (this.search) {
       const q = this.search.toLowerCase();
       list = list.filter(e => e.name.toLowerCase().includes(q) || (e.tags || []).some(t => t.name.toLowerCase().includes(q)));
@@ -225,6 +401,62 @@ export class ExercisesComponent {
       list = list.filter(e => (e.tags || []).some(t => this.selectedTags.includes(t.name)));
     }
     return list;
+  }
+
+  selectCategory(id: string | null) {
+    this.selectedCategoryId.set(id);
+  }
+
+  categoryOf(ex: Exercise): ExerciseCategory | undefined {
+    if (!ex.category_id) return undefined;
+    return this.categories().find(c => c.id === ex.category_id);
+  }
+
+  openCatDialog() {
+    this.editingCatId.set(null);
+    this.catDialogOpen.set(true);
+  }
+
+  async addCategory() {
+    const name = this.newCatName.trim();
+    if (!name) return;
+    try {
+      const clubId = this.data.currentClub()!.id;
+      const created = await this.exerciseRepo.createCategory(name, this.newCatColor, clubId);
+      this.categories.update(list => [...list, created].sort((a, b) => a.name.localeCompare(b.name)));
+      this.newCatName = '';
+    } catch (err) {
+      this.notification.show(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  startEdit(c: ExerciseCategory) {
+    this.editingCatId.set(c.id);
+    this.editName = c.name;
+    this.editColor = c.color;
+  }
+
+  async saveEdit(id: string) {
+    const name = this.editName.trim();
+    if (!name) return;
+    try {
+      const updated = await this.exerciseRepo.updateCategory(id, { name, color: this.editColor });
+      this.categories.update(list => list.map(c => (c.id === id ? updated : c)));
+      this.editingCatId.set(null);
+    } catch (err) {
+      this.notification.show(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async deleteCategory(c: ExerciseCategory) {
+    if (!confirm(`¿Eliminar la categoría "${c.name}"? Los ejercicios quedarán sin categoría.`)) return;
+    try {
+      await this.exerciseRepo.removeCategory(c.id);
+      this.categories.update(list => list.filter(x => x.id !== c.id));
+      if (this.selectedCategoryId() === c.id) this.selectedCategoryId.set(null);
+    } catch (err) {
+      this.notification.show(err instanceof Error ? err.message : String(err));
+    }
   }
 
   toggleTag(t: string) {
@@ -250,6 +482,11 @@ export class ExercisesComponent {
   private async load() {
     const clubId = this.data.currentClub()!.id;
     this.exercises = await this.exerciseRepo.findAll(clubId);
+    try {
+      this.categories.set(await this.exerciseRepo.getCategories(clubId));
+    } catch {
+      this.categories.set([]);
+    }
     this.collectAllTags();
   }
 }

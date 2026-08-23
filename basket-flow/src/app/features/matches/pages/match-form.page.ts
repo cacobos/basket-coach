@@ -5,12 +5,13 @@ import { DataService } from '../../../core/services/data.service';
 import { PlayerRepository } from '../../../core/repositories/player.repository';
 import { MatchService } from '../services/match.service';
 import { ConfigurationService } from '../services/configuration.service';
+import { AlertBannerComponent } from '../../../shared/components/alert-banner.component';
 import type { Team, Player } from '../../../core/models/models';
 
 @Component({
   selector: 'app-match-form',
   standalone: true,
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, AlertBannerComponent],
   template: `
     <div class="page">
       <div class="page-header">
@@ -23,12 +24,14 @@ import type { Team, Player } from '../../../core/models/models';
       }
 
       @if (showCatalogBanner()) {
-        <div class="alert-warning">
-          <span>No hay catálogos de partido configurados. Inicializa los valores por defecto para empezar.</span>
-          <button class="btn-outline" (click)="seedCatalogs()" [disabled]="seeding()">
-            {{ seeding() ? 'Inicializando…' : 'Inicializar catálogos' }}
-          </button>
-        </div>
+        <app-alert-banner
+          severity="warn"
+          [actionLabel]="seeding() ? 'Inicializando…' : 'Inicializar catálogos'"
+          [actionDisabled]="seeding()"
+          (action)="seedCatalogs()"
+        >
+          No hay catálogos de partido configurados. Inicializa los valores por defecto para empezar.
+        </app-alert-banner>
       }
 
       <form (ngSubmit)="onSubmit()" class="form">
@@ -141,10 +144,7 @@ import type { Team, Player } from '../../../core/models/models';
     .btn-primary { background: #bdc2ff; color: #030737; padding: 10px 24px; border-radius: 8px; border: none; font-weight: 600; font-size: 14px; cursor: pointer; }
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary:hover:not(:disabled) { opacity: 0.9; }
-    .btn-outline { background: transparent; border: 1px solid #f59e0b; color: #fbbf24; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; }
-    .btn-outline:disabled { opacity: 0.5; cursor: not-allowed; }
     .alert-error { background: rgba(239,68,68,0.15); color: #fca5a5; padding: 12px; border-radius: 8px; border: 1px solid rgba(239,68,68,0.3); margin-bottom: 16px; font-size: 14px; }
-    .alert-warning { background: rgba(245,158,11,0.12); color: #fbbf24; padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(245,158,11,0.3); margin-bottom: 16px; font-size: 14px; display: flex; align-items: center; gap: 16px; }
     .form { display: flex; flex-direction: column; gap: 16px; }
     .form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; }
     .form-group label { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }

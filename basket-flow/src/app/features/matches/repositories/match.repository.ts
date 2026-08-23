@@ -17,7 +17,7 @@ export class MatchRepository {
     const { data, error } = await this.supabase.client
       .from('matches').select('*')
       .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
-      .order('date', { ascending: false });
+      .order('match_date', { ascending: false });
     if (error) throw error;
     return data ?? [];
   }

@@ -1,7 +1,7 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, input } from '@angular/core';
 import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { BehaviorSubject, from, of, forkJoin } from 'rxjs';
 import { switchMap, filter, map, tap, catchError, take } from 'rxjs/operators';
@@ -11,17 +11,32 @@ import { NotificationService } from '../../core/services/notification.service';
 import type { Club, Exercise, Tag } from '../../core/models/models';
 
 @Component({
+  selector: 'app-tags-redirect',
+  standalone: true,
+  template: '',
+})
+export class TagsRedirectComponent {
+  private router = inject(Router);
+
+  constructor() {
+    void this.router.navigate(['/exercises'], { queryParams: { tab: 'tags' }, replaceUrl: true });
+  }
+}
+
+@Component({
   selector: 'app-tags',
   standalone: true,
   imports: [AsyncPipe, NgFor, NgIf, FormsModule, RouterLink],
   template: `
-    <div class="page">
+    <div class="page" [class.embedded]="embedded()">
       <header class="page-header">
         <div>
-          <a routerLink="/exercises" class="back-link">
-            <span class="material-symbols-outlined">arrow_back</span>
-            Volver a ejercicios
-          </a>
+          @if (!embedded()) {
+            <a routerLink="/exercises" class="back-link">
+              <span class="material-symbols-outlined">arrow_back</span>
+              Volver a ejercicios
+            </a>
+          }
           <h2 class="page-title">Gestionar Tags</h2>
           <p class="page-sub">Administra los tags usados en todos tus ejercicios.</p>
         </div>
@@ -71,6 +86,8 @@ import type { Club, Exercise, Tag } from '../../core/models/models';
   `,
   styles: [`
     .page { padding: 40px; max-width: 800px; margin: 0 auto; }
+    .page.embedded { padding: 0; max-width: none; }
+    .page.embedded .page-header { margin-bottom: 16px; }
     .page-header { margin-bottom: 32px; }
     .back-link { display: inline-flex; align-items: center; gap: 4px; color: #bdc2ff; text-decoration: none; font-size: 14px; margin-bottom: 16px; }
     .back-link:hover { color: #dfe0ff; }
@@ -151,6 +168,7 @@ import type { Club, Exercise, Tag } from '../../core/models/models';
   `]
 })
 export class TagsComponent {
+  embedded = input(false);
   private exerciseRepo = inject(ExerciseRepository);
   private data = inject(DataService);
   private notification = inject(NotificationService);

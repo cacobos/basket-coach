@@ -7,12 +7,13 @@ import { forkJoin } from 'rxjs';
 import { filter, map, switchMap, tap } from 'rxjs/operators';
 import { DataService } from '../../core/services/data.service';
 import { PlayerRepository } from '../../core/repositories/player.repository';
+import { EmptyStateComponent } from '../../shared/components/empty-state.component';
 import type { Player, Team } from '../../core/models/models';
 
 @Component({
   selector: 'app-players',
   standalone: true,
-  imports: [AsyncPipe, DatePipe, NgFor, NgIf, FormsModule],
+  imports: [AsyncPipe, DatePipe, NgFor, NgIf, FormsModule, EmptyStateComponent],
   template: `
     <div class="page" *ngIf="vm$ | async">
       <header class="page-header">
@@ -83,10 +84,12 @@ import type { Player, Team } from '../../core/models/models';
             <span class="material-symbols-outlined">delete</span>
           </button>
         </div>
-        <div class="empty-state" *ngIf="filtered.length === 0 && !showDeleted">
-          <span class="material-symbols-outlined empty-icon">face</span>
-          <p>No hay jugadores que coincidan.</p>
-        </div>
+        <app-empty-state
+          *ngIf="filtered.length === 0 && !showDeleted"
+          icon="face"
+          title="No hay jugadores que coincidan"
+          hint="Prueba con otro filtro o añade un jugador nuevo desde el botón de arriba."
+        />
 
         <div class="deleted-section" *ngIf="showDeleted && deletedPlayers.length > 0">
           <h3 class="deleted-title">Jugadores eliminados</h3>
@@ -104,10 +107,11 @@ import type { Player, Team } from '../../core/models/models';
             </button>
           </div>
         </div>
-        <div class="empty-state" *ngIf="showDeleted && deletedPlayers.length === 0">
-          <span class="material-symbols-outlined empty-icon">delete_sweep</span>
-          <p>No hay jugadores en la papelera.</p>
-        </div>
+        <app-empty-state
+          *ngIf="showDeleted && deletedPlayers.length === 0"
+          icon="delete_sweep"
+          title="No hay jugadores en la papelera"
+        />
       </div>
 
       <ng-template #loadingTpl>

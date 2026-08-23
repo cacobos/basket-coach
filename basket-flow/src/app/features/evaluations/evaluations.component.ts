@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { DataService } from '../../core/services/data.service';
 import { SessionRepository } from '../../core/repositories/session.repository';
 import type { TrainingSession, Team, Attendance } from '../../core/models/models';
+import { EmptyStateComponent } from '../../shared/components/empty-state.component';
 import { from, forkJoin, of, combineLatest } from 'rxjs';
 import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
 
@@ -18,7 +19,7 @@ interface SessionEval {
 @Component({
   selector: 'app-evaluations',
   standalone: true,
-  imports: [AsyncPipe, SlicePipe],
+  imports: [AsyncPipe, SlicePipe, EmptyStateComponent],
   template: `
     @if (vm$ | async; as vm) {
       <div class="page">
@@ -38,11 +39,11 @@ interface SessionEval {
       @if (vm.loading) {
         <div class="loading-state"><span class="material-symbols-outlined loading-icon">sync</span><p>Cargando sesiones...</p></div>
       } @else if (vm.filtered.length === 0) {
-        <div class="empty-state">
-          <span class="material-symbols-outlined empty-icon">fact_check</span>
-          <p>No hay sesiones completadas para evaluar.</p>
-          <span class="empty-hint">Completa un entrenamiento para que aparezca aqu&iacute;.</span>
-        </div>
+        <app-empty-state
+          icon="fact_check"
+          title="No hay sesiones completadas para evaluar"
+          hint="Completa un entrenamiento para que aparezca aqu&iacute;."
+        />
       } @else {
         <div class="session-list">
           @for (item of vm.filtered; track item.session.id) {

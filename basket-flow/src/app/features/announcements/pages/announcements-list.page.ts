@@ -1,9 +1,10 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { AnnouncementService } from '../services/announcement.service';
 import { DataService } from '../../../core/services/data.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { PermissionService, type Role } from '../../../core/services/permission.service';
 import { SupabaseService } from '../../../core/supabase/supabase.service';
 import { AnnouncementRepository } from '../repositories/announcement.repository';
 import type { Announcement } from '../../../core/models/models';
@@ -16,7 +17,7 @@ import type { Announcement } from '../../../core/models/models';
     <div class="page">
       <div class="header">
         <h1>Comunicaciones</h1>
-        @if (!isFamilyUser) {
+        @if (canManage()) {
           <a routerLink="/announcements/new" class="btn-primary">+ Nuevo Aviso</a>
         }
       </div>
@@ -88,49 +89,71 @@ export class AnnouncementsListPage {
   private repo = inject(AnnouncementRepository);
   private dataService = inject(DataService);
   private auth = inject(AuthService);
+  private perms = inject(PermissionService);
 
   announcements = this.service.announcements;
   loading = this.service.loading;
   readIds = signal<Set<string>>(new Set());
+  canManage = signal(false);
   isFamilyUser = false;
+  private loadedClubId = signal<string | null>(null);
+  private familyAttempted = signal(false);
 
   constructor() {
-    this.loadData();
+    effect(() => {
+      const club = this.dataService.currentClub();
+      const userId = this.auth.user()?.id;
+      if (!userId) return;
+      if (club) {
+        if (this.loadedClubId() === club.id) return;
+        this.loadedClubId.set(club.id);
+        void this.loadForClub(club.id, userId);
+      } else if (!this.familyAttempted()) {
+        this.familyAttempted.set(true);
+        void this.loadForFamily(userId);
+      }
+    });
   }
 
-  private async loadData() {
-    const userId = this.auth.user()?.id;
-    if (!userId) return;
+  private async loadForClub(clubId: string, userId: string) {
+    await this.perms.ensureLoaded();
+    const role = (await this.perms.getRoleInClub(clubId).toPromise()) ?? null;
+    this.canManage.set(
+      !!role && this.perms.hasPermission(role, 'announcements.manage')
+    );
+    await this.service.loadByClub(clubId);
+    await this.trackReads(userId);
+  }
 
-    const club = this.dataService.currentClub();
-    if (club) {
-      await this.service.loadByClub(club.id);
-    } else {
-      // Family user — load announcements via player guardians
-      const { data: guardians } = await this.supabase.client
-        .from('player_guardians')
-        .select('player_id')
-        .eq('user_id', userId);
-      if (!guardians?.length) return;
+  // Family users have no club membership; fall back to guardians-linked clubs.
+  private async loadForFamily(userId: string) {
+    const { data: guardians } = await this.supabase.client
+      .from('player_guardians')
+      .select('player_id')
+      .eq('user_id', userId);
+    if (!guardians?.length || this.loadedClubId()) return;
 
-      this.isFamilyUser = true;
-      const { data: players } = await this.supabase.client
-        .from('players')
-        .select('teams!inner(club_id)')
-        .in('id', guardians.map(g => g.player_id))
-        .is('deleted_at', null);
-      if (!players?.length) return;
+    this.isFamilyUser = true;
+    const { data: players } = await this.supabase.client
+      .from('players')
+      .select('teams!inner(club_id)')
+      .in('id', guardians.map(g => g.player_id))
+      .is('deleted_at', null);
+    if (!players?.length) return;
 
-      const clubIds = [...new Set(players.map((p: any) => p.teams?.club_id).filter(Boolean))];
-      const { data: items } = await this.supabase.client
-        .from('announcements')
-        .select('*')
-        .in('club_id', clubIds)
-        .order('sent_at', { ascending: false });
+    const clubIds = [...new Set(players.map((p: any) => p.teams?.club_id).filter(Boolean))];
+    const { data: items } = await this.supabase.client
+      .from('announcements')
+      .select('*')
+      .in('club_id', clubIds)
+      .order('sent_at', { ascending: false });
 
-      this.service.announcements.set((items ?? []) as Announcement[]);
-      this.loading.set(false);
-    }
+    this.service.announcements.set((items ?? []) as Announcement[]);
+    this.loading.set(false);
+    await this.trackReads(userId);
+  }
+
+  private async trackReads(userId: string) {
 
     const reads: any[] = [];
     for (const a of this.announcements()) {

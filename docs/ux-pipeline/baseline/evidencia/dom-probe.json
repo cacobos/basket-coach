@@ -1,0 +1,22 @@
+{
+  "wrongPass": {
+    "url": "http://localhost:4200/login",
+    "bodyText": "BasketFlow Entrenamiento inteligente para tu equipo Continuar con Google o mail lock Iniciar sesión ¿No tienes cuenta? Regístrate © 2026 BasketFlow. Todos los derechos reservados."
+  },
+  "dashboard": {
+    "url": "http://localhost:4200/dashboard",
+    "mainText": "Home\nchevron_right\nDashboard\nC\nCoach Insights\n\nBienvenido de nuevo, carlos.cobos.ex@gmail.com. Aquí está el resumen de hoy.\n\nMis Equipos\nVer todos\nopen_in_new\nCB Plasencia Ambroz\n\n0 Jugadores\n\nchevron_right\nPróximos Entrenamientos\ncalendar_today\n\nNo hay sesiones próximas. Planifica una.\n\nResumen\ngroups\n\nEquipos\n\n1\n\nface\n\nJugadores\n\n0\n\nfitness_center\n\nEjercicios\n\n25\n\ncalendar_month\n\nSesiones\n\n9\n\nActividad Reciente\n\n5 sesiones en los últimos 30 días."
+  },
+  "matches": {
+    "url": "http://localhost:4200/matches",
+    "mainText": "Partidos\n+ Nuevo Partido\nNo hay partidos registrados\n\nCrea tu primer partido para empezar a analizar posesiones.\n\nCrear Partido"
+  },
+  "finance": {
+    "url": "http://localhost:4200/finance",
+    "mainText": "Gestión Financiera\nPLANES DE CUOTA\n0\nIMPAGOS TOTALES\n0.00 €\nPENDIENTE DE COBRO\n0.00 €\n📋\nPlanes de Cuota\nConfigurar cuotas por equipo\n💳\nPagos Registrados\nHistorial de cobros"
+  },
+  "sessions": {
+    "url": "http://localhost:4200/sessions",
+    "mainText": "Planificador de Sesiones\n\nDiseña la próxima práctica. Organiza ejercicios por secciones.\n\nadd\nNueva Sesión\n22\nAGO\nNueva sesión\nschedule\n16:00 - 17:30\ngroups\nCB Plasencia Ambroz\nBORRADOR\ndelete\n06\nAGO\nVerano-8\nschedule\n20:00 - 22:00\ngroups\nCB Plasencia Ambroz\nPROGRAMADO\ndelete\n04\nAGO\nVerano-7\nschedule\n20:00 - 22:00\ngroups\nCB Plasencia Ambroz\nPROGRAMADO\ndelete\n30\nJUL\nVerano-6\nschedule\n20:00 - 22:00\ngroups\nCB Plasencia Ambroz\nPROGRAMADO\ndelete\n28\nJUL\nNueva sesión\nschedule\n16:00 - 17:30\ngroups\nCB Plasencia Ambroz\nBORRADOR\ndelete\n21\nJUL\nDía 3 _07_2026\nschedule\n20:00 - 22:00\ngroups\nCB Plasencia Ambroz\nPROGRAMADO\ndelete\n16\nJUL\nDía 2 16_07_2026\nschedule\n20:00 - 22:00\ngroups\nCB Plasencia Ambroz\nPROGRAMADO\ndelete\n13\nJUL\nDía 1\nschedule\n20:00 - 22:00\ngroups\nCB Plasencia Ambroz\ntrack_changes\nAtaque des"
+  }
+}

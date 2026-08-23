@@ -1,0 +1,568 @@
+{
+  "out": {
+    "loginInputs": [
+      {
+        "type": "email",
+        "placeholder": "Correo electrónico",
+        "id": null
+      },
+      {
+        "type": "password",
+        "placeholder": "Contraseña",
+        "id": null
+      }
+    ],
+    "loginButtons": [
+      "Continuar con Google",
+      " Iniciar sesión "
+    ],
+    "loginHeadings": [
+      "BasketFlow"
+    ],
+    "wrongPassErrorVisible": [],
+    "wrongPassStillOnLogin": true,
+    "afterLoginUrl": "http://localhost:4200/dashboard",
+    "rootRedirectsTo": "http://localhost:4200/dashboard",
+    "sidebarLinks": [
+      {
+        "text": "settings\nClub",
+        "href": "/clubs/10c90cbe-a742-4bc2-acba-c0154917b2d7/settings"
+      },
+      {
+        "text": "dashboard\nDashboard",
+        "href": "/dashboard"
+      },
+      {
+        "text": "groups\nEquipos",
+        "href": "/teams"
+      },
+      {
+        "text": "face\nJugadores",
+        "href": "/players"
+      },
+      {
+        "text": "sports_basketball\nPartidos",
+        "href": "/matches"
+      },
+      {
+        "text": "fitness_center\nEjercicios",
+        "href": "/exercises"
+      },
+      {
+        "text": "calendar_month\nSesiones",
+        "href": "/sessions"
+      },
+      {
+        "text": "playlist_add\nCrear Sesión",
+        "href": "/sessions/new"
+      },
+      {
+        "text": "timeline\nPlanificación",
+        "href": "/planning"
+      },
+      {
+        "text": "calendar_view_month\nCalendario",
+        "href": "/calendar"
+      },
+      {
+        "text": "draw\nPizarra",
+        "href": "/tactics"
+      },
+      {
+        "text": "fact_check\nEvaluar",
+        "href": "/evaluations"
+      },
+      {
+        "text": "description\nDocumentos",
+        "href": "/documents"
+      },
+      {
+        "text": "campaign\nComunicación",
+        "href": "/announcements"
+      },
+      {
+        "text": "payments\nFinanzas",
+        "href": "/finance"
+      },
+      {
+        "text": "settings\nConfiguración",
+        "href": "/configuration"
+      },
+      {
+        "text": "admin_panel_settings\nAdmin",
+        "href": "/superadmin"
+      },
+      {
+        "text": "Mejorar plan",
+        "href": "/upgrade"
+      }
+    ],
+    "userChipText": "s\nplaylist_add\nCrear Sesión\ntimeline\nPlanificación\ncalendar_view_month\nCalendario\ndraw\nPizarra\nfact_check\nEvaluar\ndescription\nDocumentos\ncampaign\nComunicación\npayments\nFinanzas\nsettings\nConfiguración\nadmin_panel_settings\nAdmin\nMejorar plan\nc\ncarlos.cobos.ex@gmail.com\ncarlos.cobos.ex@gmail.com\nlogout",
+    "perfCurrent": {
+      "ttfbMs": 3,
+      "domContentLoadedMs": 41,
+      "loadMs": 63
+    },
+    "axeDashboard": [
+      {
+        "id": "link-in-text-block",
+        "impact": "serious",
+        "nodes": 1,
+        "help": "Links must be distinguishable without relying on color"
+      },
+      {
+        "id": "page-has-heading-one",
+        "impact": "moderate",
+        "nodes": 1,
+        "help": "Page should contain a level-one heading"
+      },
+      {
+        "id": "select-name",
+        "impact": "critical",
+        "nodes": 1,
+        "help": "Select element must have an accessible name"
+      }
+    ],
+    "axeLogin": [],
+    "consoleSummary": {
+      "_init": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "01-login": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "02-login-wrong-pass": {
+        "errors": 1,
+        "warnings": 0,
+        "badResponses": 1
+      },
+      "03-login-success": {
+        "errors": 1,
+        "warnings": 0,
+        "badResponses": 1
+      },
+      "04-root-redirect": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "05-sidebar": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "06-axe-dashboard": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "11-_clubs_10c90cbe-a742-4bc2-acba-c0154917b2d7_settings": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "12-_dashboard": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "13-_teams": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "14-_players": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "15-_matches": {
+        "errors": 1,
+        "warnings": 0,
+        "badResponses": 1
+      },
+      "16-_exercises": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "17-_sessions": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "18-_sessions_new": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "19-_planning": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "20-_calendar": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "21-_tactics": {
+        "errors": 0,
+        "warnings": 3,
+        "badResponses": 0
+      },
+      "22-_evaluations": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "23-_documents": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "24-_announcements": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "25-_finance": {
+        "errors": 1,
+        "warnings": 0,
+        "badResponses": 1
+      },
+      "26-_configuration": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "27-_superadmin": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "28-_upgrade": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      },
+      "99-axe-login": {
+        "errors": 0,
+        "warnings": 0,
+        "badResponses": 0
+      }
+    }
+  },
+  "pages": {
+    "_init": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": []
+    },
+    "01-login": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": []
+    },
+    "02-login-wrong-pass": {
+      "errors": [
+        "Failed to load resource: the server responded with a status of 400 ()"
+      ],
+      "warnings": [],
+      "badResponses": [
+        "400 POST https://ttythziuthbrfopzxtvh.supabase.co/auth/v1/token?grant_type=password"
+      ]
+    },
+    "03-login-success": {
+      "errors": [
+        "Failed to load resource: the server responded with a status of 401 ()"
+      ],
+      "warnings": [],
+      "badResponses": [
+        "401 GET https://ttythziuthbrfopzxtvh.supabase.co/rest/v1/role_permissions?select=role%2Cpermission%2Cgranted"
+      ]
+    },
+    "04-root-redirect": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": []
+    },
+    "05-sidebar": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": []
+    },
+    "06-axe-dashboard": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": []
+    },
+    "11-_clubs_10c90cbe-a742-4bc2-acba-c0154917b2d7_settings": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": [],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/clubs/10c90cbe-a742-4bc2-acba-c0154917b2d7/settings",
+        "headings": [
+          "Configuración del Club",
+          "Información general",
+          "Escudo",
+          "Opciones de superadmin"
+        ],
+        "mainTextLength": 245
+      }
+    },
+    "12-_dashboard": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": [],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/dashboard",
+        "headings": [
+          "Coach Insights",
+          "Mis Equipos",
+          "Próximos Entrenamientos",
+          "Resumen",
+          "Actividad Reciente"
+        ],
+        "mainTextLength": 452
+      }
+    },
+    "13-_teams": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": [],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/teams",
+        "headings": [
+          "Mis Equipos",
+          "CB Plasencia Ambroz"
+        ],
+        "mainTextLength": 224
+      }
+    },
+    "14-_players": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": [],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/players",
+        "headings": [
+          "Jugadores"
+        ],
+        "mainTextLength": 272
+      }
+    },
+    "15-_matches": {
+      "errors": [
+        "Failed to load resource: the server responded with a status of 400 ()"
+      ],
+      "warnings": [],
+      "badResponses": [
+        "400 GET https://ttythziuthbrfopzxtvh.supabase.co/rest/v1/matches?select=*&or=%28home_team_id.eq.b8ac7b1c-f155-4734-a9bd-00046c659dbc%2Caway_team_id."
+      ],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/matches",
+        "headings": [
+          "Partidos",
+          "No hay partidos registrados"
+        ],
+        "mainTextLength": 127
+      }
+    },
+    "16-_exercises": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": [],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/exercises",
+        "headings": [
+          "Biblioteca de Ejercicios",
+          "1x1 + defensor interior para finalizaciones",
+          "1x1 con pasador con acción previa de defensa next",
+          "1x1 con pasador desde tocar el balón",
+          "1x1 desde caminar sobre línea 3p",
+          "1x1 rodear cono"
+        ],
+        "mainTextLength": 5196
+      }
+    },
+    "17-_sessions": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": [],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/sessions",
+        "headings": [
+          "Planificador de Sesiones",
+          "Verano-8",
+          "Verano-7",
+          "Verano-6",
+          "Nueva sesión",
+          "Día 3 _07_2026"
+        ],
+        "mainTextLength": 888
+      }
+    },
+    "18-_sessions_new": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": [],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/sessions/9c115684-a15f-43b6-ae59-35d1382f7a80/builder",
+        "headings": [
+          "Crear Sesión",
+          "Información General",
+          "Resumen"
+        ],
+        "mainTextLength": 691
+      }
+    },
+    "19-_planning": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": [],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/planning",
+        "headings": [
+          "Planificación"
+        ],
+        "mainTextLength": 96
+      }
+    },
+    "20-_calendar": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": [],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/calendar",
+        "headings": [
+          "Calendario"
+        ],
+        "mainTextLength": 420
+      }
+    },
+    "21-_tactics": {
+      "errors": [],
+      "warnings": [
+        "NG0956: The configured tracking expression (track by identity) caused re-creation of the entire collection of size 1. This is an expensive operation requiring destruction and subsequent creation of DO",
+        "NG0956: The configured tracking expression (track by identity) caused re-creation of the entire collection of size 1. This is an expensive operation requiring destruction and subsequent creation of DO",
+        "NG0956: The configured tracking expression (track by identity) caused re-creation of the entire collection of size 1. This is an expensive operation requiring destruction and subsequent creation of DO"
+      ],
+      "badResponses": [],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/tactics",
+        "headings": [],
+        "mainTextLength": 512
+      }
+    },
+    "22-_evaluations": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": [],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/evaluations",
+        "headings": [
+          "Evaluar Sesiones"
+        ],
+        "mainTextLength": 219
+      }
+    },
+    "23-_documents": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": [],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/documents",
+        "headings": [
+          "Documentos",
+          "No hay jugadores con documentos"
+        ],
+        "mainTextLength": 117
+      }
+    },
+    "24-_announcements": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": [],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/announcements",
+        "headings": [
+          "Comunicaciones",
+          "No hay comunicaciones"
+        ],
+        "mainTextLength": 105
+      }
+    },
+    "25-_finance": {
+      "errors": [
+        "Failed to load resource: the server responded with a status of 404 ()"
+      ],
+      "warnings": [],
+      "badResponses": [
+        "404 GET https://ttythziuthbrfopzxtvh.supabase.co/rest/v1/v_overdue_fees?select=*&club_id=eq.10c90cbe-a742-4bc2-acba-c0154917b2d7"
+      ],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/finance",
+        "headings": [
+          "Gestión Financiera"
+        ],
+        "mainTextLength": 174
+      }
+    },
+    "26-_configuration": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": [],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/configuration",
+        "headings": [
+          "Configuración",
+          "Tipos de ataque"
+        ],
+        "mainTextLength": 169
+      }
+    },
+    "27-_superadmin": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": [],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/dashboard",
+        "headings": [
+          "Coach Insights",
+          "Mis Equipos",
+          "Próximos Entrenamientos",
+          "Resumen",
+          "Actividad Reciente"
+        ],
+        "mainTextLength": 452
+      }
+    },
+    "28-_upgrade": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": [],
+      "routeInfo": {
+        "finalUrl": "http://localhost:4200/upgrade",
+        "headings": [
+          "Planes",
+          "Free",
+          "Starter",
+          "Pro",
+          "Elite"
+        ],
+        "mainTextLength": -1
+      }
+    },
+    "99-axe-login": {
+      "errors": [],
+      "warnings": [],
+      "badResponses": []
+    }
+  }
+}

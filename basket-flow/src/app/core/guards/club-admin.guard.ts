@@ -20,7 +20,7 @@ export const clubAdminGuard: CanActivateFn = (route): Observable<boolean | impor
       const clubId = route.paramMap.get('id') || data.currentClub()?.id;
       if (!clubId) {
         return race([
-          timer(10000).pipe(map(() => router.parseUrl('/clubs'))),
+          timer(4000).pipe(map(() => router.parseUrl('/clubs'))),
           timer(0, 100).pipe(
             map(() => route.paramMap.get('id') || data.currentClub()?.id),
             filter(Boolean),

@@ -41,9 +41,15 @@ import { DataService } from '../../../core/services/data.service';
       </div>
 
       @if (store.overdueFees().length > 0) {
-        <section class="section">
-          <h2>Impagos ({{ store.overdueFees().length }})</h2>
-          <table class="table">
+        <section class="section overdue-block">
+          <div class="overdue-header">
+            <h2>Impagos</h2>
+            <span class="overdue-total">{{ store.totalOverdue() | number:'1.2-2' }} €</span>
+          </div>
+          <p class="overdue-hint">
+            {{ store.overdueFees().length }} cuota(s) vencida(s). Toca una fila para abrir la ficha y registrar el pago.
+          </p>
+          <table class="table clickable">
             <thead>
               <tr>
                 <th>Jugador</th>
@@ -54,8 +60,8 @@ import { DataService } from '../../../core/services/data.service';
               </tr>
             </thead>
             <tbody>
-              @for (fee of store.overdueFees(); track fee.player_fee_id) {
-                <tr>
+              @for (fee of topOverdue(); track fee.player_fee_id) {
+                <tr [routerLink]="['/finance/players', fee.player_id]">
                   <td class="name">{{ fee.first_name }} {{ fee.last_name }}</td>
                   <td>{{ fee.plan_name }}</td>
                   <td>{{ fee.team_name }}</td>
@@ -66,6 +72,11 @@ import { DataService } from '../../../core/services/data.service';
             </tbody>
           </table>
         </section>
+      } @else {
+        <div class="all-clear">
+          <span class="material-symbols-outlined">task_alt</span>
+          Sin cuotas vencidas. Todo al día.
+        </div>
       }
     </div>
   `,
@@ -93,6 +104,20 @@ import { DataService } from '../../../core/services/data.service';
     .nav-desc { font-size: 13px; color: var(--text-secondary); }
     .section { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 20px; }
     .section h2 { margin: 0 0 16px; font-size: 16px; font-weight: 600; color: var(--text-primary); }
+    .overdue-block { border-color: rgba(239,68,68,0.35); }
+    .overdue-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .overdue-header h2 { margin: 0; color: #ef4444; }
+    .overdue-total { font-size: 22px; font-weight: 800; color: #ef4444; }
+    .overdue-hint { margin: 6px 0 16px; font-size: 13px; color: var(--text-secondary); }
+    .table.clickable tbody tr { cursor: pointer; transition: background 0.15s; }
+    .table.clickable tbody tr:hover { background: rgba(189,194,255,0.05); }
+    .all-clear {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3);
+      border-radius: 12px; padding: 24px;
+      color: #10b981; font-size: 15px; font-weight: 600;
+    }
+    .all-clear .material-symbols-outlined { font-size: 22px; }
     .table { width: 100%; border-collapse: collapse; }
     .table th { text-align: left; padding: 10px 12px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); }
     .table td { padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); font-size: 14px; color: var(--text-primary); }
@@ -104,6 +129,10 @@ import { DataService } from '../../../core/services/data.service';
 export class FinanceOverviewComponent {
   store = inject(FinanceStore);
   private dataService = inject(DataService);
+
+  topOverdue() {
+    return this.store.overdueFees().slice().sort((a, b) => b.amount - a.amount).slice(0, 10);
+  }
 
   constructor() {
     const club = this.dataService.currentClub();
