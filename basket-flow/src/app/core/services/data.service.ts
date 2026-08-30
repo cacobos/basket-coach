@@ -31,7 +31,31 @@ export class DataService {
     private auth: AuthService,
     private seasonService: SeasonService
   ) {
-    this._init();
+    void this.initPromise;
+  }
+
+  private initPromise: Promise<void> | null = null;
+
+  /** Inicializa la lista de clubs del usuario (idempotente y esperable). */
+  private init(): Promise<void> {
+    if (!this.initPromise) {
+      this.initPromise = this._init();
+    }
+    return this.initPromise;
+  }
+
+  /**
+   * Garantiza que los clubs del usuario estén cargados y devuelve el club activo.
+   * Usado por los route guards para no depender de temporizadores frágiles.
+   */
+  async ensureClubLoaded(): Promise<Club | null> {
+    if (this._currentClub()) return this._currentClub();
+    try {
+      await this.init();
+    } catch {
+      return this._currentClub();
+    }
+    return this._currentClub();
   }
 
   private async _init() {

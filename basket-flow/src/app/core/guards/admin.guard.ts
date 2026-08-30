@@ -16,13 +16,15 @@ export const adminGuard = (): Observable<boolean | import('@angular/router').Url
       if (!auth.isAuthenticated()) return of(router.parseUrl('/login'));
       if (auth.profile()?.is_superadmin) return of(true);
 
-      const clubId = data.currentClub()?.id;
-      if (!clubId) return of(router.parseUrl('/dashboard'));
-
-      return perms.getRoleInClub(clubId).pipe(
-        map(role => {
-          if (perms.hasPermission(role, 'configuration.manage')) return true;
-          return router.parseUrl('/dashboard');
+      return from(data.ensureClubLoaded()).pipe(
+        switchMap(club => {
+          if (!club) return of(router.parseUrl('/dashboard'));
+          return perms.getRoleInClub(club.id).pipe(
+            map(role => {
+              if (perms.hasPermission(role, 'configuration.manage')) return true;
+              return router.parseUrl('/dashboard');
+            })
+          );
         })
       );
     })
