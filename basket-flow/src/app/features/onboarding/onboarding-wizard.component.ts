@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { NgFor, NgIf } from '@angular/common';
 import { SupabaseService } from '../../core/supabase/supabase.service';
 import { DataService } from '../../core/services/data.service';
+import { SeasonService } from '../../core/services/season.service';
 import { ConfigurationRepository } from '../matches/repositories/configuration.repository';
 import { FeePlanRepository } from '../finance/repositories/fee-plan.repository';
 
@@ -206,7 +207,7 @@ export class OnboardingWizardComponent {
       const teams: any[] = [];
       for (const t of forms) {
         const { data } = await this.supabase.client
-          .from('teams').insert({ club_id: club.id, name: t.name.trim(), category: t.category, season: new Date().getFullYear().toString() })
+          .from('teams').insert({ club_id: club.id, name: t.name.trim(), category: t.category, season: SeasonService.getCurrentSeason() })
           .select('id, name, category').single();
         if (data) teams.push(data);
       }
