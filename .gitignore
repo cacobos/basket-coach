@@ -32,6 +32,14 @@ yarn-error.log*
 # Vercel local state
 .vercel/
 
+# Agent / tooling local state
+.opencode/
+opencode.json
+
+# Test reports
+**/playwright-report/
+**/test-results/
+
 # Generated assets
 basket-flow/calendar-full.png
 basket-flow/manual-usuario-basketflow.docx
