@@ -24,8 +24,7 @@ export class SeasonService {
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
-    // La temporada de baloncesto empieza tras el verano (junio+ se prepara la siguiente).
-    if (month >= 6) {
+    if (month >= 9) {
       return `${year}-${year + 1}`;
     }
     return `${year - 1}-${year}`;
