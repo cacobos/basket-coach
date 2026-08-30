@@ -20,6 +20,7 @@ const STATUS_META: { value: Status; label: string; short: string; color: string 
   { value: 'excused', label: 'Falta avisando', short: 'A', color: '#fb923c' },
   { value: 'injured', label: 'Lesión', short: 'L', color: '#a78bfa' },
   { value: 'absent', label: 'Falta sin avisar', short: 'F', color: '#f87171' },
+  { value: 'not_required', label: 'No requerido', short: 'N', color: '#94a3b8' },
 ];
 
 @Component({
@@ -85,6 +86,13 @@ const STATUS_META: { value: Status; label: string; short: string; color: string 
               <p class="summary-label">Faltas sin avisar</p>
             </div>
           </div>
+          <div class="summary-card">
+            <span class="summary-dot notreq"></span>
+            <div>
+              <p class="summary-val">{{ summary().not_required }}</p>
+              <p class="summary-label">No requeridos</p>
+            </div>
+          </div>
         </div>
 
         @if (players().length > 0) {
@@ -96,6 +104,7 @@ const STATUS_META: { value: Status; label: string; short: string; color: string 
               <span class="att-inc excused">Falta avisando</span>
               <span class="att-inc injured">Lesión</span>
               <span class="att-inc absent">Falta sin avisar</span>
+              <span class="att-inc notreq">No requerido</span>
             </div>
             <div class="att-list">
               @for (p of players(); track p.id) {
@@ -183,12 +192,13 @@ const STATUS_META: { value: Status; label: string; short: string; color: string 
     .summary-dot.excused { background: #fb923c; }
     .summary-dot.injured { background: #a78bfa; }
     .summary-dot.absent { background: #f87171; }
+    .summary-dot.notreq { background: #94a3b8; }
     .summary-val { font-size: 26px; font-weight: 800; color: #dfe0ff; margin: 0; line-height: 1.1; }
     .summary-label { font-size: 12px; color: var(--text-secondary); margin: 2px 0 0; }
 
     .table-section { background: var(--bg-card); border-radius: 14px; border: 1px solid var(--border-subtle); padding: 8px 4px; }
     .att-head, .att-row {
-      display: grid; grid-template-columns: 1.7fr repeat(5, 1fr);
+      display: grid; grid-template-columns: 1.7fr repeat(6, 1fr);
       gap: 8px; align-items: center; padding: 10px 12px;
     }
     .att-head { font-size: 10px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-subtle); }
@@ -196,6 +206,7 @@ const STATUS_META: { value: Status; label: string; short: string; color: string 
     .att-inc.excused { color: #fb923c; }
     .att-inc.injured { color: #a78bfa; }
     .att-inc.absent { color: #f87171; }
+    .att-inc.notreq { color: #94a3b8; }
     .att-list { display: flex; flex-direction: column; }
     .att-row { border-bottom: 1px solid var(--border-subtle); transition: background 0.12s; }
     .att-row:last-child { border-bottom: none; }
@@ -294,7 +305,7 @@ export class SessionAttendanceComponent {
         switchMap(({ session, attendance }) => {
           if (!session) return of({ session: null as TrainingSession | null, teamName: '', players: [] as Player[], attendance });
           return forkJoin({
-            players: from(this.playerRepo.findAll(session.team_id)),
+            players: from(this.playerRepo.findByTeamIncludingLinked(session.team_id)),
             teams: from(this.dataService.getTeams()),
           }).pipe(map(({ players, teams }) => ({
             session,
@@ -343,16 +354,17 @@ export class SessionAttendanceComponent {
   });
 
   summary = computed(() => {
-    let present = 0, late = 0, excused = 0, injured = 0, absent = 0;
+    let present = 0, late = 0, excused = 0, injured = 0, absent = 0, not_required = 0;
     for (const p of this.players()) {
       const s = this.status(p.id);
       if (s === 'present') present++;
       else if (s === 'late') late++;
       else if (s === 'excused') excused++;
       else if (s === 'injured') injured++;
+      else if (s === 'not_required') not_required++;
       else absent++;
     }
-    return { present, late, excused, injured, absent };
+    return { present, late, excused, injured, absent, not_required };
   });
 
   discard() {

@@ -25,6 +25,64 @@ export class PlayerRepository implements BaseRepository<Player, Omit<Player, 'id
     return [];
   }
 
+  async findByTeamIncludingLinked(teamId: string, options?: { season?: string }): Promise<Player[]> {
+    const season = options?.season || this.seasonService.selectedSeason();
+
+    const [primary, linkedIds] = await Promise.all([
+      this.supabase.client
+        .from('players')
+        .select('*')
+        .eq('team_id', teamId)
+        .eq('season', season)
+        .is('deleted_at', null),
+      this.getLinkedPlayerIds(teamId),
+    ]);
+
+    let linked: Player[] = [];
+    if (linkedIds.length > 0) {
+      const { data, error } = await this.supabase.client
+        .from('players')
+        .select('*')
+        .in('id', linkedIds)
+        .eq('season', season)
+        .is('deleted_at', null);
+      if (error) throw error;
+      linked = (data as Player[]) || [];
+    }
+
+    const byId = new Map<string, Player>();
+    for (const p of (primary.data as Player[]) || []) byId.set(p.id, p);
+    for (const p of linked) byId.set(p.id, p);
+    return Array.from(byId.values()).sort((a, b) => a.last_name.localeCompare(b.last_name));
+  }
+
+  async getLinkedPlayerIds(teamId: string): Promise<string[]> {
+    const { data, error } = await this.supabase.client
+      .from('player_teams')
+      .select('player_id')
+      .eq('team_id', teamId);
+    if (error) throw error;
+    return (data || []).map(r => r.player_id as string);
+  }
+
+  async linkPlayers(teamId: string, playerIds: string[]): Promise<void> {
+    if (playerIds.length === 0) return;
+    const { error } = await this.supabase.client.from('player_teams').upsert(
+      playerIds.map(player_id => ({ team_id: teamId, player_id }))
+    );
+    if (error) throw error;
+  }
+
+  async unlinkPlayers(teamId: string, playerIds: string[]): Promise<void> {
+    if (playerIds.length === 0) return;
+    const { error } = await this.supabase.client
+      .from('player_teams')
+      .delete()
+      .eq('team_id', teamId)
+      .in('player_id', playerIds);
+    if (error) throw error;
+  }
+
   async findByClub(clubId: string, options?: { season?: string }): Promise<Player[]> {
     const season = options?.season || this.seasonService.selectedSeason();
     const { data, error } = await this.supabase.client

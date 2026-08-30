@@ -65,6 +65,12 @@ const STAFF_ROLES = ['head_coach', 'assistant_coach'] as const;
               <span>{{ team._staffCount ?? 0 }} Staff</span>
               <button class="staff-btn" *ngIf="userCanManage" (click)="$event.stopPropagation(); openStaff(team)">Gestionar</button>
             </div>
+            <div class="card-actions">
+              <button class="link-btn" (click)="$event.stopPropagation(); openLinks(team)">
+                <span class="material-symbols-outlined">group_add</span>
+                Jugadores vinculados
+              </button>
+            </div>
             <div class="card-footer">
               <span class="card-action">ABRIR ROSTER</span>
               <span class="material-symbols-outlined card-arrow">arrow_forward</span>
@@ -199,6 +205,16 @@ const STAFF_ROLES = ['head_coach', 'assistant_coach'] as const;
     .card-staff .material-symbols-outlined { font-size: 16px; }
     .staff-btn { background: none; border: 1px solid rgba(69,70,82,0.3); color: #bdc2ff; border-radius: 6px; padding: 2px 10px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: 'Hanken Grotesk', sans-serif; }
     .staff-btn:hover { border-color: #bdc2ff; }
+    .card-actions { margin-bottom: 16px; }
+    .link-btn {
+      display: flex; align-items: center; gap: 6px;
+      background: none; border: 1px solid rgba(99,102,241,0.3); color: #bdc2ff;
+      border-radius: 8px; padding: 6px 12px;
+      font-size: 12px; font-weight: 700; cursor: pointer;
+      font-family: 'Hanken Grotesk', sans-serif; transition: all 0.15s;
+    }
+    .link-btn:hover { background: rgba(99,102,241,0.12); border-color: #818cf8; }
+    .link-btn .material-symbols-outlined { font-size: 16px; }
     .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
     .card-action { color: #b0c6ff; font-weight: 700; font-size: 12px; letter-spacing: 0.02em; }
     .team-card:hover .card-action { text-decoration: underline; }
@@ -371,6 +387,10 @@ export class TeamsComponent {
 
   openPlayers(team: Team) {
     this.router.navigate(['/players'], { queryParams: { teamId: team.id } });
+  }
+
+  openLinks(team: Team) {
+    this.router.navigate(['/teams', team.id, 'links']);
   }
 
   async openStaff(team: Team & { _staffCount?: number }) {

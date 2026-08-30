@@ -39,7 +39,9 @@ import type { Possession } from '../../../core/models/models';
             <span class="match-status" [class]="'status-' + match.status">{{ statusLabel(match.status) }}</span>
             <h1>{{ match.rival }}</h1>
             <p class="match-meta">
-              {{ match.date | date:'fullDate' }} ·
+              {{ match.date | date:'fullDate' }}
+              @if (match.scheduled_time) { · {{ match.scheduled_time.slice(0,5) }} h }
+              ·
               {{ match.competition || 'Sin competición' }}
               {{ match.round ? '· Jornada ' + match.round : '' }}
             </p>

@@ -178,7 +178,7 @@ export interface Attendance {
   id: string;
   session_id: string;
   player_id: string;
-  status: 'present' | 'absent' | 'late' | 'excused' | 'injured';
+  status: 'present' | 'absent' | 'late' | 'excused' | 'injured' | 'not_required';
   notes: string | null;
   late_minutes: number | null;
   created_at: string;
@@ -218,6 +218,7 @@ export interface Match {
   round: string | null;
   location: string | null;
   date: string;
+  scheduled_time: string | null;
   status: 'created' | 'in_progress' | 'finished' | 'closed';
   current_period: number;
   score_own: number;

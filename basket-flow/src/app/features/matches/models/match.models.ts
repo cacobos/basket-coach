@@ -6,6 +6,7 @@ export interface CreateMatchData {
   round?: string;
   location?: string;
   date: string;
+  scheduled_time?: string;
 }
 
 export interface PossessionFormData {

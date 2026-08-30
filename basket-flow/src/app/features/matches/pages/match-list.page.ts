@@ -32,7 +32,13 @@ import type { Match } from '../../../core/models/models';
                 <span class="match-status" [class]="'status-' + match.status">
                   {{ statusLabel(match.status) }}
                 </span>
-                <span class="match-date">{{ match.date | date:'dd/MM/yyyy' }}</span>
+                <span class="match-date">
+                  @if (match.scheduled_time) {
+                    {{ match.date | date:'dd/MM/yyyy' }} · {{ match.scheduled_time.slice(0,5) }} h
+                  } @else {
+                    {{ match.date | date:'dd/MM/yyyy' }}
+                  }
+                </span>
               </div>
               <div class="match-card__teams">
                 <span class="team-name">{{ match.rival }}</span>

@@ -67,7 +67,11 @@ import type { Team, Player } from '../../../core/models/models';
         <div class="form-row">
           <div class="form-group">
             <label>Fecha</label>
-            <input type="datetime-local" [(ngModel)]="formData.date" name="date" required>
+            <input type="date" [(ngModel)]="formData.date" name="date" required>
+          </div>
+          <div class="form-group">
+            <label>Hora</label>
+            <input type="time" [(ngModel)]="formData.scheduled_time" name="scheduled_time">
           </div>
           <div class="form-group">
             <label>Ubicación</label>
@@ -195,7 +199,8 @@ export class MatchFormPage {
     competition: '',
     round: '',
     location: '',
-    date: new Date().toISOString().slice(0, 16),
+    date: new Date().toISOString().slice(0, 10),
+    scheduled_time: '',
   };
 
   constructor() {
@@ -319,7 +324,8 @@ export class MatchFormPage {
       competition: this.formData.competition || undefined,
       round: this.formData.round || undefined,
       location: this.formData.location || undefined,
-      date: new Date(this.formData.date).toISOString(),
+      date: this.formData.date,
+      scheduled_time: this.formData.scheduled_time || undefined,
     });
 
     if (result.success && result.data) {

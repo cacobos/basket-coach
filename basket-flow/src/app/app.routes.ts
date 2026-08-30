@@ -22,6 +22,7 @@ export const routes: Routes = [
       { path: 'clubs/:id/members', canActivate: [clubAdminGuard], loadComponent: () => import('./features/clubs/club-members.component').then(m => m.ClubMembersComponent) },
       { path: 'clubs/:id/settings', canActivate: [clubAdminGuard], loadComponent: () => import('./features/clubs/club-settings.component').then(m => m.ClubSettingsComponent) },
       { path: 'teams', loadComponent: () => import('./features/teams/teams.component').then(m => m.TeamsComponent) },
+      { path: 'teams/:id/links', loadComponent: () => import('./features/teams/team-links.component').then(m => m.TeamLinksComponent) },
       { path: 'players', loadComponent: () => import('./features/players/players.component').then(m => m.PlayersComponent) },
       { path: 'players/:id', loadComponent: () => import('./features/players/player-dashboard.component').then(m => m.PlayerDashboardComponent) },
       { path: 'attendance', redirectTo: 'evaluations', pathMatch: 'full' },

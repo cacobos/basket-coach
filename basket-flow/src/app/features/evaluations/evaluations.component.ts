@@ -214,9 +214,9 @@ export class EvaluationsComponent {
         ),
       }).pipe(
         map(({ teams, completed: comp, attendance, reviews }) => {
-          const attMap: Record<string, { present: number; late: number; absent: number; excused: number; injured: number; total: number }> = {};
+          const attMap: Record<string, { present: number; late: number; absent: number; excused: number; injured: number; not_required: number; total: number }> = {};
           (attendance || []).forEach(a => {
-            if (!attMap[a.session_id]) attMap[a.session_id] = { present: 0, late: 0, absent: 0, excused: 0, injured: 0, total: 0 };
+            if (!attMap[a.session_id]) attMap[a.session_id] = { present: 0, late: 0, absent: 0, excused: 0, injured: 0, not_required: 0, total: 0 };
             if (a.status in attMap[a.session_id]) (attMap[a.session_id][a.status] as number)++;
             attMap[a.session_id].total++;
           });
