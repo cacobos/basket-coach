@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, HostListener } from '@angular/core';
 import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -57,13 +57,13 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
           </button>
         </div>
         <div class="filter-tags" *ngIf="allTags.length > 0">
-          <button class="tag-chip" [class.active]="selectedTags.length === 0" (click)="selectedTags = []">Todos</button>
+          <button class="tag-chip" [class.active]="selectedTags.length === 0" (click)="selectedTags = []">Todas</button>
           <button class="tag-chip" *ngFor="let t of allTags" [class.active]="selectedTags.includes(t)" (click)="toggleTag(t)">{{ t }}</button>
         </div>
       </div>
 
       <div class="exercise-grid" *ngIf="!vm.loading; else loadingTpl">
-        <div class="ex-card" *ngFor="let ex of filtered">
+        <div class="ex-card" *ngFor="let ex of filtered" (click)="openExercise(ex)" (keydown.enter)="openExercise(ex)" tabindex="0" role="link" [attr.aria-label]="'Abrir ' + ex.name">
           <div class="ex-body">
             <div class="ex-tags">
               @if (categoryOf(ex); as c) {
@@ -76,9 +76,10 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
             <h3 class="ex-title">{{ ex.name }}</h3>
             <p class="ex-desc">{{ ex.description }}</p>
             <p class="ex-objectives" *ngIf="ex.objectives"><span class="obj-label">Objetivos:</span> {{ ex.objectives }}</p>
+            <span class="ex-open-hint"><span class="material-symbols-outlined">open_in_new</span> Ver detalle</span>
           </div>
           <div class="ex-actions">
-            <a class="ex-btn" [routerLink]="['/exercises', ex.id, 'edit']" title="Editar">
+            <a class="ex-btn" [routerLink]="['/exercises', ex.id, 'edit']" title="Editar" (click)="$event.stopPropagation()">
               <span class="material-symbols-outlined">edit</span>
             </a>
             <button class="ex-btn ex-delete" (click)="$event.stopPropagation(); deleteExercise(ex)" title="Eliminar">
@@ -99,7 +100,7 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
 
       @if (catDialogOpen()) {
         <div class="dialog-overlay" (click)="catDialogOpen.set(false)">
-          <div class="modal-card" (click)="$event.stopPropagation()" role="dialog" aria-label="Gestionar categorías">
+          <div class="modal-card" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Gestionar categorías">
             <h3 class="modal-title">Categorías</h3>
             <div class="cat-list">
               @for (c of categories(); track c.id) {
@@ -129,6 +130,22 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
               <input type="color" [(ngModel)]="newCatColor" aria-label="Color de la nueva categoría"/>
               <input class="cat-input" placeholder="Nueva categoría..." [(ngModel)]="newCatName" (keyup.enter)="addCategory()"/>
               <button class="btn-primary-sm" (click)="addCategory()" [disabled]="!newCatName.trim()">Añadir</button>
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (confirmOpen()) {
+        <div class="dialog-overlay" (click)="closeConfirm()">
+          <div class="modal-card confirm-card" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Confirmar eliminación">
+            <span class="confirm-icon"><span class="material-symbols-outlined">warning</span></span>
+            <h3 class="modal-title">{{ confirmTitle() }}</h3>
+            <p class="confirm-msg">{{ confirmMessage() }}</p>
+            <div class="confirm-actions">
+              <button class="mini-btn" (click)="closeConfirm()">Cancelar</button>
+              <button class="btn-danger" (click)="runConfirm()" [disabled]="confirming()">
+                {{ confirming() ? 'Eliminando...' : 'Eliminar' }}
+              </button>
             </div>
           </div>
         </div>
@@ -211,12 +228,19 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
       border: 1px solid rgba(69,70,82,0.2);
       transition: all 0.2s; cursor: pointer; position: relative;
     }
+    .ex-card:focus-visible { outline: 2px solid #bdc2ff; outline-offset: 2px; }
     .ex-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px -8px rgba(0,0,0,0.5); }
+    .ex-card:hover .ex-open-hint { opacity: 1; }
     .ex-actions {
       position: absolute; top: 8px; right: 8px;
-      display: flex; gap: 4px; opacity: 0; transition: opacity 0.2s;
+      display: flex; gap: 4px;
     }
-    .ex-card:hover .ex-actions { opacity: 1; }
+    .ex-open-hint {
+      display: inline-flex; align-items: center; gap: 4px;
+      margin-top: 12px; font-size: 12px; font-weight: 600;
+      color: #bdc2ff; opacity: 0; transition: opacity 0.2s;
+    }
+    .ex-open-hint .material-symbols-outlined { font-size: 14px; }
     .ex-btn {
       background: rgba(0,0,0,0.4); border: none; color: #c6c5d4;
       cursor: pointer; padding: 4px; border-radius: 6px;
@@ -306,6 +330,23 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
       font-family: 'Hanken Grotesk', sans-serif; transition: opacity 0.15s;
     }
     .btn-primary-sm:disabled { opacity: 0.4; cursor: default; }
+    .confirm-card { max-width: 400px !important; text-align: center; }
+    .confirm-icon {
+      width: 52px; height: 52px; border-radius: 50%;
+      background: rgba(255,138,128,0.12);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 14px;
+    }
+    .confirm-icon .material-symbols-outlined { font-size: 26px; color: #ff8a80; }
+    .confirm-msg { color: #c6c5d4; margin: 0 0 24px; line-height: 1.5; }
+    .confirm-actions { display: flex; gap: 12px; justify-content: center; }
+    .confirm-actions .btn-danger {
+      background: #d32f2f; color: white; border: none;
+      padding: 8px 18px; border-radius: 8px; cursor: pointer;
+      font-family: 'Hanken Grotesk', sans-serif; font-size: 13px; font-weight: 700;
+    }
+    .confirm-actions .btn-danger:hover { opacity: 0.9; }
+    .confirm-actions .btn-danger:disabled { opacity: 0.5; cursor: default; }
     @media (max-width: 768px) {
       .page { padding: 20px; }
       .page-header { flex-direction: column; align-items: stretch; gap: 16px; }
@@ -321,7 +362,7 @@ import { map, switchMap, filter, catchError, startWith } from 'rxjs/operators';
     @media (max-width: 480px) {
       .page { padding: 12px; }
       .page-title { font-size: 22px; }
-      .ex-actions { opacity: 1; }
+      .ex-open-hint { opacity: 1; }
     }
   `]
 })
@@ -364,6 +405,38 @@ export class ExercisesComponent {
   search = '';
   selectedTags: string[] = [];
   allTags: string[] = [];
+
+  confirmOpen = signal(false);
+  confirming = signal(false);
+  confirmTitle = signal('');
+  confirmMessage = signal('');
+  private confirmAction: (() => Promise<void>) | null = null;
+
+  @HostListener('document:keydown.escape')
+  onEscape() {
+    if (this.confirmOpen()) this.closeConfirm();
+    else if (this.catDialogOpen()) this.catDialogOpen.set(false);
+  }
+
+  closeConfirm() {
+    if (this.confirming()) return;
+    this.confirmOpen.set(false);
+    this.confirmAction = null;
+  }
+
+  async runConfirm() {
+    if (!this.confirmAction) return;
+    this.confirming.set(true);
+    try {
+      await this.confirmAction();
+      this.confirmOpen.set(false);
+      this.confirmAction = null;
+    } catch (err) {
+      this.notification.show(err instanceof Error ? err.message : 'No se pudo completar la operación', 'error');
+    } finally {
+      this.confirming.set(false);
+    }
+  }
 
   private club$ = toObservable(this.data.currentClub).pipe(filter(Boolean));
 
@@ -449,14 +522,14 @@ export class ExercisesComponent {
   }
 
   async deleteCategory(c: ExerciseCategory) {
-    if (!confirm(`¿Eliminar la categoría "${c.name}"? Los ejercicios quedarán sin categoría.`)) return;
-    try {
+    this.confirmTitle.set(`¿Eliminar la categoría "${c.name}"?`);
+    this.confirmMessage.set('Los ejercicios quedarán sin categoría.');
+    this.confirmAction = async () => {
       await this.exerciseRepo.removeCategory(c.id);
       this.categories.update(list => list.filter(x => x.id !== c.id));
       if (this.selectedCategoryId() === c.id) this.selectedCategoryId.set(null);
-    } catch (err) {
-      this.notification.show(err instanceof Error ? err.message : String(err));
-    }
+    };
+    this.confirmOpen.set(true);
   }
 
   toggleTag(t: string) {
@@ -473,10 +546,19 @@ export class ExercisesComponent {
     this.allTags = Array.from(set).sort();
   }
 
-  async deleteExercise(ex: Exercise) {
-    if (!confirm(`¿Eliminar "${ex.name}"?`)) return;
-    await this.exerciseRepo.remove(ex.id);
-    await this.load();
+  deleteExercise(ex: Exercise) {
+    this.confirmTitle.set(`¿Eliminar "${ex.name}"?`);
+    this.confirmMessage.set('Esta acción no se puede deshacer.');
+    this.confirmAction = async () => {
+      await this.exerciseRepo.remove(ex.id);
+      this.notification.show('Ejercicio eliminado', 'success');
+      await this.load();
+    };
+    this.confirmOpen.set(true);
+  }
+
+  openExercise(ex: Exercise) {
+    void this.router.navigate(['/exercises', ex.id, 'edit']);
   }
 
   private async load() {

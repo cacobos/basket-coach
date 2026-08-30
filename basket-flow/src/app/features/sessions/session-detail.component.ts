@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal, HostListener } from '@angular/core';
 import { NgFor, NgIf, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -9,7 +9,7 @@ import { DataService } from '../../core/services/data.service';
 import { ExerciseRepository } from '../../core/repositories/exercise.repository';
 import { SessionRepository } from '../../core/repositories/session.repository';
 import { NotificationService } from '../../core/services/notification.service';
-import type { TrainingSession, SessionSection, SessionExercise, Exercise, ExerciseVariant, Team } from '../../core/models/models';
+import type { TrainingSession, SessionSection, SessionExercise, Exercise, ExerciseVariant, Team, Attendance } from '../../core/models/models';
 
 @Component({
   selector: 'app-session-detail',
@@ -30,10 +30,21 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Exerci
               <span class="meta-chip" *ngIf="vm.teamName">{{ vm.teamName }}</span>
               <span class="meta-chip" *ngIf="vm.session.location">{{ vm.session.location }}</span>
               <span class="session-status" [class]="vm.session.status">{{ statusLabel(vm.session.status) }}</span>
+              <span class="attendance-chip" *ngIf="vm.attendanceSummary && vm.attendanceSummary.count > 0">
+                <span class="material-symbols-outlined">checklist</span>
+                {{ vm.attendanceSummary.present }}/{{ vm.attendanceSummary.count }} presentes
+              </span>
             </div>
             <p class="detail-objectives" *ngIf="vm.session.objectives">{{ vm.session.objectives }}</p>
           </div>
           <div class="detail-header-actions">
+            <button class="btn-secondary mobile-menu-trigger" (click)="menuOpen = !menuOpen" aria-label="Menú de acciones" *ngIf="isMobile">
+              <span class="material-symbols-outlined">menu</span>
+            </button>
+            <button class="btn-secondary" (click)="goAttendance()">
+              <span class="material-symbols-outlined">checklist</span>
+              Pasar Lista
+            </button>
             <button class="btn-secondary" (click)="goBuilder()">
               <span class="material-symbols-outlined">edit_note</span>
               Editar en Builder
@@ -51,6 +62,41 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Exerci
               Análisis
             </button>
           </div>
+          @if (menuOpen && isMobile) {
+            <div class="mobile-menu-overlay" (click)="menuOpen = false"></div>
+            <div class="mobile-menu">
+              <div class="mobile-menu-header">
+                <h3 class="mobile-menu-title">Acciones de la sesión</h3>
+                <button class="mobile-menu-close" (click)="menuOpen = false">
+                  <span class="material-symbols-outlined">close</span>
+                </button>
+              </div>
+              <div class="mobile-menu-actions">
+                <button class="mobile-action-item" (click)="goAttendance()">
+                  <span class="material-symbols-outlined">checklist</span>
+                  Pasar Lista
+                </button>
+                <button class="mobile-action-item" (click)="goBuilder()">
+                  <span class="material-symbols-outlined">edit_note</span>
+                  Editar en Builder
+                </button>
+                <button class="mobile-action-item" (click)="showPdfFormatPicker = true">
+                  <span class="material-symbols-outlined">picture_as_pdf</span>
+                  Exportar PDF
+                </button>
+                <button class="mobile-action-item" (click)="editSession()">
+                  <span class="material-symbols-outlined">edit</span>
+                  Editar
+                </button>
+                @if (vm.session.status === 'completed') {
+                  <button class="mobile-action-item" (click)="goAnalysis()">
+                    <span class="material-symbols-outlined">insights</span>
+                    Análisis
+                  </button>
+                }
+              </div>
+            </div>
+          }
         </header>
 
         <div class="detail-body">
@@ -226,6 +272,14 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Exerci
     .session-status.draft { background: rgba(255,255,255,0.05); color: #908f9d; }
     .session-status.cancelled { background: rgba(255,138,128,0.15); color: #ff8a80; }
     .session-status.planned { background: rgba(0,104,237,0.15); color: #bdc2ff; }
+
+    .attendance-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; font-weight: 700;
+      padding: 4px 12px; border-radius: 9999px;
+      background: rgba(0,200,83,0.12); color: #69f0ae;
+    }
+    .attendance-chip .material-symbols-outlined { font-size: 14px; }
 
     .detail-body { display: flex; gap: 32px; }
     .sections-nav { width: 220px; flex-shrink: 0; }
@@ -436,6 +490,41 @@ import type { TrainingSession, SessionSection, SessionExercise, Exercise, Exerci
       .ex-duration { margin-left: auto !important; }
       .ex-notes { max-width: 100% !important; }
     }
+    @media (max-width: 768px) {
+      .mobile-menu-trigger {
+        display: flex !important;
+        background: none;
+        border: none;
+        color: var(--text-primary);
+        padding: 8px;
+        cursor: pointer;
+      }
+      .mobile-menu-overlay {
+        position: fixed; inset: 0; z-index: 1000;
+        background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center;
+      }
+      .mobile-menu-overlay.active { display: flex; }
+      .mobile-menu {
+        background: var(--bg-primary); width: 80%; max-width: 300px; border-left: 1px solid var(--border-subtle);
+        flex-direction: column; height: 100%; padding: 24px; overflow-y: auto;
+      }
+      .mobile-menu-header {
+        border-bottom: 1px solid var(--border-subtle); padding-bottom: 16px; margin-bottom: 24px;
+      }
+      .mobile-menu-title { margin: 0; font-size: 18px; font-weight: 700; color: var(--text-primary); }
+      .mobile-menu-close {
+        background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px;
+        font-size: 20px; float: right;
+      }
+      .mobile-menu-actions { display: flex; flex-direction: column; gap: 12px; }
+      .mobile-action-item {
+        display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+        background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px;
+        color: var(--text-primary); cursor: pointer; font-size: 14px;
+        transition: background 0.15s;
+      }
+      .mobile-action-item:hover { background: var(--bg-card-hover); }
+    }
   `]
 })
 export class SessionDetailComponent {
@@ -466,6 +555,21 @@ export class SessionDetailComponent {
 
   showPdfFormatPicker = false;
   pdfFormat: 'a4' | 'a5' = 'a4';
+  menuOpen = false;
+  isMobile = false;
+
+  ngOnInit() {
+    this.checkMobile();
+  }
+
+  @HostListener('window:resize')
+  onResize() {
+    this.checkMobile();
+  }
+
+  checkMobile() {
+    this.isMobile = window.innerWidth < 768;
+  }
 
   sectionColors = ['#0068ed', '#00c853', '#ff9100', '#e040fb', '#00bcd4', '#ff6d00'];
 
@@ -480,8 +584,9 @@ export class SessionDetailComponent {
           teams: from(this.data.getTeams()),
           exercises: from(this.exerciseRepo.findAll(club.id)),
           sessions: from(this.sessionRepo.findAll(club.id)),
+          attendance: id ? from(this.data.getAttendance(id)) : of([] as Attendance[]),
         }).pipe(
-          switchMap(({ teams, exercises, sessions }) => {
+          switchMap(({ teams, exercises, sessions, attendance }) => {
             const session = sessions.find(s => s.id === id) || null;
             if (!session) {
               return of({
@@ -490,6 +595,7 @@ export class SessionDetailComponent {
                 exerciseNames: {} as Record<string, string>,
                 variantNames: {} as Record<string, string>,
                 teamName: '', totalExercises: 0, totalDuration: 0,
+                attendanceSummary: { present: 0, count: 0 },
               });
             }
             return from(this.data.getSections(id)).pipe(
@@ -506,6 +612,7 @@ export class SessionDetailComponent {
                     map(allVariants => {
                       const variantNames: Record<string, string> = {};
                       allVariants.forEach(v => { variantNames[v.id] = v.name; });
+                      const present = attendance.filter(a => a.status === 'present' || a.status === 'late').length;
                       return {
                         teams,
                         exercises,
@@ -517,6 +624,7 @@ export class SessionDetailComponent {
                         teamName: teams.find(t => t.id === session.team_id)?.name || '',
                         totalExercises: Object.values(sectionExercises).reduce((a, b) => a + b.length, 0),
                         totalDuration: sections.reduce((a, sec) => a + (sectionExercises[sec.id] || []).reduce((s, e) => s + e.duration_minutes, 0), 0),
+                        attendanceSummary: { present, count: attendance.length },
                       };
                     })
                   );
@@ -542,6 +650,7 @@ export class SessionDetailComponent {
               sections: [] as SessionSection[], sectionExercises: {} as Record<string, SessionExercise[]>,
               exerciseNames: {} as Record<string, string>, variantNames: {} as Record<string, string>,
               teamName: '', totalExercises: 0, totalDuration: 0,
+              attendanceSummary: { present: 0, count: 0 },
             });
           })
         ))
@@ -853,6 +962,10 @@ export class SessionDetailComponent {
 
   goBuilder() {
     if (this.session) this.router.navigate(['/sessions', this.session.id, 'builder']);
+  }
+
+  goAttendance() {
+    if (this.session) this.router.navigate(['/sessions', this.session.id, 'attendance']);
   }
 
   async saveEdit() {

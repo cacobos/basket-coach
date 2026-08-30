@@ -5,6 +5,7 @@ export interface Profile {
   avatar_url: string | null;
   created_at: string;
   is_superadmin: boolean;
+  reminder_email?: boolean;
 }
 
 export interface Club {
@@ -177,7 +178,7 @@ export interface Attendance {
   id: string;
   session_id: string;
   player_id: string;
-  status: 'present' | 'absent' | 'late' | 'injured';
+  status: 'present' | 'absent' | 'late' | 'excused' | 'injured';
   notes: string | null;
   late_minutes: number | null;
   created_at: string;

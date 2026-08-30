@@ -1,4 +1,4 @@
-import { Component, inject, input } from '@angular/core';
+import { Component, inject, input, HostListener } from '@angular/core';
 import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -74,7 +74,7 @@ export class TagsRedirectComponent {
     </div>
 
     <div class="modal-overlay" *ngIf="showConfirm" (click)="showConfirm = false">
-      <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-card" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Confirmar eliminación">
         <h3 class="modal-title">{{ confirmTitle }}</h3>
         <p class="modal-msg">{{ confirmMessage }}</p>
         <div class="modal-actions">
@@ -181,6 +181,11 @@ export class TagsComponent {
   confirmTitle = '';
   confirmMessage = '';
   private confirmAction: (() => Promise<void>) | null = null;
+
+  @HostListener('document:keydown.escape')
+  onEscape() {
+    this.showConfirm = false;
+  }
 
   private refresh$ = new BehaviorSubject<void>(undefined);
 

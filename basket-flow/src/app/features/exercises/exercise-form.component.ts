@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -31,7 +31,10 @@ const DIAGRAM_STORAGE_KEY = 'tactics-diagram-export';
 
       <div class="card" *ngIf="vm$ | async; else loadingTpl">
         <div class="form-body">
-          <label class="field"><span>Nombre</span><input class="field-input" [(ngModel)]="formName" placeholder="Triángulo Ofensivo"/></label>
+          <label class="field"><span>Nombre *</span><input class="field-input" [(ngModel)]="formName" placeholder="Triángulo Ofensivo"/></label>
+          @if (formError()) {
+            <p class="form-error" role="alert">{{ formError() }}</p>
+          }
           <label class="field"><span>Descripción</span><textarea class="field-input field-textarea" [(ngModel)]="formDescription" rows="4" placeholder="Descripción del ejercicio..."></textarea></label>
           <label class="field"><span>Objetivos</span><textarea class="field-input field-textarea" [(ngModel)]="formObjectives" rows="4" placeholder="Mejorar pases, crear espacios..."></textarea></label>
           <label class="field"><span>Tags</span>
@@ -68,7 +71,7 @@ const DIAGRAM_STORAGE_KEY = 'tactics-diagram-export';
         </div>
         <div class="form-actions">
           <button class="btn-cancel" routerLink="/exercises">Cancelar</button>
-          <button class="btn-save" (click)="save()" [disabled]="saving">{{ saving ? 'Guardando...' : (editing ? 'Guardar Cambios' : 'Crear Ejercicio') }}</button>
+          <button class="btn-save" (click)="save()" [disabled]="saving || !formName.trim()">{{ saving ? 'Guardando...' : (editing ? 'Guardar Cambios' : 'Crear Ejercicio') }}</button>
         </div>
       </div>
 
@@ -95,6 +98,12 @@ const DIAGRAM_STORAGE_KEY = 'tactics-diagram-export';
       font-family: 'Hanken Grotesk', sans-serif; font-size: 14px; outline: none;
     }
     .field-input:focus { border-color: #bdc2ff; }
+    .form-error {
+      margin: -8px 0 0; font-size: 13px; font-weight: 600;
+      color: #ff8a80; background: rgba(255,138,128,0.1);
+      border: 1px solid rgba(255,138,128,0.3);
+      padding: 8px 12px; border-radius: 8px;
+    }
     .field-textarea { resize: vertical; }
     .tag-selector { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 0; max-height: 116px; overflow-y: auto; }
     .tag-chip {
@@ -179,6 +188,7 @@ export class ExerciseFormComponent {
   editing = !!this.route.snapshot.paramMap.get('id');
   saving = false;
   exerciseId = this.route.snapshot.paramMap.get('id');
+  formError = signal('');
 
   formName = '';
   formDescription = '';
@@ -282,7 +292,12 @@ export class ExerciseFormComponent {
   }
 
   async save() {
-    if (!this.formName.trim() || this.saving) return;
+    if (!this.formName.trim()) {
+      this.formError.set('El nombre del ejercicio es obligatorio para guardarlo.');
+      return;
+    }
+    this.formError.set('');
+    if (this.saving) return;
     this.saving = true;
     const payload = {
       club_id: this.data.currentClub()?.id || '',
@@ -303,11 +318,13 @@ export class ExerciseFormComponent {
       if (this.editing && this.exerciseId) {
         await this.exerciseRepo.update(this.exerciseId, payload);
         await this.exerciseRepo.updateExerciseTags(this.exerciseId, Array.from(this.selectedTagIds));
+        this.notification.show('Ejercicio actualizado', 'success');
       } else {
         const created = await this.exerciseRepo.create(payload);
         if (this.selectedTagIds.size > 0) {
           await this.exerciseRepo.updateExerciseTags(created.id, Array.from(this.selectedTagIds));
         }
+        this.notification.show('Ejercicio creado', 'success');
       }
       this.router.navigate(['/exercises']);
     } catch (e) {

@@ -118,6 +118,11 @@ interface NavGroup {
                 <span class="user-email">{{ profile.email }}</span>
               }
               <a routerLink="/upgrade" class="upgrade-link">Mejorar plan</a>
+              <label class="reminder-toggle" title="Recibir un email 15 minutos antes de cada sesión para pasar lista">
+                <span class="material-symbols-outlined">notifications</span>
+                <span class="reminder-label">Avísame para pasar lista</span>
+                <input type="checkbox" [checked]="reminderEmail()" (change)="toggleReminder($event)" />
+              </label>
             </div>
           </div>
           <button class="logout-btn" (click)="auth.signOut()" title="Cerrar sesión">
@@ -275,6 +280,13 @@ interface NavGroup {
     .user-details { display: flex; flex-direction: column; overflow: hidden; }
     .user-name { font-size: 13px; font-weight: 600; color: #dfe0ff; }
     .user-email { font-size: 11px; color: #908f9d; }
+    .reminder-toggle {
+      display: flex; align-items: center; gap: 6px; cursor: pointer;
+      margin-top: 6px; font-size: 11px; color: #908f9d;
+    }
+    .reminder-toggle .material-symbols-outlined { font-size: 14px; color: #bdc2ff; }
+    .reminder-toggle input { accent-color: #7c6cff; cursor: pointer; }
+    .reminder-toggle:hover { color: #bdc2ff; }
     .logout-btn {
       background: none; border: none; color: #908f9d; cursor: pointer;
       padding: 4px; display: flex;
@@ -371,6 +383,19 @@ export class MainLayoutComponent implements OnDestroy {
   readonly isFamily = signal(false);
   private lastNavKey: string | null = null;
 
+  readonly reminderEmail = signal<boolean>(!!this.auth.profile()?.reminder_email);
+
+  async toggleReminder(event: Event): Promise<void> {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.reminderEmail.set(checked);
+    const profile = this.auth.profile();
+    if (!profile) return;
+    await this.supabase.client
+      .from('profiles')
+      .update({ reminder_email: checked })
+      .eq('id', profile.id);
+  }
+
   readonly displayName = computed(() => {
     const profile = this.auth.profile();
     if (!profile) return '';
@@ -412,6 +437,12 @@ export class MainLayoutComponent implements OnDestroy {
   });
 
   constructor() {
+    effect(() => {
+      const profile = this.auth.profile();
+      if (profile && this.reminderEmail() !== !!profile.reminder_email) {
+        this.reminderEmail.set(!!profile.reminder_email);
+      }
+    });
     effect(() => {
       const user = this.auth.user();
       const club = this.data.currentClub();

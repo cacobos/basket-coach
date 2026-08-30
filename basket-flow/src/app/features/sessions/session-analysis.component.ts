@@ -51,6 +51,7 @@ type Tab = 'attendance' | 'evaluation';
                  <div class="att-summary">
                 <div class="att-stat"><span class="att-num present">{{ attendanceSummary().present }}</span> Presentes</div>
                 <div class="att-stat"><span class="att-num late">{{ attendanceSummary().late }}</span> Retraso</div>
+                <div class="att-stat"><span class="att-num excused">{{ attendanceSummary().excused }}</span> Avisando</div>
                 <div class="att-stat"><span class="att-num injured">{{ attendanceSummary().injured }}</span> Lesionadas</div>
                 <div class="att-stat"><span class="att-num absent">{{ attendanceSummary().absent }}</span> Ausentes</div>
               </div>
@@ -68,9 +69,10 @@ type Tab = 'attendance' | 'evaluation';
                       {{ p.first_name }} {{ p.last_name }}
                     </span>
                      <div class="attendance-buttons">
-                        <button type="button" class="att-btn" [class.active]="attendanceStatus(p.id) === 'present'" (click)="setAttStatus(p.id, 'present')">Presente</button>
+                         <button type="button" class="att-btn" [class.active]="attendanceStatus(p.id) === 'present'" (click)="setAttStatus(p.id, 'present')">Presente</button>
                          <button type="button" class="att-btn" [class.active]="attendanceStatus(p.id) === 'absent'" (click)="setAttStatus(p.id, 'absent')">Ausente</button>
                          <button type="button" class="att-btn" [class.active]="attendanceStatus(p.id) === 'late'" (click)="setAttStatus(p.id, 'late')">Retraso</button>
+                         <button type="button" class="att-btn" [class.active]="attendanceStatus(p.id) === 'excused'" (click)="setAttStatus(p.id, 'excused')">Avisa</button>
                          <button type="button" class="att-btn" [class.active]="attendanceStatus(p.id) === 'injured'" (click)="setAttStatus(p.id, 'injured')">Lesionada</button>
                      </div>
                     <input type="number" class="att-min-input" min="0" max="120"
@@ -206,6 +208,7 @@ type Tab = 'attendance' | 'evaluation';
     .att-num.present { color: #4ade80; }
     .att-num.late { color: #fbbf24; }
     .att-num.absent { color: #f87171; }
+    .att-num.excused { color: #fb923c; }
     .att-num.injured { color: #a78bfa; }
     .att-grid { display: flex; flex-direction: column; gap: 4px; }
     .att-row { display: grid; grid-template-columns: 1fr auto 50px 1fr; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px; }
@@ -388,15 +391,16 @@ export class SessionAnalysisComponent {
   }
 
   attendanceSummary = computed(() => {
-    let present = 0, late = 0, injured = 0, absent = 0;
+    let present = 0, late = 0, excused = 0, injured = 0, absent = 0;
     for (const p of this.players()) {
       const s = this.attendanceStatus(p.id);
       if (s === 'present') present++;
       else if (s === 'late') late++;
+      else if (s === 'excused') excused++;
       else if (s === 'injured') injured++;
       else absent++;
     }
-    return { present, late, injured, absent };
+    return { present, late, excused, injured, absent };
   });
 
   /* Review helpers */

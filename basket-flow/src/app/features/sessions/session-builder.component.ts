@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { NgFor, NgIf, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -187,24 +187,8 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
                   </div>
               </div>
 
-                <div class="section-add-ex" *ngIf="sectionAddForms[sec.id]?.show">
-                  <select class="field-input add-ex-select" [(ngModel)]="sectionAddForms[sec.id].exerciseId" (ngModelChange)="onExerciseChange(sec)">
-                    <option value="">Seleccionar ejercicio...</option>
-                    <option *ngFor="let e of vm.exercises" [value]="e.id">{{ e.name }}</option>
-                  </select>
-                  <select class="field-input add-ex-variant" *ngIf="sectionAddForms[sec.id].variants.length > 0" [(ngModel)]="sectionAddForms[sec.id].variantId">
-                    <option *ngFor="let v of sectionAddForms[sec.id].variants" [value]="v.id">{{ v.name }}</option>
-                  </select>
-                  <input class="field-input add-ex-dur" type="number" [(ngModel)]="sectionAddForms[sec.id].duration" min="1" max="120" placeholder="min"/>
-                  <input class="field-input add-ex-notes" [(ngModel)]="sectionAddForms[sec.id].notes" placeholder="Notas/observaciones..."/>
-                  <button class="btn-add-ex" (click)="addExerciseToSection(sec)" [disabled]="!sectionAddForms[sec.id].exerciseId">
-                    <span class="material-symbols-outlined">add</span>
-                    Añadir
-                  </button>
-                  <button class="btn-cancel-ex" (click)="closeAddForm(sec)">Cancelar</button>
-                </div>
-                <div class="section-add-toggle" *ngIf="!sectionAddForms[sec.id]?.show">
-                  <button class="btn-add-ex-toggle" (click)="openAddForm(sec)">
+                <div class="section-add-toggle">
+                  <button class="btn-add-ex-toggle" (click)="openExercisePicker(sec)">
                     <span class="material-symbols-outlined">add</span>
                     Añadir ejercicio
                   </button>
@@ -219,6 +203,69 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
         </main>
       </div>
     </div>
+
+    @if (pickerOpen()) {
+      <div class="modal-overlay" (click)="closePicker()">
+        <div class="ex-picker" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Seleccionar ejercicio">
+          <div class="ex-picker-head">
+            <h3 class="ex-picker-title">
+              {{ pickerSelectedExId() ? 'Configurar ejercicio' : 'Elegir ejercicio' }}
+            </h3>
+            <button class="ex-picker-close" (click)="closePicker()" aria-label="Cerrar">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+
+          @if (pickerSelectedExId()) {
+            <p class="ex-picker-selected">
+              {{ selectedPickerExerciseName }}
+              <button class="ex-picker-back" (click)="backToPickerList()">Cambiar</button>
+            </p>
+            <div class="ex-picker-config">
+              <label class="picker-field">
+                <span>Variante</span>
+                <select class="field-input" [(ngModel)]="pickerVariantId">
+                  <option *ngFor="let v of pickerVariants()" [value]="v.id">{{ v.name }}</option>
+                  <option value="">Sin variante</option>
+                </select>
+              </label>
+              <label class="picker-field">
+                <span>Duración (min)</span>
+                <input class="field-input" type="number" [(ngModel)]="pickerDuration" min="1" max="120"/>
+              </label>
+              <label class="picker-field">
+                <span>Notas / observaciones</span>
+                <input class="field-input" [(ngModel)]="pickerNotes" placeholder="Opcional"/>
+              </label>
+              <div class="ex-picker-actions">
+                <button class="btn-cancel-ex" (click)="closePicker()">Cancelar</button>
+                <button class="btn-add-ex" (click)="confirmPickerAdd()">
+                  <span class="material-symbols-outlined">add</span>
+                  Añadir a sección
+                </button>
+              </div>
+            </div>
+          } @else {
+            <div class="ex-picker-search">
+              <span class="material-symbols-outlined">search</span>
+              <input class="field-input" [(ngModel)]="pickerSearch" placeholder="Buscar ejercicio..."/>
+            </div>
+            <div class="ex-picker-list">
+              @if (filteredPickerExercises.length === 0) {
+                <p class="ex-picker-empty">Sin resultados</p>
+              }
+              @for (e of filteredPickerExercises; track e.id) {
+                <button class="ex-picker-item" (click)="selectPickerExercise(e)">
+                  <span class="ex-picker-item-name">{{ e.name }}</span>
+                  <span class="ex-picker-item-meta">{{ difficultyLabel(e) }}</span>
+                  <span class="material-symbols-outlined ex-picker-item-icon">chevron_right</span>
+                </button>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
 
     <ng-template #loadingTpl>
       <div class="builder-page"><div class="loading-state"><span class="material-symbols-outlined loading-icon">sync</span><p>Cargando...</p></div></div>
@@ -604,6 +651,70 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
       .ex-item { flex-wrap: wrap !important; }
       .ex-notes { max-width: 100% !important; }
     }
+
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center; padding: 16px;
+    }
+    .ex-picker {
+      background: #111644; border: 1px solid rgba(69,70,82,0.3);
+      border-radius: 16px; width: 100%; max-width: 480px;
+      max-height: 80vh; display: flex; flex-direction: column;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    }
+    .ex-picker-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 20px 12px;
+    }
+    .ex-picker-title { margin: 0; font-size: 20px; font-weight: 700; color: #dfe0ff; }
+    .ex-picker-close {
+      background: none; border: none; color: #c6c5d4; cursor: pointer;
+      display: flex; padding: 4px;
+    }
+    .ex-picker-close:hover { color: #dfe0ff; }
+    .ex-picker-search {
+      position: relative; margin: 0 20px 12px;
+    }
+    .ex-picker-search .material-symbols-outlined {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      color: #908f9d; font-size: 18px;
+    }
+    .ex-picker-search .field-input { padding-left: 34px; width: 100%; }
+    .ex-picker-list { flex: 1; overflow-y: auto; padding: 0 12px 12px; }
+    .ex-picker-empty { text-align: center; color: #908f9d; padding: 24px; }
+    .ex-picker-item {
+      display: flex; align-items: center; gap: 10px;
+      width: 100%; text-align: left; padding: 12px 14px;
+      background: #161b48; border: 1px solid rgba(69,70,82,0.2);
+      border-radius: 10px; margin-bottom: 8px; cursor: pointer;
+      color: #dfe0ff; font-family: 'Hanken Grotesk', sans-serif; font-size: 14px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .ex-picker-item:hover { border-color: #bdc2ff; background: #1b2157; }
+    .ex-picker-item:focus-visible { outline: 2px solid #bdc2ff; outline-offset: 1px; }
+    .ex-picker-item-name { flex: 1; font-weight: 600; }
+    .ex-picker-item-meta {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+      padding: 3px 8px; border-radius: 999px;
+      background: rgba(0,104,237,0.15); color: #6fb0ff;
+    }
+    .ex-picker-item-icon { color: #908f9d; font-size: 18px; }
+    .ex-picker-selected {
+      display: flex; align-items: center; gap: 10px;
+      margin: 0 20px 12px; padding: 12px 14px;
+      background: rgba(0,104,237,0.12); border: 1px solid rgba(0,104,237,0.4);
+      border-radius: 10px; color: #dfe0ff; font-weight: 600; font-size: 15px;
+    }
+    .ex-picker-back {
+      background: none; border: none; color: #6fb0ff; cursor: pointer;
+      font-family: 'Hanken Grotesk', sans-serif; font-size: 12px; font-weight: 700;
+    }
+    .ex-picker-back:hover { text-decoration: underline; }
+    .ex-picker-config { padding: 0 20px 20px; display: flex; flex-direction: column; gap: 14px; }
+    .picker-field { display: flex; flex-direction: column; gap: 6px; }
+    .picker-field span { font-size: 12px; font-weight: 600; color: #c6c5d4; text-transform: uppercase; letter-spacing: 0.05em; }
+    .ex-picker-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 6px; }
   `]
 })
 export class SessionBuilderComponent {
@@ -820,6 +931,88 @@ export class SessionBuilderComponent {
     delete this.sectionAddForms[sec.id];
   }
 
+  pickerOpen = signal(false);
+  pickerSearch = '';
+  pickerSelectedExId = signal('');
+  pickerVariants = signal<ExerciseVariant[]>([]);
+  pickerVariantId = '';
+  pickerDuration = 10;
+  pickerNotes = '';
+  private pickerSectionId: string | null = null;
+
+  openExercisePicker(sec: SectionVM) {
+    this.pickerSectionId = sec.id;
+    this.pickerSearch = '';
+    this.pickerSelectedExId.set('');
+    this.pickerVariants.set([]);
+    this.pickerVariantId = '';
+    this.pickerDuration = 10;
+    this.pickerNotes = '';
+    this.pickerOpen.set(true);
+  }
+
+  closePicker() {
+    this.pickerOpen.set(false);
+    this.pickerSectionId = null;
+  }
+
+  get filteredPickerExercises(): Exercise[] {
+    const q = this.pickerSearch.trim().toLowerCase();
+    if (!q) return this.exercises;
+    return this.exercises.filter(e => e.name.toLowerCase().includes(q));
+  }
+
+  get selectedPickerExerciseName(): string {
+    const id = this.pickerSelectedExId();
+    const ex = this.exercises.find(e => e.id === id);
+    return ex ? ex.name : '';
+  }
+
+  difficultyLabel(e: Exercise): string {
+    const map: Record<string, string> = { beginner: 'Básico', intermediate: 'Intermedio', advanced: 'Avanzado', elite: 'Élite' };
+    return map[e.difficulty] || e.difficulty || '—';
+  }
+
+  async selectPickerExercise(e: Exercise) {
+    this.pickerSelectedExId.set(e.id);
+    this.pickerVariantId = '';
+    this.pickerVariants.set([]);
+    try {
+      const variants = await this.exerciseRepo.getVariants(e.id);
+      this.pickerVariants.set(variants);
+      if (variants.length > 0) {
+        this.pickerVariantId = '';
+      }
+    } catch {
+      this.pickerVariants.set([]);
+    }
+  }
+
+  backToPickerList() {
+    this.pickerSelectedExId.set('');
+    this.pickerVariants.set([]);
+    this.pickerVariantId = '';
+  }
+
+  confirmPickerAdd() {
+    const exId = this.pickerSelectedExId();
+    const secId = this.pickerSectionId;
+    if (!exId || !secId) return;
+    const id = 'new-' + crypto.randomUUID();
+    const list = this.sectionExercisesMap[secId] || [];
+    const vm: ExerciseVM = {
+      id,
+      exercise_id: exId,
+      variant_id: this.pickerVariantId || null,
+      section_id: secId,
+      duration_minutes: this.pickerDuration,
+      notes: this.pickerNotes || null,
+      order: list.length + 1,
+    };
+    this.sectionExercisesMap[secId] = [...list, vm];
+    this.closePicker();
+  }
+
   addExerciseToSection(sec: SectionVM) {
     const form = this.sectionAddForms[sec.id];
     if (!form || !form.exerciseId) return;
@@ -1024,20 +1217,6 @@ export class SessionBuilderComponent {
     } else {
       this.router.navigate(['/sessions']);
     }
-  }
-
-  onExerciseChange(sec: SectionVM) {
-    const form = this.sectionAddForms[sec.id];
-    if (!form) return;
-    form.variants = [];
-    form.variantId = '';
-    if (!form.exerciseId) return;
-    this.exerciseRepo.getVariants(form.exerciseId).then(variants => {
-      form.variants = variants;
-      if (variants.length > 0) {
-        form.variantId = variants[0].id;
-      }
-    });
   }
 }
 
