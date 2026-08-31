@@ -116,17 +116,21 @@ const STATUS_META: { value: Status; label: string; short: string; color: string 
                       <span class="material-symbols-outlined">refresh</span>
                     </button>
                   </span>
-                  @for (s of STATUS_META; track s.value) {
-                    <button type="button"
-                      class="status-btn"
-                      [class.active]="status(p.id) === s.value"
-                      [class.excused]="s.value === 'excused'"
-                      [class.injured]="s.value === 'injured'"
-                      [class.absent]="s.value === 'absent'"
-                      (click)="setStatus(p.id, s.value)">
-                      {{ s.label }}
-                    </button>
-                  }
+                  <span class="status-row">
+                    @for (s of STATUS_META; track s.value) {
+                      <button type="button"
+                        class="status-btn"
+                        [class.active]="status(p.id) === s.value"
+                        [class.excused]="s.value === 'excused'"
+                        [class.injured]="s.value === 'injured'"
+                        [class.absent]="s.value === 'absent'"
+                        [title]="s.label"
+                        (click)="setStatus(p.id, s.value)">
+                        <span class="status-short">{{ s.short }}</span>
+                        <span class="status-label">{{ s.label }}</span>
+                      </button>
+                    }
+                  </span>
                 </div>
               }
             </div>
@@ -208,6 +212,7 @@ const STATUS_META: { value: Status; label: string; short: string; color: string 
     .att-inc.absent { color: #f87171; }
     .att-inc.notreq { color: #94a3b8; }
     .att-list { display: flex; flex-direction: column; }
+    .status-row { display: contents; }
     .att-row { border-bottom: 1px solid var(--border-subtle); transition: background 0.12s; }
     .att-row:last-child { border-bottom: none; }
     .att-row:hover { background: rgba(255,255,255,0.015); }
@@ -227,11 +232,13 @@ const STATUS_META: { value: Status; label: string; short: string; color: string 
     .icon-btn .material-symbols-outlined { font-size: 15px; }
 
     .status-btn {
+      display: flex; align-items: center; justify-content: center; gap: 4px;
       padding: 8px 4px; border-radius: 8px; text-align: center;
       border: 1.5px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03);
-      color: #b0b3e0; cursor: pointer; font-size: 0.78rem; font-weight: 600;
-      transition: all 0.12s; white-space: nowrap;
+      color: #b0b3e0; cursor: pointer; font-size: 0.72rem; font-weight: 600; line-height: 1;
+      transition: all 0.12s; white-space: nowrap; min-width: 0;
     }
+    .status-short { display: none; }
     .status-btn:hover:not(.active) { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); }
     .status-btn.active { background: #4ade80; color: #06251a; border-color: #4ade80; box-shadow: 0 0 12px rgba(74,222,128,0.25); }
     .status-btn.active.excused { background: #fb923c; color: #2a1205; border-color: #fb923c; box-shadow: 0 0 12px rgba(251,146,60,0.25); }
@@ -264,13 +271,20 @@ const STATUS_META: { value: Status; label: string; short: string; color: string 
       .header-actions .btn-secondary { flex: 1; justify-content: center; }
       .att-head { display: none; }
       .att-row {
-        grid-template-columns: 1fr; gap: 6px;
-        padding: 12px;
+        grid-template-columns: 1fr; gap: 8px;
+        padding: 10px 8px;
       }
-      .att-player { margin-bottom: 4px; }
-      .status-btn { padding: 10px 4px; font-size: 0.82rem; }
-      .summary { flex-direction: column; }
-      .summary-card { min-width: 0; }
+      .att-player { margin-bottom: 0; gap: 7px; }
+      .att-name { font-size: 13px; }
+      .att-num-badge { width: 24px; height: 24px; font-size: 10px; }
+      .status-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
+      .status-btn { padding: 7px 2px; }
+      .status-short { display: block; color: #b0b3e0; }
+      .status-btn.active .status-short { color: inherit; }
+      .status-label { display: none; }
+      .summary { flex-direction: row; flex-wrap: wrap; }
+      .summary-card { min-width: 0; flex: 1 1 30%; padding: 10px 12px; gap: 8px; }
+      .summary-val { font-size: 20px; }
     }
   `]
 })
