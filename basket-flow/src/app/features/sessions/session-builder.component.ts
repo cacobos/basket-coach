@@ -1,14 +1,14 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, EnvironmentInjector } from '@angular/core';
 import { NgFor, NgIf, AsyncPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, forkJoin, from, of } from 'rxjs';
+import { Subject, forkJoin, from, of, combineLatest } from 'rxjs';
 import { startWith, switchMap, filter, map, tap, catchError } from 'rxjs/operators';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { DataService } from '../../core/services/data.service';
 import { ExerciseRepository } from '../../core/repositories/exercise.repository';
 import { SessionRepository } from '../../core/repositories/session.repository';
-import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/models/models';
+import type { TrainingSession, Exercise, ExerciseVariant, Tag } from '../../core/models/models';
 
 @Component({
   selector: 'app-session-builder',
@@ -248,18 +248,67 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
           } @else {
             <div class="ex-picker-search">
               <span class="material-symbols-outlined">search</span>
-              <input class="field-input" [(ngModel)]="pickerSearch" placeholder="Buscar ejercicio..."/>
+              <input class="field-input" [(ngModel)]="pickerSearch" placeholder="Buscar por nombre, objetivo o descripción..."/>
             </div>
-            <div class="ex-picker-list">
-              @if (filteredPickerExercises.length === 0) {
-                <p class="ex-picker-empty">Sin resultados</p>
+
+            @if (tags.length > 1) {
+              <div class="ex-picker-cats" role="group" aria-label="Filtrar por tag">
+                <button class="ex-cat-chip" [class.active]="!pickerTagId"
+                        (click)="pickerTagId = ''">Todas</button>
+                @for (tag of tags; track tag.id) {
+                  <button class="ex-cat-chip" [class.active]="pickerTagId === tag.id"
+                          (click)="pickerTagId = pickerTagId === tag.id ? '' : tag.id"
+                          [style.--chip-color]="tag.color">
+                    <span class="ex-cat-dot" [style.background]="tag.color"></span>
+                    {{ tag.name }}
+                  </button>
+                }
+              </div>
+            }
+
+            <div class="ex-picker-diffs" role="group" aria-label="Filtrar por dificultad">
+              <button class="ex-diff-chip" [class.active]="!pickerDifficulty"
+                      (click)="pickerDifficulty = ''">Todas</button>
+              <button class="ex-diff-chip" [class.active]="pickerDifficulty === 'beginner'"
+                      (click)="pickerDifficulty = 'beginner'">Básico</button>
+              <button class="ex-diff-chip" [class.active]="pickerDifficulty === 'intermediate'"
+                      (click)="pickerDifficulty = 'intermediate'">Intermedio</button>
+              <button class="ex-diff-chip" [class.active]="pickerDifficulty === 'advanced'"
+                      (click)="pickerDifficulty = 'advanced'">Avanzado</button>
+            </div>
+
+            <div class="ex-picker-meta">
+              <span>{{ pickerResultCount }} {{ pickerResultCount === 1 ? 'ejercicio' : 'ejercicios' }}</span>
+              @if (hasActivePickerFilters) {
+                <button class="ex-picker-clear" (click)="clearPickerFilters()">Limpiar filtros</button>
               }
-              @for (e of filteredPickerExercises; track e.id) {
-                <button class="ex-picker-item" (click)="selectPickerExercise(e)">
-                  <span class="ex-picker-item-name">{{ e.name }}</span>
-                  <span class="ex-picker-item-meta">{{ difficultyLabel(e) }}</span>
-                  <span class="material-symbols-outlined ex-picker-item-icon">chevron_right</span>
-                </button>
+            </div>
+
+            <div class="ex-picker-list">
+              @if (pickerResultCount === 0) {
+                <p class="ex-picker-empty">Sin resultados para estos filtros</p>
+              } @else {
+                @for (group of pickerGroups; track group.tag ? group.tag.id : 'none') {
+                  @if (!pickerTagId) {
+                    <div class="ex-picker-group-head">
+                      <span class="ex-picker-group-dot" [style.background]="group.tag ? tagColor(group.tag.id) : '#3a3f6a'"></span>
+                      <span class="ex-picker-group-name">{{ group.tag ? group.tag.name : 'Sin tag' }}</span>
+                      <span class="ex-picker-group-count">{{ group.exercises.length }}</span>
+                    </div>
+                  }
+                  @for (e of group.exercises; track e.id) {
+                    <button class="ex-picker-item" (click)="selectPickerExercise(e)">
+                      <span class="ex-picker-item-name">
+                        @if (pickerTagId) {
+                          <span class="ex-inline-dot" [style.background]="e.tags.length ? tagColor(e.tags[0].id) : '#3a3f6a'"></span>
+                        }
+                        {{ e.name }}
+                      </span>
+                      <span class="ex-picker-item-meta">{{ difficultyLabel(e) }}</span>
+                      <span class="material-symbols-outlined ex-picker-item-icon">chevron_right</span>
+                    </button>
+                  }
+                }
               }
             </div>
           }
@@ -659,7 +708,7 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
     }
     .ex-picker {
       background: #111644; border: 1px solid rgba(69,70,82,0.3);
-      border-radius: 16px; width: 100%; max-width: 480px;
+      border-radius: 16px; width: 100%; max-width: 560px;
       max-height: 80vh; display: flex; flex-direction: column;
       box-shadow: 0 24px 60px rgba(0,0,0,0.5);
     }
@@ -673,16 +722,71 @@ import type { TrainingSession, Exercise, ExerciseVariant } from '../../core/mode
       display: flex; padding: 4px;
     }
     .ex-picker-close:hover { color: #dfe0ff; }
-    .ex-picker-search {
-      position: relative; margin: 0 20px 12px;
-    }
+    .ex-picker-search { position: relative; margin: 0 20px 12px; }
     .ex-picker-search .material-symbols-outlined {
       position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
       color: #908f9d; font-size: 18px;
     }
     .ex-picker-search .field-input { padding-left: 34px; width: 100%; }
+
+    .ex-picker-cats {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      padding: 0 20px 10px;
+    }
+    .ex-cat-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #161b48; border: 1px solid rgba(69,70,82,0.3);
+      color: #c6c5d4; font-family: 'Hanken Grotesk', sans-serif;
+      font-size: 12px; font-weight: 600; border-radius: 999px;
+      padding: 5px 12px; cursor: pointer; transition: all 0.15s;
+    }
+    .ex-cat-chip:hover { border-color: #bdc2ff; color: #dfe0ff; }
+    .ex-cat-chip.active {
+      border-color: var(--chip-color, #0068ed);
+      color: #dfe0ff; background: color-mix(in srgb, var(--chip-color, #0068ed) 18%, #161b48);
+      box-shadow: 0 0 0 1px var(--chip-color, #0068ed);
+    }
+    .ex-cat-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+    .ex-picker-diffs {
+      display: flex; gap: 4px; padding: 0 20px 10px;
+      background: rgba(0,0,0,0.15); margin: 0 20px 12px;
+      border-radius: 10px; padding: 4px;
+    }
+    .ex-diff-chip {
+      flex: 1; padding: 6px 0; border: none; border-radius: 8px;
+      background: none; color: #908f9d; font-family: 'Hanken Grotesk', sans-serif;
+      font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+    }
+    .ex-diff-chip:hover { color: #c6c5d4; }
+    .ex-diff-chip.active { background: #0068ed; color: #f2f3ff; }
+
+    .ex-picker-meta {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px 8px;
+    }
+    .ex-picker-meta > span { font-size: 12px; color: #908f9d; font-weight: 600; }
+    .ex-picker-clear {
+      background: none; border: none; color: #6fb0ff; cursor: pointer;
+      font-family: 'Hanken Grotesk', sans-serif; font-size: 12px; font-weight: 700;
+    }
+    .ex-picker-clear:hover { text-decoration: underline; }
+
     .ex-picker-list { flex: 1; overflow-y: auto; padding: 0 12px 12px; }
     .ex-picker-empty { text-align: center; color: #908f9d; padding: 24px; }
+    .ex-picker-group-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 14px 6px;
+    }
+    .ex-picker-group-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .ex-picker-group-name {
+      flex: 1; font-size: 12px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.05em; color: #c6c5d4;
+    }
+    .ex-picker-group-count {
+      font-size: 11px; font-weight: 700; color: #908f9d;
+    }
+    .ex-inline-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
     .ex-picker-item {
       display: flex; align-items: center; gap: 10px;
       width: 100%; text-align: left; padding: 12px 14px;
@@ -723,11 +827,13 @@ export class SessionBuilderComponent {
   private sessionRepo = inject(SessionRepository);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private injector = inject(EnvironmentInjector);
   private reload = new Subject<void>();
   editingSession: TrainingSession | null = null;
 
   teams: Team[] = [];
   exercises: Exercise[] = [];
+  tags: Tag[] = [];
   sections: SectionVM[] = [];
   sectionExercisesMap: Record<string, ExerciseVM[]> = {};
   exerciseNames: Record<string, string> = {};
@@ -752,22 +858,26 @@ export class SessionBuilderComponent {
 
   sectionColors = ['#0068ed', '#00c853', '#ff9100', '#e040fb', '#00bcd4', '#ff6d00'];
 
-  readonly vm$ = toObservable(this.data.currentClub).pipe(
+  readonly vm$ = from(this.data.ensureClubLoaded()).pipe(
     filter(Boolean),
-    switchMap(club => this.reload.pipe(
-      startWith(undefined),
-      switchMap(() => forkJoin({
+    switchMap(() => combineLatest([
+      toObservable(this.data.currentClub, { injector: this.injector }).pipe(filter(Boolean)),
+      this.reload.pipe(startWith(undefined)),
+    ]).pipe(
+      switchMap(([club]) => forkJoin({
         teams: from(this.data.getTeams()),
         exercises: from(this.exerciseRepo.findAll(club.id)),
+        tags: from(this.exerciseRepo.getTags(club.id)),
       }).pipe(
         catchError(err => {
           console.error(err);
-          return of({ teams: [] as Team[], exercises: [] as Exercise[] });
+          return of({ teams: [] as Team[], exercises: [] as Exercise[], tags: [] as Tag[] });
         })
       )),
-      tap(({ teams, exercises }) => {
+      tap(({ teams, exercises, tags }) => {
         this.teams = teams;
         this.exercises = exercises;
+        this.tags = tags;
         exercises.forEach(e => this.exerciseNames[e.id] = e.name);
       }),
       switchMap(({ teams, exercises }) => {
@@ -933,6 +1043,8 @@ export class SessionBuilderComponent {
 
   pickerOpen = signal(false);
   pickerSearch = '';
+  pickerTagId = '';
+  pickerDifficulty = '';
   pickerSelectedExId = signal('');
   pickerVariants = signal<ExerciseVariant[]>([]);
   pickerVariantId = '';
@@ -943,6 +1055,8 @@ export class SessionBuilderComponent {
   openExercisePicker(sec: SectionVM) {
     this.pickerSectionId = sec.id;
     this.pickerSearch = '';
+    this.pickerTagId = '';
+    this.pickerDifficulty = '';
     this.pickerSelectedExId.set('');
     this.pickerVariants.set([]);
     this.pickerVariantId = '';
@@ -958,8 +1072,56 @@ export class SessionBuilderComponent {
 
   get filteredPickerExercises(): Exercise[] {
     const q = this.pickerSearch.trim().toLowerCase();
-    if (!q) return this.exercises;
-    return this.exercises.filter(e => e.name.toLowerCase().includes(q));
+    const tagId = this.pickerTagId;
+    const diff = this.pickerDifficulty;
+    return this.exercises.filter(e => {
+      if (tagId && !e.tags.some(t => t.id === tagId)) return false;
+      if (diff && e.difficulty !== diff) return false;
+      if (!q) return true;
+      return (
+        e.name.toLowerCase().includes(q) ||
+        (e.objectives ?? '').toLowerCase().includes(q) ||
+        (e.description ?? '').toLowerCase().includes(q)
+      );
+    });
+  }
+
+  get pickerResultCount(): number {
+    return this.filteredPickerExercises.length;
+  }
+
+  get hasActivePickerFilters(): boolean {
+    return Boolean(this.pickerSearch.trim() || this.pickerTagId || this.pickerDifficulty);
+  }
+
+  // Agrupa los ejercicios filtrados por el primer tag (para la agrupación visual).
+  // Los ejercicios sin tags van en un grupo "Sin tag" al final.
+  get pickerGroups(): { tag: Tag | null; exercises: Exercise[] }[] {
+    const list = this.filteredPickerExercises;
+    const groups: { tag: Tag | null; exercises: Exercise[] }[] = [];
+    const tagById = new Map(this.tags.map(t => [t.id, t]));
+    const ordered = [...this.tags];
+    ordered.forEach(tag => {
+      const items = list.filter(e => e.tags.some(t => t.id === tag.id));
+      if (items.length) groups.push({ tag, exercises: items });
+    });
+    const untagged = list.filter(e => !e.tags.some(t => tagById.has(t.id)));
+    if (untagged.length) groups.push({ tag: null, exercises: untagged });
+    return groups;
+  }
+
+  tagColor(id: string): string {
+    return this.tags.find(t => t.id === id)?.color || '#3a3f6a';
+  }
+
+  tagName(id: string): string {
+    return this.tags.find(t => t.id === id)?.name || 'Sin tag';
+  }
+
+  clearPickerFilters() {
+    this.pickerSearch = '';
+    this.pickerTagId = '';
+    this.pickerDifficulty = '';
   }
 
   get selectedPickerExerciseName(): string {
