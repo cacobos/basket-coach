@@ -438,6 +438,11 @@ export class MainLayoutComponent implements OnDestroy {
 
   constructor() {
     effect(() => {
+      const user = this.auth.user();
+      if (!user) return;
+      void this.data.ensureClubLoaded();
+    });
+    effect(() => {
       const profile = this.auth.profile();
       if (profile && this.reminderEmail() !== !!profile.reminder_email) {
         this.reminderEmail.set(!!profile.reminder_email);
